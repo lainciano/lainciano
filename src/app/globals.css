@@ -6,7 +6,8 @@
   --secondary: #5a280d;
   --accent: #8f2f06;
   --hover: #975025;
-  --muted: #624b35;
+  /* Muted clareado p/ ~5:1 sobre --background (antes #624b35 ≈ 2:1, ilegível em captions). */
+  --muted: #9c8163;
   --highlight: #975025;
   --grid-gap: 1.5rem;
   /* Espaçamento máximo entre qualquer elemento e a borda da viewport (item de layout). */
@@ -16,6 +17,39 @@
   --card-radius: 1.5rem;
   --hover-radius: 2rem;
   --bg-progress: 0;
+
+  /* ---------- Tokens: escala de espaçamento ---------- */
+  /* Ritmo interno (gaps, padding de componente). */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2.5rem;
+  --space-xl: 4rem;
+  --space-2xl: 6rem;
+  /* Ritmo vertical entre seções (equivalente ao py-20 → lg:py-28 hoje). */
+  --space-section: clamp(4rem, 8vw, 7rem);
+
+  /* ---------- Tokens: motion ---------- */
+  --motion-fast: 150ms; /* hover, feedback imediato */
+  --motion-base: 300ms; /* transições padrão de cor/opacidade */
+  --motion-slow: 500ms; /* border-radius de card, painéis */
+  --motion-slower: 800ms; /* entradas grandes */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1); /* entradas / hover */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1); /* transições simétricas */
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1); /* movimento com ênfase */
+  /* Deslocamento de entrada padrão (fade + rise). */
+  --motion-rise: 1.5rem;
+
+  /* ---------- Tokens: elevação / z-index ---------- */
+  /* Formaliza a pilha de camadas documentada no design-system. */
+  --z-banner: 0; /* nome gigante (sticky, atrás de tudo) */
+  --z-surface: 10; /* .page-surface / .page-shell / footer */
+  --z-header: 20; /* navbar sticky */
+  --z-overlay: 9998; /* fallback de transição de página */
+  --z-mobile-menu: 9999; /* painel do MobileMenu */
+  --z-loader: 10000; /* overlay do Loader */
 }
 
 @theme inline {
@@ -30,6 +64,17 @@
   --radius-card-hover: var(--hover-radius);
   --font-sans: var(--font-geist-sans);
   --font-serif: var(--font-instrument-serif);
+
+  /* Ritmo vertical entre seções → utilitário `py-section`.
+     ATENÇÃO: não expor a escala --space-* como --spacing-{sm,md,lg,xl,2xl…}: esses nomes colidem
+     com a escala de tamanho do Tailwind e sobrescrevem max-w-2xl/max-w-xl (bug de layout).
+     A escala fica como CSS vars cruas (usar via arbitrary value, ex.: gap-[var(--space-lg)]). */
+  --spacing-section: var(--space-section);
+
+  /* Easings → utilitários (ease-emphasized, ease-out-soft…). */
+  --ease-out-soft: var(--ease-out);
+  --ease-in-out-soft: var(--ease-in-out);
+  --ease-emphasized: var(--ease-emphasized);
 }
 
 body {
@@ -141,6 +186,13 @@ body {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.1em;
+}
+
+/* Anel de foco padrão do DS — aplicar em todo elemento focável. */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* Link com sublinhado animado (origin-left) */

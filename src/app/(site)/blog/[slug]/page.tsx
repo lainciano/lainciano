@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MdxContent } from "@/components/content/MdxContent";
 import { Pill, Tag } from "@/components/ui/Pill";
+import { pages } from "@/lib/content/copy";
 import { getPostBySlug, getPosts } from "@/lib/content/posts";
 import { formatDate } from "@/lib/format";
 import { buildPageMetadata } from "@/lib/seo/metadata";
@@ -59,7 +60,7 @@ export default async function PostPage({
 
       <div className="mt-12">
         <Pill href="/blog" transitionDirection="back">
-          ← Todos os posts
+          {pages.blog.back}
         </Pill>
       </div>
     </article>

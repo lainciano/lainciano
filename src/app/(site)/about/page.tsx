@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 
 const Services = dynamic(
   () => import("@/components/sections/Services").then((mod) => mod.Services),
-  { loading: () => <div className="content-container py-20" aria-hidden /> },
+  { loading: () => <div className="content-container py-section" aria-hidden /> },
 );
 
 export const metadata: Metadata = buildPageMetadata({

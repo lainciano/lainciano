@@ -1,15 +1,15 @@
 import Image from "next/image";
 import { Pill } from "@/components/ui/Pill";
 import { SkillBadge } from "@/components/ui/SkillBadge";
-import { introContent, skills } from "@/lib/content/mock";
+import { about, skills } from "@/lib/content/copy";
 
 export function About() {
-  const { roleTop, roleBottom, paragraphs, nextEvent } = introContent;
+  const { roleTop, roleBottom, paragraphs, nextEvent } = about;
 
   return (
     <section
       id="about"
-      className="content-container grid grid-cols-1 gap-12 pb-20 pt-4 lg:grid-cols-12 lg:gap-x-10 lg:pb-28 lg:pt-6 2xl:gap-x-12"
+      className="content-container grid grid-cols-1 gap-12 pb-section pt-4 lg:grid-cols-12 lg:gap-x-10 lg:pt-6 2xl:gap-x-12"
       aria-label="Sobre"
     >
       {/* Foto: w-full na coluna em lg–xl (1366×768); a partir de 2xl (1920×1080) volta ao w-3/5 original. */}

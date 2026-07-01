@@ -1,16 +1,17 @@
 import { MarqueeText } from "@/components/ui/MarqueeText";
 import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
 import { TransitionLink } from "@/components/ui/TransitionLink";
+import { footer as footerCopy } from "@/lib/content/copy";
 import { NAV_LINKS } from "@/lib/nav";
 import { SOCIAL_LABELS } from "@/lib/social";
 import type { SiteSettings, SocialLinks } from "@/types/content";
 
 type FooterProps = {
   site: SiteSettings;
-  availability?: string;
 };
 
-export function Footer({ site, availability = "Disponível a partir de Julho 2026" }: FooterProps) {
+export function Footer({ site }: FooterProps) {
+  const availability = site.availability;
   const activeSocials = (
     Object.entries(site.socialLinks) as [keyof SocialLinks, string | null | undefined][]
   ).filter(([, url]) => Boolean(url));
@@ -23,16 +24,16 @@ export function Footer({ site, availability = "Disponível a partir de Julho 202
             <span className="text-large-heading">{site.siteName}</span>
             <div className="flex flex-col">
               <span className="text-small-heading italic text-foreground/80">
-                Dias de trabalho
+                {footerCopy.workDaysLabel}
               </span>
-              <span className="text-small-heading">Segunda – Sexta</span>
+              <span className="text-small-heading">{footerCopy.workDays}</span>
             </div>
           </div>
 
           <div className="flex flex-col gap-3 lg:items-end lg:text-right">
             <span className="text-large-heading">{availability}</span>
             <span className="text-small-heading text-foreground/80">
-              Tem um projeto em mente?
+              {footerCopy.projectPrompt}
             </span>
             <CopyEmailButton
               email={site.email}

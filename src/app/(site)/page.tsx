@@ -9,7 +9,7 @@ import dynamic from "next/dynamic";
 // Services abaixo da dobra — carrega GSAP/ScrollTrigger sob demanda (Sprint 5).
 const Services = dynamic(
   () => import("@/components/sections/Services").then((mod) => mod.Services),
-  { loading: () => <div className="content-container py-20" aria-hidden /> },
+  { loading: () => <div className="content-container py-section" aria-hidden /> },
 );
 
 const site = getSiteSettings();

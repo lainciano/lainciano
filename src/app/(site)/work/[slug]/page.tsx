@@ -3,6 +3,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { MdxContent } from "@/components/content/MdxContent";
 import { Pill, Tag } from "@/components/ui/Pill";
+import { pages } from "@/lib/content/copy";
 import { getProjectBySlug, getProjects } from "@/lib/content/projects";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
@@ -83,13 +84,13 @@ export default async function ProjectPage({
             href={project.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="caps inline-flex items-center justify-center rounded-full bg-accent px-6 py-3 text-foreground transition-colors hover:bg-hover"
+            className="caps focus-ring inline-flex items-center justify-center rounded-full bg-accent px-6 py-3 text-foreground transition-colors duration-[var(--motion-base)] ease-out-soft hover:bg-hover"
           >
             {linkLabel(project.link)} ↗
           </a>
         )}
         <Pill href="/work" transitionDirection="back">
-          ← Todos os projetos
+          {pages.work.back}
         </Pill>
       </div>
     </article>

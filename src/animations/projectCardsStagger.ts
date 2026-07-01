@@ -14,14 +14,15 @@ export function createProjectCardsStagger(
     gsap.from(cards, {
       opacity: 0,
       rotation: 3,
-      y: 32,
-      duration: 0.8,
-      stagger: 0.15,
+      y: 24,
+      duration: 0.7,
+      stagger: 0.12,
       ease: "power2.out",
       scrollTrigger: {
         trigger: section,
-        start: "top 80%",
-        toggleActions: "play none none reverse",
+        start: "top 85%",
+        // Revela uma vez e mantém visível — não esconde o conteúdo ao rolar de volta (anti-FOIC).
+        toggleActions: "play none none none",
       },
     });
   });

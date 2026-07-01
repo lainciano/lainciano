@@ -5,7 +5,7 @@ import gsap from "gsap";
 import { useRef } from "react";
 import { createServicesStack } from "@/animations/servicesStack";
 import { ServiceCard } from "@/components/ui/ServiceCard";
-import { services } from "@/lib/content/mock";
+import { services } from "@/lib/content/copy";
 
 // Seção de serviços com a animação de "cartas se juntando" no scroll.
 // A timeline (ScrollTrigger scrub + matchMedia) está em /animations; aqui só
@@ -31,7 +31,7 @@ export function Services() {
     <section
       ref={sectionRef}
       id="services"
-      className="content-container py-20 lg:py-28"
+      className="content-container py-section"
       aria-label="Serviços"
     >
       <div className="relative grid grid-cols-1 gap-[var(--grid-gap)] md:grid-cols-3">

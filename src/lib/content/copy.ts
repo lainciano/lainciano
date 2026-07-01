@@ -1,0 +1,105 @@
+import type { Service, Skill } from "@/types/content";
+
+/**
+ * Fonte única da copy de UI/sistema (ver docs/content-system.md).
+ * Nenhuma string visível de sistema deve ficar hard-coded em componentes — centralizar aqui.
+ * (Corpo de artigos do blog e projetos continua no front-matter/MDX em content/.)
+ */
+
+export const about = {
+  roleTop: "Software",
+  roleBottom: "Engineer",
+  paragraphs: [
+    "Engenheiro de software full stack — do front ao back, com foco em web, mobile e cibersegurança.",
+    "Construo produtos de ponta a ponta: interfaces acessíveis e rápidas, APIs e arquiteturas que escalam — com segurança pensada em cada etapa.",
+  ],
+  nextEvent: {
+    label: "Disponível para projetos",
+    date: "Julho de 2026",
+  },
+};
+
+export const skills: Skill[] = [
+  { label: "Full Stack", tone: "accent", rotation: -6 },
+  { label: "Mobile", tone: "hover", rotation: 4 },
+  { label: "System Architecture", tone: "muted", rotation: -3 },
+  { label: "Cybersecurity", tone: "accent", rotation: 5 },
+  { label: "TypeScript", tone: "hover", rotation: -4 },
+];
+
+export const services: Service[] = [
+  {
+    title: "Desenvolvimento Web",
+    description:
+      "Sites e aplicações sob medida em Next.js, do front ao back — acessíveis e rápidos.",
+    tags: ["Next.js", "TypeScript", "Design System", "Acessibilidade"],
+    rotation: -2,
+  },
+  {
+    title: "Mobile",
+    description:
+      "Experiências mobile fluidas e responsivas, com foco em performance e toque.",
+    tags: ["React Native", "PWA", "Motion", "Offline-first"],
+    rotation: 1,
+  },
+  {
+    title: "CyberSec",
+    description:
+      "Auditoria, pentest e QA — endurecendo aplicações com mentalidade de segurança.",
+    tags: ["Pentest", "QA", "Hardening", "Automação"],
+    rotation: -1,
+  },
+];
+
+/** Headings das seções da home. */
+export const sections = {
+  work: {
+    heading:
+      "De marketplaces a sistemas de gestão, construo produtos digitais sob medida.",
+    seeAll: "Todos os projetos",
+  },
+  blog: {
+    heading: "Últimos posts",
+    seeAll: "Ver tudo",
+  },
+};
+
+/** Cabeçalhos editoriais das páginas de listagem (aplicados na Fase 5). */
+export const pages = {
+  work: {
+    eyebrow: "Todos os projetos",
+    heading: "Projetos",
+    intro:
+      "Uma seleção de produtos que construí — de marketplaces a sistemas de gestão e ferramentas de segurança.",
+    back: "← Todos os projetos",
+  },
+  blog: {
+    eyebrow: "Todos os posts",
+    heading: "Blog",
+    intro:
+      "Notas sobre desenvolvimento web, performance, design e segurança — o que aprendo construindo.",
+    back: "← Todos os posts",
+  },
+  contact: {
+    intro:
+      "Tem um projeto em mente? Me conte os detalhes — respondo o mais breve possível.",
+    copyHint: "Clique para copiar o e-mail",
+  },
+};
+
+/** CTA de contato (abre o cliente de e-mail via mailto). */
+export const contactCta = {
+  heading: "Vamos conversar?",
+  description: "Abra seu e-mail com uma mensagem já pronta — é só completar e enviar.",
+  button: "Enviar e-mail ↗",
+  mailtoSubject: "Contato pelo portfólio",
+  mailtoBody: "Olá! Gostaria de conversar sobre um projeto.\n\n",
+  hint: "Ou escreva direto para",
+};
+
+/** Rótulos do rodapé. */
+export const footer = {
+  workDaysLabel: "Dias de trabalho",
+  workDays: "Segunda – Sexta",
+  projectPrompt: "Tem um projeto em mente?",
+};

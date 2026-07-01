@@ -12,6 +12,8 @@ export type SiteSettings = {
   siteName: string;
   tagline: string;
   email: string;
+  /** Disponibilidade canônica — usada em Header e Footer (fonte única). */
+  availability: string;
   defaultAccent: string;
   socialLinks: SocialLinks;
 };

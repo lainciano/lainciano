@@ -11,7 +11,7 @@ export function BlogCard({ post }: BlogCardProps) {
     <TransitionLink
       href={`/blog/${post.slug}`}
       transitionDirection="forward"
-      className="group flex flex-col gap-4 rounded-[var(--border-radius)] border border-secondary/60 bg-secondary/15 p-6 transition-colors hover:border-accent"
+      className="group focus-ring flex flex-col gap-4 rounded-[var(--border-radius)] border border-secondary/60 bg-secondary/15 p-6 transition duration-[var(--motion-base)] ease-out-soft hover:-translate-y-1 hover:border-accent hover:shadow-xl hover:shadow-black/30"
     >
       <span className="caps text-muted">{formatDate(post.createdAt)}</span>
 

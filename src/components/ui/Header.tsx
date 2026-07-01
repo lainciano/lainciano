@@ -15,7 +15,7 @@ type HeaderProps = {
 export function Header({
   siteName = "Lain",
   email = "hello@example.com",
-  availability = "Disponível Jul 2026",
+  availability = "Disponível a partir de julho de 2026",
   socialLinks = {},
 }: HeaderProps) {
   return (

@@ -13,10 +13,19 @@ export function ProjectCard({ project, className = "", ...linkProps }: ProjectCa
       href={`/work/${project.slug}`}
       transitionDirection="forward"
       {...linkProps}
-      className={`group relative flex flex-col justify-end overflow-hidden rounded-card transition-[border-radius] duration-500 hover:rounded-card-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${className}`}
+      className={`group focus-ring relative flex flex-col justify-end overflow-hidden rounded-card shadow-lg shadow-transparent transition-[border-radius,box-shadow] duration-[var(--motion-slow)] ease-out-soft hover:rounded-card-hover hover:shadow-2xl hover:shadow-black/50 ${className}`}
       style={{ backgroundColor: project.accentColor ?? "var(--color-secondary)" }}
     >
-      <div className="absolute inset-0 bg-gradient-to-t from-background/70 via-background/10 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background/70 via-background/10 to-transparent transition-[background] duration-[var(--motion-base)] group-hover:from-background/80" />
+
+      {/* Affordance de hover: seta que surge no canto (sem transform no root, p/ não brigar com o GSAP). */}
+      <span
+        aria-hidden="true"
+        className="caps absolute right-5 top-5 z-10 translate-y-1 text-foreground/0 transition-all duration-[var(--motion-base)] ease-out-soft group-hover:translate-y-0 group-hover:text-foreground/90"
+      >
+        Ver ↗
+      </span>
+
       <div className="relative z-10 flex flex-col gap-3 p-6">
         <h3 className="text-card-title text-foreground">{project.title}</h3>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
