@@ -159,7 +159,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
               <div className="content-container flex flex-col gap-6 border-t border-foreground/30 py-8">
                 {activeSocials.length > 0 && (
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                    <span className="caps text-foreground/70">Sociais:</span>
+                    <span className="caps text-foreground/90">Sociais:</span>
                     {activeSocials.map(([key, url]) => (
                       <a
                         key={key}
@@ -175,7 +175,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
                 )}
 
                 <div className="flex flex-col gap-1">
-                  <span className="text-small-heading italic text-foreground/80">{availability}</span>
+                  <span className="text-small-heading italic text-foreground/90">{availability}</span>
                   <a href={`mailto:${email}`} className="link-underline caps w-fit">
                     {email}
                   </a>

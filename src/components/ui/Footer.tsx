@@ -23,7 +23,7 @@ export function Footer({ site }: FooterProps) {
           <div className="flex flex-col gap-6">
             <span className="text-large-heading">{site.siteName}</span>
             <div className="flex flex-col">
-              <span className="text-small-heading italic text-foreground/80">
+              <span className="text-small-heading italic text-foreground/90">
                 {footerCopy.workDaysLabel}
               </span>
               <span className="text-small-heading">{footerCopy.workDays}</span>
@@ -32,7 +32,7 @@ export function Footer({ site }: FooterProps) {
 
           <div className="flex flex-col gap-3 lg:items-end lg:text-right">
             <span className="text-large-heading">{availability}</span>
-            <span className="text-small-heading text-foreground/80">
+            <span className="text-small-heading text-foreground/90">
               {footerCopy.projectPrompt}
             </span>
             <CopyEmailButton
