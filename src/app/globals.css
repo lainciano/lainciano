@@ -36,6 +36,8 @@
   --motion-base: 300ms; /* transições padrão de cor/opacidade */
   --motion-slow: 500ms; /* border-radius de card, painéis */
   --motion-slower: 800ms; /* entradas grandes */
+  --motion-shadow-enter: 350ms; /* sombra ao entrar no hover */
+  --motion-shadow-exit: 650ms; /* sombra ao sair do hover */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1); /* entradas / hover */
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1); /* transições simétricas */
   --ease-emphasized: cubic-bezier(0.2, 0, 0, 1); /* movimento com ênfase */
@@ -158,6 +160,19 @@ body {
   font-family: var(--font-instrument-serif), Georgia, serif;
   font-size: clamp(1.25rem, 2vw, 2rem);
   line-height: 1.15;
+}
+
+/* Sombra dos cards de projeto — timing assimétrico (entrada rápida, saída suave). */
+.project-card-elevate {
+  transition:
+    border-radius var(--motion-slow) var(--ease-out-soft),
+    box-shadow var(--motion-shadow-exit) var(--ease-out-soft);
+}
+
+.project-card-elevate:hover {
+  transition:
+    border-radius var(--motion-slow) var(--ease-out-soft),
+    box-shadow var(--motion-shadow-enter) var(--ease-out-soft);
 }
 
 /* Títulos de cards (projeto/blog/serviço) — sans display, uppercase */
