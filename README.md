@@ -1,6 +1,4 @@
-<div align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Share+Tech+Mono&size=18&duration=2500&pause=800&color=975025&center=true&vCenter=true&multiline=true&width=700&height=60&lines=%3E+PRESENT+DAY%2C+PRESENT+TIME...;%3E+HA%20HA%20HA...;%3E+NO%20MATTER%20WHERE%20YOU%20GO%2C;%3E+EVERYONE%20IS%20CONNECTED"/>
-</div>
+
 
 <img src="docs/readme-svgs/header-system-stats.svg" width="100%"/>
 
@@ -11,13 +9,6 @@
 <p align="center">
   <img src="https://github-profile-summary-cards.vercel.app/api/cards/stats?username=44lain&theme=kacho_ga"/>
   <img src="https://github-profile-summary-cards.vercel.app/api/cards/most-commit-language?username=44lain&theme=kacho_ga"/>
-</p>
-
-
-<img src="docs/readme-svgs/header-activity-graph.svg" width="100%"/>
-
-<p align="center">
-  <img src="https://github-readme-activity-graph.vercel.app/graph?username=44lain&bg_color=100A08&color=F4F4F4&line=975025&point=8F2F06&area=true&area_color=5A280D&hide_border=true"/>
 </p>
 
 
