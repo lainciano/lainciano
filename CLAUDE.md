@@ -59,13 +59,13 @@ System/UI copy (labels, headings, microcopy, CTA text) is centralized in `src/li
 ### Animation stack
 
 - **GSAP** (`+ ScrollTrigger`, `@gsap/react`) for scroll-driven timelines, stagger, parallax — timelines live in `src/animations/*.ts`, one file per effect (e.g. `servicesStack.ts`).
-- Núcleo de interação em `src/interaction/` (cursor, som WebAudio, relíquias, HUD, Portal, modo leitura). Salas em `src/rooms/` a partir da Fase 2. Spec: `docs/superpowers/specs/2026-10-08-portfolio-cripta-design.md`.
+- Núcleo de interação em `src/interaction/` (cursor, som WebAudio, relíquias, HUD, Portal, modo leitura). Salas em `src/rooms/` (Ruína na Home, Gravura no Sobre): ilhas client pequenas sobre HTML do servidor; `three` e `matter-js` só em `src/rooms/*/scene.ts`/`world.ts`, carregados por `import()` a 400 px da viewport, nunca no JS inicial. Loops no `gsap.ticker`, no máx. 2 contextos WebGL (`src/rooms/shared/webgl.ts`). Spec: `docs/superpowers/specs/2026-10-08-portfolio-cripta-design.md`.
 - **Lenis** for smooth scroll, bridged via `src/lib/lenis-bridge.ts` (`pauseLenis()`/`resumeLenis()`) and `SmoothScroll` provider — must be paused/resumed around page transitions.
 - **View Transitions API** (Next.js `experimental.viewTransition`, enabled in `next.config.ts`) drives route transitions, with a GSAP crossfade fallback (`src/animations/pageTransitionFallback.ts`) when the API is unsupported or reduced-motion is active. Full flow documented in `docs/view-transitions.md`.
   - `src/lib/navigation.ts` → `navigateWithTransition()` is the actual navigation logic (View Transition vs. fallback, direction-aware `nav-forward`/`nav-back`).
   - `src/lib/nav.ts` → just the static `NAV_LINKS` array shared by HUD/Footer. Don't confuse the two files.
   - `TransitionLink` / `LinkHover` components and `useViewTransition` hook wrap this for use in components.
-- Desktop-only spatial effects (card scatter/deck layouts) must degrade to a normal document-flow layout on mobile — never animation-gate content visibility (avoid FOIC: content must be legible without JS/scroll).
+- Desktop-only spatial effects must degrade to a normal document-flow layout on mobile — never animation-gate content visibility (avoid FOIC: content must be legible without JS/scroll).
 
 ### Route structure
 
