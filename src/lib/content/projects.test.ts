@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coverAltFor, sortProjects } from "@/lib/content/projects";
+import { coverAltFor, getProjects, sortProjects } from "@/lib/content/projects";
 import type { ProjectMeta } from "@/types/content";
 
 const p = (title: string, year: number): ProjectMeta => ({
@@ -21,4 +21,17 @@ describe("sortProjects", () => {
 describe("coverAltFor", () => {
   it("usa coverAlt quando existe", () => expect(coverAltFor({ title: "X", coverAlt: "Tela do X" })).toBe("Tela do X"));
   it("fallback descritivo", () => expect(coverAltFor({ title: "X" })).toBe("Captura da interface do projeto X"));
+});
+
+describe("kind", () => {
+  it("todo projeto publicado declara o tipo (aparece nas lajes da Ruína)", () => {
+    const kinds = Object.fromEntries(getProjects().map((project) => [project.slug, project.kind]));
+    expect(kinds).toEqual({
+      brazskate: "evento",
+      coletiva: "escrita",
+      crinaapp: "marketplace",
+      netatlas: "rede",
+      vermolinux: "gestão",
+    });
+  });
 });

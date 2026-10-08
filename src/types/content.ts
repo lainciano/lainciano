@@ -33,6 +33,8 @@ export type ProjectMeta = {
   coverAlt?: string;
   /** Papel no projeto, quando confirmado. */
   role?: string;
+  /** Tipo curto do projeto (evento, escrita…), nas lajes da Ruína e no índice (spec 7.2, 7.4). */
+  kind?: string;
 };
 
 export type PostMeta = {

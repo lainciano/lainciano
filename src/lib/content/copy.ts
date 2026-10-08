@@ -131,10 +131,48 @@ export const portal = {
   escKey: "Esc",
 };
 
-/** Títulos e papéis de sala (Fase 1: papéis neutros; as fases seguintes trocam pelo verbo da sala). */
+/** Títulos e papéis de sala. Home e Sobre já com o verbo da sala (Fase 2); os demais trocam nas Fases 3–5. */
 export const rooms = {
-  about: { title: "Gravura", role: "Sobre. Quem constrói, e como." },
+  home: { title: "Ruína", role: "Home. Agarre, arremesse. Dois cliques num projeto abrem o case." },
+  about: { title: "Gravura", role: "Sobre. Segure sobre o retrato." },
   work: { title: "Projetos", role: "Índice de projetos." },
   blog: { title: "Biblioteca", role: "Notas sobre desenvolvimento web, performance, design e segurança." },
   contact: { title: "Terminal", role: "Contato. Escreva direto para o e-mail abaixo." },
+};
+
+/** Home — abertura e seções (spec 7.2). */
+export const home = {
+  thesis: "Software engineer full stack. Web, mobile e cibersegurança.",
+  craftHeading: "Ofício",
+  libraryHeading: "Biblioteca",
+  libraryAll: "Todos os posts",
+};
+
+/** Ruína — arena com física (spec 7.2). */
+export const ruina = {
+  collapse: "desabar",
+  restore: "reerguer",
+  controlsLabel: "Controles da arena",
+  slabsLabel: "Projetos",
+};
+
+/** Gravura — retrato do Sobre (spec 7.3). */
+export const gravura = {
+  photoAlt: "Luciano Rodrigues, de óculos e jaqueta jeans, à noite",
+  portraitLabel: "Retrato de Luciano Rodrigues em gravura. Segure o clique, ou Espaço, para derramar tinta.",
+  caption: { before: "Segurando o mouse, ", key: "a tinta", after: " se espalha." },
+  captionKeywords: ["cibersegurança.", "segurança"],
+  ignite: "acender",
+  ignited: "aceso",
+  igniteHint: "mantenha pressionado",
+  inscriptionsHeading: "Inscrições",
+  skillsLabel: "Habilidades",
+};
+
+/** Portas de fim de página (spec 6.3). */
+export const doors = {
+  navLabel: "Próxima sala",
+  next: (label: string) => `Próxima sala: ${label}`,
+  caseRoom: "Câmara",
+  homeLabel: "Home",
 };
