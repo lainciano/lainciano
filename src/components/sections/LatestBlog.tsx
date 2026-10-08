@@ -9,6 +9,7 @@ export function LatestBlog() {
 
   return (
     <section
+      data-rail="Blog"
       id="blog"
       className="content-container py-section"
       aria-label="Blog"

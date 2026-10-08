@@ -10,6 +10,7 @@ export function About() {
 
   return (
     <section
+      data-rail="Sobre"
       id="about"
       className="content-container grid grid-cols-1 gap-12 pb-section pt-4 lg:grid-cols-12 lg:gap-x-10 lg:pt-6 2xl:gap-x-12"
       aria-label="Sobre"

@@ -33,6 +33,7 @@ export function WorkSection({ projects }: WorkSectionProps) {
 
   return (
     <section
+      data-rail="Projetos"
       ref={sectionRef}
       id="work"
       className="content-container py-section"

@@ -739,3 +739,70 @@ body {
   color: var(--osso);
   mix-blend-mode: difference;
 }
+
+/* --- Cripta: trilho de progresso --- */
+.progress-rail {
+  position: fixed;
+  right: var(--space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: var(--z-rail);
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .progress-rail {
+    display: block;
+  }
+}
+
+.progress-rail ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  border-right: 1px solid var(--linha);
+}
+
+.progress-rail__mark {
+  position: relative;
+  display: block;
+  width: 1.5rem;
+  height: 2.75rem;
+}
+
+.progress-rail__mark::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 25%;
+  bottom: 25%;
+  width: 3px;
+  background: var(--apagado);
+  transition: background-color var(--motion-fast);
+}
+
+.progress-rail__mark[aria-current="location"]::after {
+  background: var(--sangue);
+}
+
+.progress-rail__label {
+  position: absolute;
+  right: 1.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.25rem 0.4rem;
+  background: var(--osso);
+  color: var(--breu);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast);
+}
+
+.progress-rail__mark:hover .progress-rail__label,
+.progress-rail__mark:focus-visible .progress-rail__label {
+  opacity: 1;
+}
