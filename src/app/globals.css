@@ -1049,3 +1049,161 @@ body {
     animation: none;
   }
 }
+
+/* --- Cripta Fase 2: Ruína (Home) --- */
+.arena {
+  position: relative;
+  height: var(--arena-h);
+  border: var(--frame-w) solid var(--osso);
+  overflow: hidden;
+  /* Grade de ruína: linhas a cada 10% com 5% de --osso (spec 4.3). */
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 calc(10% - 1px),
+    color-mix(in srgb, var(--osso) 5%, transparent) calc(10% - 1px) 10%
+  );
+}
+
+.arena__repouso {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  padding: var(--space-md);
+}
+
+.arena__nome,
+.arena__lajes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.625rem 0.875rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.arena__glifo {
+  display: inline-block;
+  padding: 0 0.02em;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-weight: 900;
+  font-size: var(--glyph-size);
+  line-height: 0.78;
+  letter-spacing: -0.04em;
+  color: var(--osso);
+  user-select: none;
+  touch-action: none;
+}
+
+.arena__laje {
+  display: grid;
+  gap: 0.375rem;
+  padding: 0.875rem 1rem;
+  border: var(--frame-w) solid var(--breu);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-weight: 900;
+  font-size: clamp(0.8125rem, 1.4vw, 1.1875rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-align: left;
+  text-decoration: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  touch-action: none;
+}
+
+.arena__laje small {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-weight: 400;
+  font-size: 0.6875rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+}
+
+.arena__laje--sangue {
+  background: var(--sangue);
+  color: var(--osso);
+}
+
+.arena__laje--osso {
+  background: var(--osso);
+  color: var(--breu);
+}
+
+.arena__laje--ferrugem {
+  background: var(--ferrugem);
+  color: var(--osso);
+}
+
+.arena__laje--abrindo {
+  outline: 4px solid var(--sangue);
+  outline-offset: 0;
+}
+
+.arena[data-live="on"] .arena__glifo,
+.arena[data-live="on"] .arena__laje {
+  will-change: transform;
+}
+
+.arena__ui {
+  position: absolute;
+  z-index: var(--z-room-ui);
+  top: var(--space-xs);
+  right: var(--space-xs);
+  display: flex;
+  gap: var(--space-2xs);
+}
+
+.arena__btn {
+  min-height: 2.75rem;
+  padding: 0 0.875rem;
+  border: 1.5px solid var(--osso);
+  background: var(--breu);
+  color: var(--osso);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast),
+    transform var(--motion-fast);
+}
+
+.arena__btn:hover {
+  background: var(--osso);
+  color: var(--breu);
+}
+
+.arena__btn:active {
+  transform: scale(0.96);
+}
+
+.arena__onda {
+  position: absolute;
+  z-index: var(--z-room-fx);
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border: 2px solid var(--sangue);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Modo leitura: a arena vira o nome + a lista de links, sem moldura alta (spec 6.4). */
+:root[data-reading="on"] .arena {
+  height: auto;
+  background: none;
+}
+
+:root[data-reading="on"] .arena__repouso {
+  position: static;
+  padding-block: var(--space-lg);
+}
