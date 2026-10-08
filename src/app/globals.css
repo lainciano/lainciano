@@ -2,7 +2,7 @@
 
 :root {
   --background: #100a08;
-  --foreground: #f4f4f4;
+  --foreground: var(--osso);
   --secondary: #5a280d;
   --accent: #8f2f06;
   --hover: #975025;
@@ -51,7 +51,26 @@
   --z-header: 20; /* navbar sticky */
   --z-overlay: 9998; /* fallback de transição de página */
   --z-mobile-menu: 9999; /* painel do MobileMenu */
-  --z-loader: 10000; /* overlay do Loader */
+  /* ---------- Cripta v2: paleta ---------- */
+  --breu: #100a08;
+  --osso: #ece4d6;
+  --ferrugem: #8f2f06;
+  --sangue: #c0230f;
+  --brasa: #975025;
+  --cinza: #a08769;
+  --linha: #3a1d0f;
+  --apagado: #6f5a45; /* só texto decorativo que também existe em estado legível */
+
+  /* ---------- Cripta v2: layout / motion / camadas ---------- */
+  --hud-h: 4.25rem;
+  --frame-w: 2px;
+  --motion-cursor: 180ms;
+  --motion-door: 700ms;
+  --z-rail: 25;
+  --z-hud: 30;
+  --z-cursor: 9990;
+  --z-toast: 9995;
+  --z-portal: 10000;
 }
 
 @theme inline {
@@ -62,6 +81,15 @@
   --color-hover: var(--hover);
   --color-muted: var(--muted);
   --color-highlight: var(--highlight);
+  --color-breu: var(--breu);
+  --color-osso: var(--osso);
+  --color-ferrugem: var(--ferrugem);
+  --color-sangue: var(--sangue);
+  --color-cinza: var(--cinza);
+  --color-linha: var(--linha);
+  --color-apagado: var(--apagado);
+  --font-gothic: var(--font-grenze);
+  --font-mono: var(--font-jetbrains);
   --radius-card: var(--card-radius);
   --radius-card-hover: var(--hover-radius);
   --font-sans: var(--font-geist-sans);
@@ -128,7 +156,6 @@ body {
 .text-nav-logo {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-weight: 900;
-  text-transform: uppercase;
   font-size: clamp(2rem, 4vw, 3.25rem);
   line-height: 1;
   letter-spacing: -0.02em;
@@ -160,6 +187,51 @@ body {
   font-family: var(--font-instrument-serif), Georgia, serif;
   font-size: clamp(1.25rem, 2vw, 2rem);
   line-height: 1.15;
+}
+
+/* Wordmark: o nome é escrito em caixa baixa — nunca transformar. */
+.wordmark {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  text-transform: none;
+}
+
+/* Título de sala — gótico, nunca em texto corrido nem abaixo de 32px. */
+.text-room-title {
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(3.5rem, 10vw, 9.375rem);
+  line-height: 0.85;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+/* Linha de papel da sala (o que fazer aqui). */
+.text-room-role {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--cinza);
+  max-width: 44ch;
+}
+
+/* Rótulo de verbo (cursor, dicas, trilho). */
+.text-verb {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.frame {
+  border: var(--frame-w) solid var(--osso);
+}
+
+.shadow-hard {
+  box-shadow: 6px 6px 0 var(--sangue);
 }
 
 /* Sombra dos cards de projeto — timing assimétrico (entrada rápida, saída suave). */
@@ -205,9 +277,9 @@ body {
 
 /* Anel de foco padrão do DS — aplicar em todo elemento focável. */
 .focus-ring:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 2px;
+  outline: 2px solid var(--sangue);
+  outline-offset: 3px;
+  border-radius: 0;
 }
 
 /* Link com sublinhado animado (origin-left) */
