@@ -1,12 +1,14 @@
 import { useSyncExternalStore } from "react";
 import { STORAGE_KEYS } from "@/interaction/boot";
 import { readingStore } from "@/interaction/reading-mode/store";
+import { whiteNoise } from "./buffers";
 import { parseSoundPref, shouldPlay, type SoundPref } from "./policy";
-import { SFX, type SfxName, type Tone } from "./sfx";
+import { NOISE, SFX, type NoiseBurst, type NoiseName, type SfxName, type Tone } from "./sfx";
 
 const MAX_VOICES = 12;
 
 type Graph = { ctx: AudioContext; sfx: GainNode; ambience: GainNode };
+type PlayOptions = { gain?: number };
 
 let graph: Graph | null = null;
 let pref: SoundPref | null = null;
@@ -45,11 +47,16 @@ function ensure(): Graph | null {
   return graph;
 }
 
-function canPlay(): boolean {
+function allowed(): boolean {
   return shouldPlay(pref, readingStore.getSnapshot(), unlocked);
 }
 
-function playTone(g: Graph, tone: Tone) {
+/** Escala de volume por chamada (impacto pela velocidade, rasgo pela rapidez), presa em 0,05–1. */
+function scaleOf(options?: PlayOptions): number {
+  return Math.min(1, Math.max(0.05, options?.gain ?? 1));
+}
+
+function playTone(g: Graph, tone: Tone, scale: number) {
   if (voices >= MAX_VOICES) return;
   const start = g.ctx.currentTime + (tone.delay ?? 0);
   const osc = g.ctx.createOscillator();
@@ -57,7 +64,7 @@ function playTone(g: Graph, tone: Tone) {
   osc.type = tone.type;
   osc.frequency.setValueAtTime(tone.freq, start);
   if (tone.glideTo) osc.frequency.exponentialRampToValueAtTime(tone.glideTo, start + tone.dur);
-  env.gain.setValueAtTime(tone.gain, start);
+  env.gain.setValueAtTime(tone.gain * scale, start);
   env.gain.exponentialRampToValueAtTime(0.0001, start + tone.dur);
   osc.connect(env).connect(g.sfx);
   voices += 1;
@@ -66,6 +73,28 @@ function playTone(g: Graph, tone: Tone) {
   };
   osc.start(start);
   osc.stop(start + tone.dur + 0.02);
+}
+
+function playNoise(g: Graph, burst: NoiseBurst, scale: number) {
+  if (voices >= MAX_VOICES) return;
+  const start = g.ctx.currentTime + (burst.delay ?? 0);
+  const source = g.ctx.createBufferSource();
+  source.buffer = whiteNoise(g.ctx);
+  source.loop = true;
+  const filter = g.ctx.createBiquadFilter();
+  filter.type = burst.filter;
+  filter.frequency.value = burst.freq;
+  if (burst.q !== undefined) filter.Q.value = burst.q;
+  const env = g.ctx.createGain();
+  env.gain.setValueAtTime(burst.gain * scale, start);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + burst.dur);
+  source.connect(filter).connect(env).connect(g.sfx);
+  voices += 1;
+  source.onended = () => {
+    voices -= 1;
+  };
+  source.start(start);
+  source.stop(start + burst.dur + 0.02);
 }
 
 export const soundEngine = {
@@ -77,10 +106,12 @@ export const soundEngine = {
     } catch {
       pref = null;
     }
-    // O navegador só libera áudio após um gesto: o primeiro gesto acorda o contexto.
+    // O navegador só libera áudio após um gesto: o primeiro gesto acorda o contexto e avisa
+    // quem depende disso (a ambiência da sala começa aqui).
     const wake = () => {
       unlocked = true;
       if (pref === "on") ensure();
+      emit();
     };
     window.addEventListener("pointerdown", wake, { once: true });
     window.addEventListener("keydown", wake, { once: true });
@@ -98,6 +129,10 @@ export const soundEngine = {
   hasChosen(): boolean {
     return pref !== null;
   },
+  /** true quando um som tocaria agora (preferência on, fora do modo leitura, depois de um gesto). */
+  canPlay(): boolean {
+    return allowed();
+  },
   setEnabled(on: boolean) {
     pref = on ? "on" : "off";
     if (on) unlocked = true; // ligar o som é um gesto do visitante
@@ -108,14 +143,24 @@ export const soundEngine = {
     else void graph?.ctx.suspend();
     emit();
   },
-  play(name: SfxName) {
-    if (!canPlay()) return;
+  play(name: SfxName, options?: PlayOptions) {
+    if (!allowed()) return;
     const g = ensure();
-    if (g) SFX[name].forEach((tone) => playTone(g, tone));
+    if (!g) return;
+    const scale = scaleOf(options);
+    SFX[name].forEach((tone) => playTone(g, tone, scale));
+  },
+  /** Ruído filtrado curto (estrondo, rasgo). */
+  noise(name: NoiseName, options?: PlayOptions) {
+    if (!allowed()) return;
+    const g = ensure();
+    if (!g) return;
+    const scale = scaleOf(options);
+    NOISE[name].forEach((burst) => playNoise(g, burst, scale));
   },
   /** Sino FM do Portal (razão 1:3.5, decaimento 2,5 s). */
   bell() {
-    if (!canPlay()) return;
+    if (!allowed()) return;
     const g = ensure();
     if (!g) return;
     const t = g.ctx.currentTime;
@@ -139,7 +184,7 @@ export const soundEngine = {
   },
   /** Barramento de ambiência das salas (Fase 2+); null quando o som não deve tocar. */
   ambienceBus(): { ctx: AudioContext; destination: GainNode } | null {
-    if (!canPlay()) return null;
+    if (!allowed()) return null;
     const g = ensure();
     return g ? { ctx: g.ctx, destination: g.ambience } : null;
   },

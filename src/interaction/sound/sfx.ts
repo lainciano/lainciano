@@ -7,9 +7,25 @@ export type Tone = {
   glideTo?: number;
 };
 
-export type SfxName = "tick" | "click" | "grab" | "drop" | "error" | "key" | "relic" | "platinum" | "door" | "copy";
+export type SfxName =
+  | "tick"
+  | "click"
+  | "grab"
+  | "drop"
+  | "error"
+  | "key"
+  | "relic"
+  | "platinum"
+  | "door"
+  | "copy"
+  | "collapse"
+  | "restore"
+  | "impact"
+  | "case"
+  | "hold"
+  | "drip";
 
-// Receitas da matriz de feedback (spec 8.1).
+// Receitas da matriz de feedback (spec 8.1) e das salas (spec 7.2, 7.3, 8.3).
 export const SFX: Record<SfxName, Tone[]> = {
   tick: [{ freq: 260, dur: 0.03, type: "square", gain: 0.025 }],
   click: [{ freq: 420, dur: 0.05, type: "square", gain: 0.04 }],
@@ -31,4 +47,31 @@ export const SFX: Record<SfxName, Tone[]> = {
     { freq: 660, dur: 0.04, type: "square", gain: 0.035 },
     { freq: 880, dur: 0.05, type: "square", gain: 0.035, delay: 0.06 },
   ],
+  // Ruína: estrondo grave ao desabar (spec 8.3), reerguer e abrir case (protótipo), impacto (escala por velocidade).
+  collapse: [{ freq: 45, dur: 0.9, type: "sine", gain: 0.08, glideTo: 28 }],
+  restore: [{ freq: 330, dur: 0.12, type: "triangle", gain: 0.04 }],
+  impact: [{ freq: 70, dur: 0.12, type: "sine", gain: 0.07, glideTo: 45 }],
+  case: [{ freq: 600, dur: 0.08, type: "triangle", gain: 0.04 }],
+  // Gravura: início do segurar (protótipo) e gota enquanto segura.
+  hold: [{ freq: 110, dur: 0.25, type: "sawtooth", gain: 0.03 }],
+  drip: [{ freq: 900, dur: 0.05, type: "sine", gain: 0.03, glideTo: 1800 }],
+};
+
+/** Rajada de ruído branco filtrado (estrondo, rasgo). */
+export type NoiseBurst = {
+  dur: number;
+  gain: number;
+  filter: BiquadFilterType;
+  freq: number;
+  q?: number;
+  delay?: number;
+};
+
+export type NoiseName = "collapse" | "tear";
+
+export const NOISE: Record<NoiseName, NoiseBurst[]> = {
+  // Corpo do estrondo do desabar (spec 8.3: "senoide 45 Hz com queda de pitch + ruído").
+  collapse: [{ dur: 0.7, gain: 0.07, filter: "lowpass", freq: 180 }],
+  // "Rasgo" ao mover rápido sobre o retrato (spec 7.3); o volume vem da velocidade.
+  tear: [{ dur: 0.06, gain: 0.035, filter: "bandpass", freq: 2400, q: 0.8 }],
 };
