@@ -590,3 +590,47 @@ body {
 :root[data-reading="on"] .section-heading-layer {
   display: none;
 }
+
+/* --- Cripta: botões do HUD e gaveta de relíquias --- */
+.hud-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 2.75rem;
+  padding: 0 var(--space-xs);
+  border: 1px solid currentColor;
+  background: none;
+  color: inherit;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.hud-btn:active {
+  transform: scale(0.96);
+}
+
+.relic-drawer {
+  width: min(64rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: var(--space-lg);
+  display: none;
+  flex-direction: column;
+  gap: var(--space-md);
+  background: var(--breu);
+  color: var(--osso);
+  border: var(--frame-w) solid var(--osso);
+  overflow-y: auto;
+}
+
+.relic-drawer[open] {
+  display: flex;
+}
+
+.relic-drawer::backdrop {
+  background: color-mix(in srgb, var(--breu) 80%, transparent);
+}

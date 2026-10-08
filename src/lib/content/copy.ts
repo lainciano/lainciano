@@ -102,3 +102,21 @@ export const footer = {
   workDays: "Segunda – Sexta",
   projectPrompt: "Tem um projeto em mente?",
 };
+
+/** HUD, inventário e avisos (Cripta). */
+export const hud = {
+  relics: "relíquias",
+  sound: "som",
+  on: "on",
+  off: "off",
+  reading: "leitura",
+  close: "fechar",
+  drawerTitle: "Relíquias",
+  drawerRole: "Cada interação escondida desbloqueia um sigilo. O progresso fica salvo neste navegador.",
+  locked: "???",
+  lockedHow: "Ainda escondida.",
+  relicPrefix: "relíquia:",
+  progress: (won: number, total: number) => `${won} de ${total}`,
+  railLabel: "Seções desta página",
+  menuReading: "Modo leitura",
+};
