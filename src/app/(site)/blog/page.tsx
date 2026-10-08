@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { BlogCard } from "@/components/ui/BlogCard";
 import { PageContent } from "@/components/ui/PageContent";
+import { RoomDoor } from "@/components/ui/RoomDoor";
 import { RoomTitle } from "@/components/ui/RoomTitle";
 import { pages, rooms } from "@/lib/content/copy";
 import { getPosts } from "@/lib/content/posts";
+import { navLabel } from "@/lib/nav";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -26,6 +28,7 @@ export default function BlogPage() {
           ))}
         </div>
       </section>
+      <RoomDoor href="/contact" room={rooms.contact.title} label={navLabel("/contact")} />
     </PageContent>
   );
 }

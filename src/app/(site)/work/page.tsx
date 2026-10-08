@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { PageContent } from "@/components/ui/PageContent";
+import { RoomDoor } from "@/components/ui/RoomDoor";
 import { ProjectCard } from "@/components/ui/ProjectCard";
 import { RoomTitle } from "@/components/ui/RoomTitle";
-import { pages, rooms } from "@/lib/content/copy";
+import { doors, pages, rooms } from "@/lib/content/copy";
 import { getProjects } from "@/lib/content/projects";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
@@ -33,6 +34,9 @@ export default function WorkPage() {
           ))}
         </div>
       </section>
+      {projects[0] && (
+        <RoomDoor href={`/work/${projects[0].slug}`} room={doors.caseRoom} label={projects[0].title} />
+      )}
     </PageContent>
   );
 }
