@@ -564,6 +564,7 @@ body {
     font-size: 0.8125rem;
     font-weight: 700;
     letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
     cursor: pointer;
     transition: transform var(--motion-fast) var(--ease-out);
   }
@@ -961,6 +962,7 @@ body {
 }
 
 .room-door__sala {
+  text-wrap: balance;
   font-family: var(--font-grenze), Georgia, serif;
   font-weight: 900;
   font-size: clamp(3rem, 9vw, 8rem);
@@ -1216,6 +1218,7 @@ body {
 }
 
 .selo__titulo {
+  text-wrap: balance;
   margin: 0;
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-weight: 900;
@@ -1226,6 +1229,7 @@ body {
 }
 
 .selo__texto {
+  text-wrap: pretty;
   margin: 0;
   line-height: 1.5;
 }
@@ -1291,6 +1295,7 @@ body {
 }
 
 .ledger-row__resumo {
+  text-wrap: pretty;
   display: block;
   max-width: 58ch;
   margin-top: var(--space-snug);
@@ -1457,6 +1462,7 @@ body {
 
 /* --- Cripta Fase 2: Sobre (cargo e Inscrições) --- */
 .cargo {
+  text-wrap: balance;
   margin: 0;
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-weight: 900;
