@@ -3,8 +3,11 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { MdxContent } from "@/components/content/MdxContent";
 import { Pill, Tag } from "@/components/ui/Pill";
-import { pages } from "@/lib/content/copy";
+import { RoomDoor } from "@/components/ui/RoomDoor";
+import { RoomSound } from "@/interaction/sound/RoomSound";
+import { pages, rooms } from "@/lib/content/copy";
 import { getProjectBySlug, getProjects } from "@/lib/content/projects";
+import { navLabel } from "@/lib/nav";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
 type Params = { slug: string };
@@ -45,6 +48,8 @@ export default async function ProjectPage({
   if (!project) notFound();
 
   return (
+    <>
+      <RoomSound name="vela" />
     <article className="content-container py-12 lg:py-16">
       <div className="mb-8 flex flex-col gap-4">
         <span className="caps text-muted">{project.year}</span>
@@ -94,5 +99,7 @@ export default async function ProjectPage({
         </Pill>
       </div>
     </article>
+      <RoomDoor href="/about" room={rooms.about.title} label={navLabel("/about")} />
+    </>
   );
 }

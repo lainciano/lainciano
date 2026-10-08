@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BlogCard } from "@/components/ui/BlogCard";
+import { RoomSound } from "@/interaction/sound/RoomSound";
 import { PageContent } from "@/components/ui/PageContent";
 import { RoomDoor } from "@/components/ui/RoomDoor";
 import { RoomTitle } from "@/components/ui/RoomTitle";
@@ -19,6 +20,7 @@ export default function BlogPage() {
 
   return (
     <PageContent>
+      <RoomSound name="biblioteca" />
       <section className="content-container py-section">
         <RoomTitle title={rooms.blog.title} role={rooms.blog.role} className="mb-[var(--space-xl)]" />
 

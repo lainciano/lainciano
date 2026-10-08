@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ContactCta } from "@/components/sections/ContactCta";
 import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
+import { RoomSound } from "@/interaction/sound/RoomSound";
 import { PageContent } from "@/components/ui/PageContent";
 import { RoomDoor } from "@/components/ui/RoomDoor";
 import { RoomTitle } from "@/components/ui/RoomTitle";
@@ -19,6 +20,7 @@ export default function ContactPage() {
 
   return (
     <PageContent className="flex flex-col justify-center">
+      <RoomSound name="terminal" />
       <section className="content-container grid w-full grid-cols-1 gap-12 py-section lg:grid-cols-12 lg:gap-16">
         <RoomTitle title={rooms.contact.title} role={rooms.contact.role} className="lg:col-span-12" />
         <div className="flex flex-col gap-6 lg:col-span-5">

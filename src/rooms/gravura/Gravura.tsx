@@ -25,7 +25,7 @@ export function Gravura() {
     create: createGravura,
     canvasClassName: "gravura__canvas",
   });
-  useRoomAmbience("gravura");
+  useRoomAmbience("gravura", layerRef);
   const live = status === "live";
 
   return (

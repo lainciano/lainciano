@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MdxContent } from "@/components/content/MdxContent";
 import { Pill, Tag } from "@/components/ui/Pill";
+import { RoomSound } from "@/interaction/sound/RoomSound";
 import { pages } from "@/lib/content/copy";
 import { getPostBySlug, getPosts } from "@/lib/content/posts";
 import { formatDate } from "@/lib/format";
@@ -41,6 +42,8 @@ export default async function PostPage({
   if (!post) notFound();
 
   return (
+    <>
+      <RoomSound name="biblioteca" />
     <article className="content-container py-12 lg:py-16">
       <div className="mb-8 flex flex-col gap-4">
         <span className="caps text-muted">{formatDate(post.createdAt)}</span>
@@ -64,5 +67,6 @@ export default async function PostPage({
         </Pill>
       </div>
     </article>
+    </>
   );
 }

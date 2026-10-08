@@ -30,7 +30,7 @@ export function Ruina({ siteName, slabs }: RuinaProps) {
   const near = useInView(arenaRef, { rootMargin: "400px", once: true });
   const { push } = useViewTransition();
   const effects = !reading;
-  useRoomAmbience("ruina");
+  useRoomAmbience("ruina", arenaRef);
 
   // Abrir o case pela arena: relíquia Case + flash de contorno --sangue + navegação.
   const openCase = (slab: HTMLElement) => {

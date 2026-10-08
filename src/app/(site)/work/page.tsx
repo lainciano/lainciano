@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { RoomSound } from "@/interaction/sound/RoomSound";
 import { PageContent } from "@/components/ui/PageContent";
 import { RoomDoor } from "@/components/ui/RoomDoor";
 import { ProjectCard } from "@/components/ui/ProjectCard";
@@ -21,6 +22,7 @@ export default function WorkPage() {
 
   return (
     <PageContent>
+      <RoomSound name="vela" />
       <section className="content-container py-section">
         <RoomTitle title={rooms.work.title} role={rooms.work.role} className="mb-[var(--space-xl)]" />
 
