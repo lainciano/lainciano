@@ -24,6 +24,7 @@ export function Ruina({ siteName, slabs }: RuinaProps) {
   const arenaRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<RuinaWorld | null>(null);
   const openingRef = useRef(false);
+  const timersRef = useRef<number[]>([]);
   const [ready, setReady] = useState(false);
   const reading = useReadingMode();
   const near = useInView(arenaRef, { rootMargin: "400px", once: true });
@@ -36,9 +37,11 @@ export function Ruina({ siteName, slabs }: RuinaProps) {
     const slug = slab.dataset.slug;
     if (!slug || openingRef.current) return;
     openingRef.current = true;
-    window.setTimeout(() => {
-      openingRef.current = false;
-    }, 1000);
+    timersRef.current.push(
+      window.setTimeout(() => {
+        openingRef.current = false;
+      }, 1000),
+    );
     relicStore.unlock("case");
     const href = `/work/${slug}`;
     if (!effects) {
@@ -52,9 +55,18 @@ export function Ruina({ siteName, slabs }: RuinaProps) {
       { outlineWidth: 4 },
       { outlineWidth: 0, duration: 0.8, onComplete: () => slab.classList.remove("arena__laje--abrindo") },
     );
-    window.setTimeout(() => push(href), CASE_NAV_DELAY_MS);
+    timersRef.current.push(window.setTimeout(() => push(href), CASE_NAV_DELAY_MS));
   };
   const onWorldDoubleTap = useEffectEvent((slab: HTMLElement) => openCase(slab));
+
+  // Navegar por outro caminho dentro dos 260 ms não pode disparar um segundo push depois.
+  useEffect(() => {
+    const timers = timersRef;
+    return () => {
+      timers.current.forEach((id) => window.clearTimeout(id));
+      timers.current = [];
+    };
+  }, []);
 
   // Abertura do protótipo (salas.html 373–386): antes de desabar, as letras sobem e avermelham
   // perto do mouse. Só com ponteiro fino; desliga quando a física assume.
@@ -73,7 +85,7 @@ export function Ruina({ siteName, slabs }: RuinaProps) {
         const rect = glyph.getBoundingClientRect();
         const distance = Math.hypot(event.clientX - (rect.left + rect.width / 2), event.clientY - (rect.top + rect.height / 2));
         const { lift, hot: isHot } = nameReaction(distance);
-        gsap.to(glyph, { y: lift, color: isHot ? hot : calm, duration: NAME_HOVER.tweenS, ease: "power3" });
+        gsap.to(glyph, { y: lift, color: isHot ? hot : calm, duration: NAME_HOVER.tweenS, ease: "power3", overwrite: "auto" });
       }
     };
     const onLeave = () => {
@@ -165,13 +177,15 @@ export function Ruina({ siteName, slabs }: RuinaProps) {
                     relicStore.unlock("case");
                     return;
                   }
-                  if (ready && event.detail !== 0) event.preventDefault();
+                  // Ctrl/Cmd/Shift/Alt+clique e botão do meio seguem como link comum (nova aba/janela).
+                  const modified = event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
+                  if (ready && event.detail !== 0 && !modified) event.preventDefault();
                 }}
                 onDoubleClick={(event) => {
                   if (effects) openCase(event.currentTarget);
                 }}
                 onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
+                  if (event.key !== "Enter" || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                   event.preventDefault();
                   openCase(event.currentTarget);
                 }}

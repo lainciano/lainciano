@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { relicStore } from "@/interaction/relics/store";
 import { gravura as copy } from "@/lib/content/copy";
 import { INK } from "./ink";
@@ -10,6 +10,9 @@ export function IgniteButton() {
   const [done, setDone] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const frameRef = useRef(0);
+
+  // Sair do modo leitura no meio do segurar (ou desmontar) não pode deixar o rAF correndo nem ganhar a relíquia.
+  useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
 
   const stop = () => {
     cancelAnimationFrame(frameRef.current);

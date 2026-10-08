@@ -84,6 +84,9 @@
   --space-snug: 0.625rem; /* 10 px: gap de peças e selos (protótipo, fora da escala --space-*) */
   --space-chip: 0.875rem; /* 14 px: padding de laje, botão de arena e selo */
   --tap-min: 2.75rem; /* alvo de toque mínimo (44 px, spec 11) */
+  --space-tick: 0.375rem; /* 6 px: respiro mínimo de rótulo e laje */
+  --space-wide: 1.75rem; /* 28 px: ritmo vertical de linha de livro-razão e coluna de texto */
+  --stroke-ui: 1.5px; /* contorno de botões de sala e do cursor */
 }
 
 @theme inline {
@@ -617,7 +620,7 @@ body {
   height: 2.125rem;
   left: -1.0625rem;
   top: -1.0625rem;
-  border: 1.5px solid var(--osso);
+  border: var(--stroke-ui) solid var(--osso);
   border-radius: 50%;
   mix-blend-mode: difference;
   transition:
@@ -751,7 +754,7 @@ body {
 
 .progress-rail__label {
   position: absolute;
-  right: 1.75rem;
+  right: var(--space-wide);
   top: 50%;
   transform: translateY(-50%);
   padding: 0.25rem 0.4rem;
@@ -1062,12 +1065,11 @@ body {
   letter-spacing: -0.04em;
   color: var(--osso);
   user-select: none;
-  touch-action: none;
 }
 
 .arena__laje {
   display: grid;
-  gap: 0.375rem;
+  gap: var(--space-tick);
   padding: var(--space-chip) var(--space-sm);
   border: var(--frame-w) solid var(--breu);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
@@ -1080,7 +1082,6 @@ body {
   text-decoration: none;
   user-select: none;
   -webkit-user-drag: none;
-  touch-action: none;
 }
 
 .arena__laje small {
@@ -1114,6 +1115,8 @@ body {
 .arena[data-live="on"] .arena__glifo,
 .arena[data-live="on"] .arena__laje {
   will-change: transform;
+  /* Só com a física viva as peças capturam o gesto; em repouso, modo leitura e sem JS a página rola (spec 6.5). */
+  touch-action: none;
 }
 
 .arena__ui {
@@ -1128,7 +1131,7 @@ body {
 .arena__btn {
   min-height: var(--tap-min);
   padding: 0 var(--space-chip);
-  border: 1.5px solid var(--osso);
+  border: var(--stroke-ui) solid var(--osso);
   background: var(--breu);
   color: var(--osso);
   font-family: var(--font-jetbrains), ui-monospace, monospace;
@@ -1268,7 +1271,7 @@ body {
   grid-template-columns: 12rem minmax(0, 1fr) 12.5rem;
   align-items: baseline;
   gap: var(--space-md);
-  padding-block: 1.75rem;
+  padding-block: var(--space-wide);
   color: var(--osso);
   text-decoration: none;
 }
@@ -1361,6 +1364,16 @@ body {
   -webkit-touch-callout: none;
 }
 
+/* A camada focável fica dentro de um overflow:hidden, que cortaria o anel: ele vai na moldura. */
+.gravura__moldura:has(.gravura__camada:focus-visible) {
+  outline: var(--frame-w) solid var(--sangue);
+  outline-offset: 3px;
+}
+
+.gravura__camada:focus-visible {
+  outline: none;
+}
+
 .gravura__janela {
   position: absolute;
   inset: 0;
@@ -1428,8 +1441,8 @@ body {
   display: grid;
   gap: 0.125rem;
   min-height: var(--tap-min);
-  padding: 0.375rem var(--space-chip);
-  border: 1.5px solid var(--osso);
+  padding: var(--space-tick) var(--space-chip);
+  border: var(--stroke-ui) solid var(--osso);
   background: linear-gradient(90deg, var(--sangue) calc(var(--carga, 0) * 100%), var(--breu) 0);
   color: var(--osso);
   font-family: var(--font-jetbrains), ui-monospace, monospace;
@@ -1456,7 +1469,7 @@ body {
 
 .gravura__texto {
   display: grid;
-  gap: 1.75rem;
+  gap: var(--space-wide);
   padding-top: var(--space-2xs);
 }
 

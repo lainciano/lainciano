@@ -9,15 +9,13 @@ type RoomDoorProps = {
   label: string;
 };
 
-// Porta de fim de página (spec 6.3). O nome acessível é o rótulo comum; o gótico é decorativo.
+// Porta de fim de página (spec 6.3). O nome acessível junta o rótulo comum e o nome gótico visível (WCAG 2.5.3).
 export function RoomDoor({ href, room, label }: RoomDoorProps) {
   return (
     <nav aria-label={doors.navLabel} className="content-container pb-section">
       <TransitionLink href={href} data-verbo="abra" className="room-door focus-ring">
         <span className="room-door__rotulo text-verb">{doors.next(label)}</span>
-        <span aria-hidden="true" className="room-door__sala">
-          {room}
-        </span>
+        <span className="room-door__sala">{room}</span>
         <span aria-hidden="true" className="room-door__seta">
           →
         </span>

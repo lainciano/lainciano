@@ -106,18 +106,34 @@ describe("segurar", () => {
 });
 
 describe("escorrer ao soltar (decisão do dono, 8 out 2026)", () => {
-  it("solto, a tinta desce (y diminui) proporcional à força, mais a que tem mais tinta", () => {
+  it("o sangue solto desce (y diminui) proporcional à força", () => {
     const s = createInk();
-    pushInk(s, 0.5, 0.5, 1);
-    pushInk(s, 0.5, 0.5, 0.25);
+    pushInk(s, 0.5, 0.5, 1, true);
+    pushInk(s, 0.5, 0.5, 0.25, true);
     stepInk(s, 0, FRAME, still);
     expect(s.trail[1]).toBeCloseTo(0.5 - INK.drip * 1, 6);
     expect(s.trail[4]).toBeCloseTo(0.5 - INK.drip * 0.25, 6);
     expect(s.trail[0]).toBeCloseTo(0.5, 6); // x não anda
   });
-  it("segurando, a tinta fica onde está", () => {
+  it("o corte do mouse (passagem) NÃO escorre: continua estático como no protótipo", () => {
     const s = createInk();
-    pushInk(s, 0.1, 0.8, 1);
+    hoverInk(s, 0.5, 0.5);
+    for (let i = 0; i < 30; i += 1) stepInk(s, i * FRAME, FRAME, still);
+    expect(s.trail[1]).toBeCloseTo(0.5, 6);
+  });
+  it("só os pontos derramados segurando escorrem; os de passagem ao lado não", () => {
+    const s = createInk();
+    hoverInk(s, 0.2, 0.7);
+    beginHold(s, 0.8, 0.7, 0);
+    stepInk(s, 0, FRAME, still); // derrama 1 ponto de sangue
+    endHold(s);
+    stepInk(s, FRAME, FRAME, still);
+    expect(s.trail[1]).toBeCloseTo(0.7, 6);
+    expect(s.trail[4]).toBeLessThan(0.7);
+  });
+  it("segurando, o sangue fica onde está", () => {
+    const s = createInk();
+    pushInk(s, 0.1, 0.8, 1, true);
     beginHold(s, 0.5, 0.5, 0);
     stepInk(s, FRAME, FRAME, still);
     expect(s.trail[1]).toBeCloseTo(0.8, 6);
@@ -125,8 +141,8 @@ describe("escorrer ao soltar (decisão do dono, 8 out 2026)", () => {
   it("a 120 Hz, dois quadros descem o mesmo que um de 60 Hz", () => {
     const a = createInk();
     const b = createInk();
-    pushInk(a, 0.5, 0.5, 1);
-    pushInk(b, 0.5, 0.5, 1);
+    pushInk(a, 0.5, 0.5, 1, true);
+    pushInk(b, 0.5, 0.5, 1, true);
     stepInk(a, 0, FRAME, still);
     stepInk(b, 0, FRAME / 2, still);
     stepInk(b, 0, FRAME / 2, still);
@@ -134,7 +150,7 @@ describe("escorrer ao soltar (decisão do dono, 8 out 2026)", () => {
   });
   it("escorre mas sempre desvanece: some em menos de 3 s", () => {
     const s = createInk();
-    pushInk(s, 0.5, 0.8, 1.5);
+    pushInk(s, 0.5, 0.8, 1.5, true);
     let frames = 0;
     while (stepInk(s, 0, FRAME, still).active && frames < 1000) frames += 1;
     expect(frames).toBeLessThan(180);

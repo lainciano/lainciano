@@ -45,6 +45,7 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
   let engine: Matter.Engine | null = null;
   let pieces: Piece[] = [];
   let drag: Matter.Constraint | null = null;
+  let dragPointer: number | null = null;
   let lastTap: TapRecord | null = null;
   let accumulator = 0;
   let running = false;
@@ -157,6 +158,7 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
     if (!drag || !engine) return;
     Composite.remove(engine.world, drag);
     drag = null;
+    dragPointer = null;
     callbacks.onDrop();
   }
 
@@ -218,6 +220,8 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
 
   const onPointerDown = (event: PointerEvent) => {
     if ((event.target as Element | null)?.closest("[data-arena-ui]")) return;
+    if (event.button !== 0) return; // botão do meio/direito não agarra nem sequestra o ponteiro
+    if (drag) return; // segundo dedo/ponteiro enquanto há um arrasto: ignora (senão a constraint do primeiro fica órfã)
     if (!engine) {
       collapse();
       return;
@@ -241,6 +245,7 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
       damping: RUINA.dragDamping,
       length: 0,
     });
+    dragPointer = event.pointerId;
     Composite.add(engine.world, drag);
     callbacks.onGrab();
   };
@@ -249,7 +254,7 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
     if (!engine) return;
     const point = relative(event);
     if (drag) {
-      drag.pointA = point;
+      if (event.pointerId === dragPointer) drag.pointA = point;
       return;
     }
     for (const piece of pieces) {
@@ -258,7 +263,9 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
     }
   };
 
-  const onPointerUp = () => release();
+  const onPointerUp = (event: PointerEvent) => {
+    if (event.pointerId === dragPointer) release();
+  };
 
   const visibility = new IntersectionObserver(
     ([entry]) => {

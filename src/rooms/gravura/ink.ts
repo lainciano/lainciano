@@ -26,6 +26,8 @@ export const TEAR = { minSpeed: 1.2, fullSpeed: 4, maxPerSecond: 8 } as const;
 export type InkState = {
   /** Anel de 24 pontos (x, y, força) no espaço UV. */
   trail: Float32Array;
+  /** 1 = ponto de sangue derramado segurando (escorre ao soltar); 0 = corte de passagem (fica estático). */
+  blood: Uint8Array;
   next: number;
   holding: boolean;
   force: number;
@@ -42,11 +44,12 @@ export function createInk(): InkState {
     trail[i * 3] = -1;
     trail[i * 3 + 1] = -1;
   }
-  return { trail, next: 0, holding: false, force: 0, holdStartedAt: 0, last: [0.5, 0.5], inside: false };
+  return { trail, blood: new Uint8Array(INK.points), next: 0, holding: false, force: 0, holdStartedAt: 0, last: [0.5, 0.5], inside: false };
 }
 
-export function pushInk(state: InkState, x: number, y: number, strength: number) {
+export function pushInk(state: InkState, x: number, y: number, strength: number, blood = false) {
   const i = state.next * 3;
+  state.blood[state.next] = blood ? 1 : 0;
   state.trail[i] = x;
   state.trail[i + 1] = y;
   state.trail[i + 2] = strength;
@@ -86,6 +89,7 @@ export function stepInk(state: InkState, now: number, deltaMs: number, random: (
       state.last[0] + (random() - 0.5) * INK.jitter,
       state.last[1] + (random() - 0.5) * INK.jitter,
       state.force,
+      true,
     );
     holdProgress = Math.min((now - state.holdStartedAt) / INK.holdRelicMs, 1);
     active = true;
@@ -93,7 +97,7 @@ export function stepInk(state: InkState, now: number, deltaMs: number, random: (
   const decay = (state.holding ? INK.decayHolding : INK.decayFree) ** frames;
   for (let i = 2; i < state.trail.length; i += 3) {
     if (state.trail[i] > INK.epsilon) {
-      if (!state.holding) state.trail[i - 1] -= INK.drip * state.trail[i] * frames;
+      if (!state.holding && state.blood[(i - 2) / 3]) state.trail[i - 1] -= INK.drip * state.trail[i] * frames;
       state.trail[i] *= decay;
       active = true;
     } else {

@@ -108,6 +108,8 @@ export async function createGravuraScene({ canvas, host, coarse, wake }: WebGLSc
     if (pendingTouch && event.pointerId === pendingTouch.id) {
       if (exceedsSlop(event.clientX - pendingTouch.x, event.clientY - pendingTouch.y)) cancelTouch();
     }
+    // Alt+Tab com o botão solto em outra janela: o pointerup nunca chega, então confere os botões.
+    if (ink.holding && event.pointerType === "mouse" && event.buttons === 0) release();
     const [x, y] = uvOf(event);
     hoverInk(ink, x, y);
     const now = performance.now();
@@ -162,6 +164,7 @@ export async function createGravuraScene({ canvas, host, coarse, wake }: WebGLSc
   host.addEventListener("blur", release);
   host.addEventListener("contextmenu", onContextMenu);
   window.addEventListener("pointerup", release);
+  window.addEventListener("blur", release);
 
   return {
     resize(width, height, dpr) {
@@ -200,6 +203,7 @@ export async function createGravuraScene({ canvas, host, coarse, wake }: WebGLSc
       host.removeEventListener("blur", release);
       host.removeEventListener("contextmenu", onContextMenu);
       window.removeEventListener("pointerup", release);
+      window.removeEventListener("blur", release);
       geometry.dispose();
       material.dispose();
       texture.dispose();
