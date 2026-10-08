@@ -1,8 +1,11 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { Cursor } from "@/interaction/cursor/Cursor";
+import { chapterFor, shouldShowCard } from "@/interaction/room-card/chapters";
+import { RoomCard } from "@/interaction/room-card/RoomCard";
+import { roomCardStore } from "@/interaction/room-card/store";
 import { vibrate } from "@/interaction/haptics";
 import { ProgressRail } from "@/interaction/hud/ProgressRail";
 import { readingStore } from "@/interaction/reading-mode/store";
@@ -19,6 +22,7 @@ const INTERACTIVE = "a, button, [role='button'], summary";
 export function InteractionProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const firstPath = useRef(true);
+  const previousPath = useRef<string | null>(null);
 
   useEffect(() => {
     readingStore.init();
@@ -53,18 +57,29 @@ export function InteractionProvider({ children }: { children: React.ReactNode })
     };
   }, []);
 
+  // Antes da pintura: o cartão de entrada de sala já cobre a nova página (sem piscar o conteúdo).
+  useLayoutEffect(() => {
+    const previous = previousPath.current;
+    previousPath.current = pathname;
+    if (readingStore.getSnapshot() || !shouldShowCard(previous, pathname)) return;
+    const chapter = chapterFor(pathname);
+    if (chapter) roomCardStore.show(chapter);
+  }, [pathname]);
+
   useEffect(() => {
     if (firstPath.current) {
       firstPath.current = false;
       return;
     }
     soundEngine.play("door");
+    if (!readingStore.getSnapshot() && roomCardStore.getSnapshot()) soundEngine.play("chapter");
   }, [pathname]);
 
   return (
     <>
       {children}
       <Cursor />
+      <RoomCard />
       <Toast />
       <ProgressRail />
     </>

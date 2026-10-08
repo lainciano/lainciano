@@ -7,3 +7,8 @@ export const NAV_LINKS = [
 ] as const;
 
 export type NavLink = (typeof NAV_LINKS)[number];
+
+/** Rótulo comum de uma rota da navegação (portas de fim de página, spec 6.3). */
+export function navLabel(href: NavLink["href"]): string {
+  return NAV_LINKS.find((link) => link.href === href)?.label ?? href;
+}

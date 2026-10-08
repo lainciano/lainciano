@@ -13,9 +13,6 @@ export const about = {
     "Engenheiro de software full stack — do front ao back, com foco em web, mobile e cibersegurança.",
     "Construo produtos de ponta a ponta: interfaces acessíveis e rápidas, APIs e arquiteturas que escalam — com segurança pensada em cada etapa.",
   ],
-  statusLabel: "Agora",
-  photoAlt: "Foto de Luciano Rodrigues",
-  talkCta: "Vamos conversar",
 };
 
 export const skills: Skill[] = [
@@ -49,19 +46,6 @@ export const services: Service[] = [
     rotation: -1,
   },
 ];
-
-/** Headings das seções da home. */
-export const sections = {
-  work: {
-    heading:
-      "De marketplaces a sistemas de gestão, construo produtos digitais sob medida.",
-    seeAll: "Todos os projetos",
-  },
-  blog: {
-    heading: "Últimos posts",
-    seeAll: "Ver tudo",
-  },
-};
 
 /** Cabeçalhos editoriais das páginas de listagem (aplicados na Fase 5). */
 export const pages = {
@@ -131,10 +115,60 @@ export const portal = {
   escKey: "Esc",
 };
 
-/** Títulos e papéis de sala (Fase 1: papéis neutros; as fases seguintes trocam pelo verbo da sala). */
+/** Títulos e papéis de sala. Home e Sobre já com o verbo da sala (Fase 2); os demais trocam nas Fases 3–5. */
 export const rooms = {
-  about: { title: "Gravura", role: "Sobre. Quem constrói, e como." },
+  home: { title: "Ruína", role: "Home. Agarre, arremesse. Dois cliques num projeto abrem o case." },
+  about: { title: "Gravura", role: "Sobre. Segure sobre o retrato." },
   work: { title: "Projetos", role: "Índice de projetos." },
   blog: { title: "Biblioteca", role: "Notas sobre desenvolvimento web, performance, design e segurança." },
   contact: { title: "Terminal", role: "Contato. Escreva direto para o e-mail abaixo." },
+};
+
+/** Home — abertura e seções (spec 7.2). */
+export const home = {
+  thesis: "Software engineer full stack. Web, mobile e cibersegurança.",
+  craftHeading: "Ofício",
+  libraryHeading: "Biblioteca",
+  libraryAll: "Todos os posts",
+};
+
+/** Ruína — arena com física (spec 7.2). */
+export const ruina = {
+  collapse: "desabar",
+  restore: "reerguer",
+  controlsLabel: "Controles da arena",
+  slabsLabel: "Projetos",
+};
+
+/** Gravura — retrato do Sobre (spec 7.3). */
+export const gravura = {
+  photoAlt: "Luciano Rodrigues, de óculos e jaqueta jeans, à noite",
+  portraitLabel: "Retrato de Luciano Rodrigues em gravura. Segure o clique, ou Espaço, para derramar tinta.",
+  caption: { before: "Segurando o mouse, ", key: "a tinta", after: " se espalha." },
+  captionKeywords: ["cibersegurança.", "segurança"],
+  ignite: "acender",
+  ignited: "aceso",
+  igniteHint: "mantenha pressionado",
+  inscriptionsHeading: "Inscrições",
+  skillsLabel: "Habilidades",
+};
+
+/** Portas de fim de página (spec 6.3). */
+export const doors = {
+  navLabel: "Próxima sala",
+  next: (label: string) => `Próxima sala: ${label}`,
+  caseRoom: "Câmara",
+  homeLabel: "Home",
+};
+
+/** Cartão de entrada de sala: epígrafes da jornada (Ruína → Projetos → Câmara → Gravura → Biblioteca → Terminal). */
+export const chapters = {
+  label: (numeral: string, total: string) => `capítulo ${numeral} de ${total}`,
+  skip: "pular",
+  ruina: { title: "Ruína", epigraph: "Tudo cai. O que fica foi bem feito." },
+  projetos: { title: "Projetos", epigraph: "O que foi construído, em ordem." },
+  camara: { title: "Câmara", epigraph: "Um projeto por vez, de perto." },
+  gravura: { title: "Gravura", epigraph: "Quem constrói, e como." },
+  biblioteca: { title: "Biblioteca", epigraph: "O que se aprendeu pelo caminho." },
+  terminal: { title: "Terminal", epigraph: "Escreva. Alguém responde." },
 };

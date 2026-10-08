@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { ContactCta } from "@/components/sections/ContactCta";
 import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
+import { RoomSound } from "@/interaction/sound/RoomSound";
 import { PageContent } from "@/components/ui/PageContent";
+import { RoomDoor } from "@/components/ui/RoomDoor";
 import { RoomTitle } from "@/components/ui/RoomTitle";
-import { pages, rooms } from "@/lib/content/copy";
+import { doors, pages, rooms } from "@/lib/content/copy";
 import { getSiteSettings } from "@/lib/content/site";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
@@ -17,7 +19,8 @@ export default function ContactPage() {
   const site = getSiteSettings();
 
   return (
-    <PageContent className="flex items-center">
+    <PageContent className="flex flex-col justify-center">
+      <RoomSound name="terminal" />
       <section className="content-container grid w-full grid-cols-1 gap-12 py-section lg:grid-cols-12 lg:gap-16">
         <RoomTitle title={rooms.contact.title} role={rooms.contact.role} className="lg:col-span-12" />
         <div className="flex flex-col gap-6 lg:col-span-5">
@@ -35,6 +38,7 @@ export default function ContactPage() {
           <ContactCta email={site.email} />
         </div>
       </section>
+      <RoomDoor href="/" room={rooms.home.title} label={doors.homeLabel} />
     </PageContent>
   );
 }
