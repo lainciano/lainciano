@@ -21,7 +21,7 @@ export function Footer({ site }: FooterProps) {
       <div className="bg-accent text-foreground">
         <div className="content-container grid grid-cols-1 gap-12 py-16 lg:grid-cols-2 lg:py-20">
           <div className="flex flex-col gap-6">
-            <span className="text-large-heading">{site.siteName}</span>
+            <span className="wordmark text-large-heading">{site.siteName}</span>
             <div className="flex flex-col">
               <span className="text-small-heading italic text-foreground/90">
                 {footerCopy.workDaysLabel}
@@ -81,6 +81,7 @@ export function Footer({ site }: FooterProps) {
           text={site.siteName}
           direction="rtl"
           repeat={4}
+          wordmark
           className="px-[var(--edge-padding)] text-accent"
         />
       </div>

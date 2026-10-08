@@ -137,11 +137,6 @@ body {
   background: var(--background);
 }
 
-/* Faixa do nome gigante — altura de uma linha; overflow não vaza para a navbar/hero. */
-.route-banner {
-  max-height: calc(clamp(5rem, 16vw, 18rem) * 0.85 + 2.5rem);
-}
-
 /* Nome gigante (Hero / faixa do footer) — sans display pesado, uppercase */
 .text-marquee {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
@@ -328,7 +323,7 @@ body {
   padding-right: 0.15em;
 }
 
-/* Header: esquerda → direita */
+/* Letreiro: esquerda → direita */
 .marquee-track--ltr {
   animation: marquee-ltr 40s linear infinite;
 }
@@ -426,21 +421,12 @@ body {
 }
 
 /* --- Motion (Sprint 3) --- */
-.hero-layer {
-  will-change: transform;
-}
-
 .section-heading-layer {
   will-change: transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-layer,
   .section-heading-layer {
-    display: none;
-  }
-
-  .loader-overlay {
     display: none;
   }
 }

@@ -1,6 +1,8 @@
 import { Footer } from "@/components/ui/Footer";
-import { Header } from "@/components/ui/Header";
-import { RouteBanner } from "@/components/ui/RouteBanner";
+import { InteractionProvider } from "@/interaction/InteractionProvider";
+import { PORTAL_BOOT_SCRIPT } from "@/interaction/boot";
+import { Hud } from "@/interaction/hud/Hud";
+import { Portal } from "@/interaction/portal/Portal";
 import { getSiteSettings } from "@/lib/content/site";
 
 export default function SiteLayout({
@@ -11,20 +13,20 @@ export default function SiteLayout({
   const site = getSiteSettings();
 
   return (
-    <>
-      {/* Banner fixo (z-0): única camada atrás. Shell opaco (z-10) rola por cima. */}
-      <RouteBanner siteName={site.siteName} />
-
-      <div className="page-shell relative z-10 bg-background">
-        <Header
-          siteName={site.siteName}
-          email={site.email}
-          availability={site.availability}
-          socialLinks={site.socialLinks}
-        />
+    <InteractionProvider>
+      <Hud
+        siteName={site.siteName}
+        email={site.email}
+        availability={site.availability}
+        socialLinks={site.socialLinks}
+      />
+      <div className="page-shell relative z-10 bg-background pt-[var(--hud-h)]">
         <main className="page-surface">{children}</main>
         <Footer site={site} />
       </div>
-    </>
+      <Portal siteName={site.siteName} />
+      {/* Precisa vir logo depois do <dialog id="portal">: abre antes da hidratação. */}
+      <script dangerouslySetInnerHTML={{ __html: PORTAL_BOOT_SCRIPT }} />
+    </InteractionProvider>
   );
 }

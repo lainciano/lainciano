@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Grenze_Gotisch, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import { READING_BOOT_SCRIPT } from "@/interaction/boot";
-import { Loader } from "@/components/ui/Loader";
 import { SmoothScroll } from "@/components/providers/SmoothScroll";
 import { getSiteSettings } from "@/lib/content/site";
 import { buildPageMetadata } from "@/lib/seo/metadata";
@@ -66,7 +65,6 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: READING_BOOT_SCRIPT }} />
       </head>
       <body className="antialiased">
-        <Loader siteName={site.siteName} />
         <SmoothScroll>{children}</SmoothScroll>
       </body>
     </html>

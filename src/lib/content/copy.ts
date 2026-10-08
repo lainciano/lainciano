@@ -130,3 +130,11 @@ export const portal = {
   enterKey: "Enter",
   escKey: "Esc",
 };
+
+/** Títulos e papéis de sala (Fase 1: papéis neutros; as fases seguintes trocam pelo verbo da sala). */
+export const rooms = {
+  about: { title: "Gravura", role: "Sobre. Quem constrói, e como." },
+  work: { title: "Projetos", role: "Índice de projetos." },
+  blog: { title: "Biblioteca", role: "Notas sobre desenvolvimento web, performance, design e segurança." },
+  contact: { title: "Terminal", role: "Contato. Escreva direto para o e-mail abaixo." },
+};
