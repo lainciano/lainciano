@@ -71,6 +71,16 @@
   --z-cursor: 9990;
   --z-toast: 9995;
   --z-portal: 10000;
+
+  /* ---------- Cripta Fase 2: salas ---------- */
+  --coagulo: #380503; /* sangue sólido do shader (protótipo: vec3(0.22, 0.02, 0.01)) */
+  --motion-pulse: 1.6s; /* selo de disponibilidade */
+  --motion-lit: 250ms; /* palavra da legenda acendendo */
+  --arena-h: clamp(32.5rem, 78vh, 48.75rem); /* 520–780 px */
+  --glyph-size: clamp(4rem, 13vw, 11.875rem); /* letras da arena: 64–190 px */
+  --portrait-max: 32.5rem; /* retrato 3:5, 520 px */
+  --z-room-fx: 4; /* onda, efeitos dentro da sala */
+  --z-room-ui: 5; /* controles e legenda HQ dentro da sala */
 }
 
 @theme inline {
@@ -900,4 +910,142 @@ body {
   font: inherit;
   font-size: 0.6875rem;
   opacity: 0.6;
+}
+
+/* --- Cripta Fase 2: peças compartilhadas das salas --- */
+.text-room-subtitle {
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  line-height: 0.9;
+  letter-spacing: -0.01em;
+}
+
+/* Selo de disponibilidade (protótipo .estado). */
+.selo-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: fit-content;
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--linha);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--cinza);
+}
+
+.selo-estado::before {
+  content: "";
+  flex-shrink: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--sangue);
+  animation: selo-pulsa var(--motion-pulse) infinite;
+}
+
+@keyframes selo-pulsa {
+  50% {
+    opacity: 0.2;
+  }
+}
+
+/* Legenda que acende (spec 7.0). Mínimo 24 px: palavras-chave em --sangue só passam como texto grande. */
+.lit-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  max-width: 26ch;
+  font-size: clamp(1.5rem, 2.6vw, 2.375rem);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--osso);
+}
+
+.lit-caption p {
+  margin: 0;
+}
+
+.lit-word {
+  transition: color var(--motion-lit);
+}
+
+.lit-word--key {
+  color: var(--sangue);
+}
+
+.lit-caption[data-lit="armed"] .lit-word:not([data-on]) {
+  color: var(--apagado);
+}
+
+/* Porta de fim de página (spec 6.3). */
+.room-door {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-xs) var(--space-md);
+  padding-block: var(--space-lg);
+  border-top: 1px solid var(--linha);
+  color: var(--osso);
+  text-decoration: none;
+}
+
+.room-door__rotulo {
+  grid-column: 1 / -1;
+  color: var(--cinza);
+}
+
+.room-door__sala {
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(3rem, 9vw, 8rem);
+  line-height: 0.85;
+  transition: color var(--motion-fast);
+}
+
+.room-door__seta {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 1.5rem;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.room-door:hover .room-door__sala,
+.room-door:focus-visible .room-door__sala {
+  color: var(--sangue);
+}
+
+.room-door:hover .room-door__seta,
+.room-door:focus-visible .room-door__seta {
+  transform: translateX(0.75rem);
+}
+
+/* Link de seção em Mono (ex.: "Todos os posts"). */
+.link-mono {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--osso);
+  text-decoration: underline;
+  text-decoration-color: var(--sangue);
+  text-underline-offset: 6px;
+}
+
+:root[data-reading="on"] .selo-estado::before {
+  animation: none;
+}
+
+:root[data-reading="on"] .lit-word,
+:root[data-reading="on"] .room-door__seta {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selo-estado::before {
+    animation: none;
+  }
 }
