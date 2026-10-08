@@ -634,3 +634,92 @@ body {
 .relic-drawer::backdrop {
   background: color-mix(in srgb, var(--breu) 80%, transparent);
 }
+
+/* --- Cripta: cursor contextual --- */
+.cursor-cripta {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: var(--z-cursor);
+  pointer-events: none;
+}
+
+.cursor-cripta[data-hidden="on"] {
+  opacity: 0;
+}
+
+.cursor-cripta__anel {
+  position: absolute;
+  width: 2.125rem;
+  height: 2.125rem;
+  left: -1.0625rem;
+  top: -1.0625rem;
+  border: 1.5px solid var(--osso);
+  border-radius: 50%;
+  mix-blend-mode: difference;
+  transition:
+    width var(--motion-base) var(--ease-out),
+    height var(--motion-base) var(--ease-out),
+    left var(--motion-base) var(--ease-out),
+    top var(--motion-base) var(--ease-out),
+    background-color var(--motion-fast);
+}
+
+.cursor-cripta[data-zone="on"] .cursor-cripta__anel {
+  width: 4.625rem;
+  height: 4.625rem;
+  left: -2.3125rem;
+  top: -2.3125rem;
+}
+
+.cursor-cripta[data-link="on"] .cursor-cripta__anel {
+  background: var(--osso);
+}
+
+.cursor-cripta__verbo {
+  position: absolute;
+  left: 1.375rem;
+  top: 0.875rem;
+  padding: 0.3125rem 0.4375rem;
+  background: var(--osso);
+  color: var(--breu);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity var(--motion-fast),
+    transform var(--motion-fast);
+}
+
+.cursor-cripta[data-zone="on"] .cursor-cripta__verbo {
+  opacity: 1;
+  transform: none;
+}
+
+.cursor-cripta__carga {
+  position: absolute;
+  left: -2.3125rem;
+  top: -2.3125rem;
+  width: 4.625rem;
+  height: 4.625rem;
+  transform: rotate(-90deg);
+  opacity: 0;
+}
+
+.cursor-cripta[data-charging="on"] .cursor-cripta__carga {
+  opacity: 1;
+}
+
+.cursor-cripta__carga circle {
+  fill: none;
+  stroke: var(--sangue);
+  stroke-width: 4;
+}
+
+@media (pointer: fine) {
+  :root:not([data-reading="on"]) [data-verbo] {
+    cursor: none;
+  }
+}
