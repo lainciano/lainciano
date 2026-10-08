@@ -50,19 +50,6 @@ export const services: Service[] = [
   },
 ];
 
-/** Headings das seções da home. */
-export const sections = {
-  work: {
-    heading:
-      "De marketplaces a sistemas de gestão, construo produtos digitais sob medida.",
-    seeAll: "Todos os projetos",
-  },
-  blog: {
-    heading: "Últimos posts",
-    seeAll: "Ver tudo",
-  },
-};
-
 /** Cabeçalhos editoriais das páginas de listagem (aplicados na Fase 5). */
 export const pages = {
   work: {

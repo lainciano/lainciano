@@ -51,11 +51,17 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
   let visible = false;
   let thrown = false;
   let collapseTimer = 0;
-  let lastWidth = arena.getBoundingClientRect().width;
+  let lastWidth = arena.clientWidth;
+
+  // Coordenadas da área interna (sem a moldura de 2 px): é onde as peças e as ondas são posicionadas.
+  const inner = () => {
+    const rect = arena.getBoundingClientRect();
+    return { left: rect.left + arena.clientLeft, top: rect.top + arena.clientTop, width: arena.clientWidth, height: arena.clientHeight };
+  };
 
   const relative = (event: PointerEvent): Point => {
-    const rect = arena.getBoundingClientRect();
-    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    const box = inner();
+    return { x: event.clientX - box.left, y: event.clientY - box.top };
   };
 
   const tick = (_time: number, deltaMs: number) => {
@@ -107,7 +113,7 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
     // Um "reerguer" ainda animando (ou o efeito das letras) deixaria transform/cor residual: medir sempre do repouso.
     gsap.killTweensOf(elements);
     gsap.set(elements, { clearProps: "transform,color" });
-    const arenaRect = arena.getBoundingClientRect();
+    const arenaRect = inner();
     const measures = elements.map((el) => {
       const rect = el.getBoundingClientRect();
       return {
@@ -271,7 +277,7 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
 
   // Mudou a largura com a física viva: paredes ficariam erradas → reergue.
   const resize = new ResizeObserver(([entry]) => {
-    const width = entry?.contentRect.width ?? lastWidth;
+    const width = arena.clientWidth || entry?.contentRect.width || lastWidth;
     if (Math.abs(width - lastWidth) > 1 && engine) restore();
     lastWidth = width;
   });
