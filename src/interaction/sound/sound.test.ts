@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseSoundPref, shouldPlay } from "@/interaction/sound/policy";
-import { NOISE, SFX } from "@/interaction/sound/sfx";
+import { BELL, NOISE, SFX } from "@/interaction/sound/sfx";
 
 describe("shouldPlay", () => {
   it("só toca com som on, fora do modo leitura e depois de um gesto", () => {
@@ -67,5 +67,15 @@ describe("SFX das salas (Fase 2)", () => {
     expect(SFX.restore[0]).toMatchObject({ freq: 330, type: "triangle" });
     expect(SFX.case[0]).toMatchObject({ freq: 600, type: "triangle" });
     expect(SFX.hold[0]).toMatchObject({ freq: 110, type: "sawtooth", dur: 0.25 });
+  });
+});
+
+describe("BELL (sino do Portal)", () => {
+  it("a cauda audível dura pelo menos 3 s (queda de 40 dB), sem cortar quando a sala entra", () => {
+    expect(BELL.tau * Math.log(100)).toBeGreaterThanOrEqual(3);
+    expect(BELL.stopS).toBeGreaterThan(BELL.tau * Math.log(1000));
+  });
+  it("razão FM 1:3.5 (spec 8.3)", () => {
+    expect(BELL.modRatio).toBe(3.5);
   });
 });

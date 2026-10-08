@@ -75,3 +75,10 @@ export const NOISE: Record<NoiseName, NoiseBurst[]> = {
   // "Rasgo" ao mover rápido sobre o retrato (spec 7.3); o volume vem da velocidade.
   tear: [{ dur: 0.06, gain: 0.035, filter: "bandpass", freq: 2400, q: 0.8 }],
 };
+
+/**
+ * Sino FM do Portal (spec 8.3: razão 1:3.5). O decaimento é exponencial por constante de tempo (`tau`):
+ * 40 dB abaixo em `tau·ln(100)` ≈ 3,9 s de cauda audível. A versão anterior caía 61 dB em 2,5 s, o que
+ * soava como ~1 s e era coberto pelo estrondo da arena.
+ */
+export const BELL = { carrierHz: 220, modRatio: 3.5, modDepth: 600, peak: 0.16, attackS: 0.01, tau: 0.85, stopS: 7 } as const;

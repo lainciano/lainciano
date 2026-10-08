@@ -602,12 +602,27 @@ body {
 /* --- Cripta: cursor contextual --- */
 .cursor-cripta {
   position: fixed;
+  /* Reset do estilo padrão de [popover] (inset 0, margem auto, borda, fundo). */
+  inset: auto;
   left: 0;
   top: 0;
   width: 0;
   height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow: visible;
   z-index: var(--z-cursor);
   pointer-events: none;
+}
+
+.cursor-cripta__mover {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
 }
 
 .cursor-cripta[data-hidden="on"] {
@@ -682,8 +697,12 @@ body {
   stroke-width: 4;
 }
 
+/* Com o anel customizado ativo (ponteiro fino, fora do modo leitura), o cursor do sistema some em todo o
+   site, inclusive em links, botões e diálogos: o anel fica na camada superior e acompanha o mouse. */
 @media (pointer: fine) {
-  :root[data-cursor="on"] [data-verbo] {
+  :root[data-cursor="on"],
+  :root[data-cursor="on"] body,
+  :root[data-cursor="on"] body * {
     cursor: none;
   }
 }

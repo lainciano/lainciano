@@ -4,9 +4,8 @@ import gsap from "gsap";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useReadingMode } from "@/interaction/reading-mode/store";
 import { soundEngine } from "@/interaction/sound/engine";
+import { magnetOffset } from "./magnet";
 import { cursorStore } from "./store";
-
-const MAGNET = 0.3;
 
 function subscribeFinePointer(callback: () => void) {
   const mq = window.matchMedia("(pointer: fine)");
@@ -23,25 +22,44 @@ export function Cursor() {
     () => false,
   );
   const rootRef = useRef<HTMLDivElement>(null);
+  // O GSAP anima este elemento interno, não o popover: ao medir um elemento `position: fixed` (sem offsetParent)
+  // ele o remove e reinsere no DOM, e isso fecha o popover da camada superior.
+  const moverRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLSpanElement>(null);
   const chargeRef = useRef<SVGCircleElement>(null);
   const active = finePointer && !reading;
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!active || !root) return;
+    const mover = moverRef.current;
+    if (!active || !root || !mover) return;
     document.documentElement.dataset.cursor = "on";
-    const moveX = gsap.quickTo(root, "x", { duration: 0.18, ease: "power3" });
-    const moveY = gsap.quickTo(root, "y", { duration: 0.18, ease: "power3" });
+
+    // Camada superior (Popover API): o Portal e a gaveta de relíquias são <dialog> modais, que ficam
+    // acima de qualquer z-index. Sem isto, com o cursor do sistema oculto, não haveria cursor neles.
+    const raise = () => {
+      if (typeof root.showPopover !== "function") return;
+      try {
+        if (root.matches(":popover-open")) root.hidePopover();
+        root.showPopover();
+      } catch {
+        // popover indisponível: o anel fica com o z-index normal
+      }
+    };
+    raise();
+    const dialogWatcher = new MutationObserver(() => raise());
+    dialogWatcher.observe(document.body, { attributes: true, attributeFilter: ["open"], subtree: true });
+    const moveX = gsap.quickTo(mover, "x", { duration: 0.18, ease: "power3" });
+    const moveY = gsap.quickTo(mover, "y", { duration: 0.18, ease: "power3" });
     let magnet: Element | null = null;
     let zone: HTMLElement | null = null;
 
     const onMove = (event: PointerEvent) => {
       root.dataset.hidden = "off";
       if (magnet) {
-        const r = magnet.getBoundingClientRect();
-        moveX(event.clientX + (r.left + r.width / 2 - event.clientX) * MAGNET);
-        moveY(event.clientY + (r.top + r.height / 2 - event.clientY) * MAGNET);
+        const pull = magnetOffset(event.clientX, event.clientY, magnet.getBoundingClientRect());
+        moveX(event.clientX + pull.x);
+        moveY(event.clientY + pull.y);
       } else {
         moveX(event.clientX);
         moveY(event.clientY);
@@ -73,6 +91,10 @@ export function Cursor() {
       document.removeEventListener("pointerover", onOver);
       document.documentElement.removeEventListener("pointerleave", onLeave);
       offCharge();
+      dialogWatcher.disconnect();
+      try {
+        if (root.matches(":popover-open")) root.hidePopover();
+      } catch {}
       delete document.documentElement.dataset.cursor;
     };
   }, [active]);
@@ -80,12 +102,14 @@ export function Cursor() {
   if (!active) return null;
 
   return (
-    <div ref={rootRef} className="cursor-cripta" aria-hidden="true" data-zone="off" data-link="off" data-hidden="on">
-      <span className="cursor-cripta__anel" />
-      <svg className="cursor-cripta__carga" viewBox="0 0 74 74">
-        <circle ref={chargeRef} cx="37" cy="37" r="34" pathLength={1} strokeDasharray="1" strokeDashoffset="1" />
-      </svg>
-      <span ref={labelRef} className="cursor-cripta__verbo text-verb" />
+    <div ref={rootRef} className="cursor-cripta" popover="manual" aria-hidden="true" data-zone="off" data-link="off" data-hidden="on">
+      <div ref={moverRef} className="cursor-cripta__mover">
+        <span className="cursor-cripta__anel" />
+        <svg className="cursor-cripta__carga" viewBox="0 0 74 74">
+          <circle ref={chargeRef} cx="37" cy="37" r="34" pathLength={1} strokeDasharray="1" strokeDashoffset="1" />
+        </svg>
+        <span ref={labelRef} className="cursor-cripta__verbo text-verb" />
+      </div>
     </div>
   );
 }

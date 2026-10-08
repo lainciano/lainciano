@@ -3,7 +3,7 @@ import { STORAGE_KEYS } from "@/interaction/boot";
 import { readingStore } from "@/interaction/reading-mode/store";
 import { whiteNoise } from "./buffers";
 import { parseSoundPref, shouldPlay, type SoundPref } from "./policy";
-import { NOISE, SFX, type NoiseBurst, type NoiseName, type SfxName, type Tone } from "./sfx";
+import { BELL, NOISE, SFX, type NoiseBurst, type NoiseName, type SfxName, type Tone } from "./sfx";
 
 const MAX_VOICES = 12;
 
@@ -28,6 +28,13 @@ function buildGraph(): Graph | null {
   if (!Ctor) return null;
   const ctx = new Ctor();
   const compressor = ctx.createDynamicsCompressor();
+  // Compressão leve de segurança, não de "pump": o padrão do navegador (limiar −24 dB, razão 12)
+  // abaixava o sino toda vez que um estrondo ou a ambiência entrava.
+  compressor.threshold.value = -12;
+  compressor.knee.value = 24;
+  compressor.ratio.value = 3;
+  compressor.attack.value = 0.01;
+  compressor.release.value = 0.3;
   compressor.connect(ctx.destination);
   const master = ctx.createGain();
   master.gain.value = 0.6;
@@ -168,19 +175,19 @@ export const soundEngine = {
     const modulator = g.ctx.createOscillator();
     const modDepth = g.ctx.createGain();
     const env = g.ctx.createGain();
-    carrier.frequency.value = 220;
-    modulator.frequency.value = 220 * 3.5;
-    modDepth.gain.setValueAtTime(600, t);
-    modDepth.gain.exponentialRampToValueAtTime(1, t + 2.5);
+    carrier.frequency.value = BELL.carrierHz;
+    modulator.frequency.value = BELL.carrierHz * BELL.modRatio;
+    modDepth.gain.setValueAtTime(BELL.modDepth, t);
+    modDepth.gain.setTargetAtTime(1, t, BELL.tau);
     env.gain.setValueAtTime(0.0001, t);
-    env.gain.exponentialRampToValueAtTime(0.12, t + 0.01);
-    env.gain.exponentialRampToValueAtTime(0.0001, t + 2.5);
+    env.gain.exponentialRampToValueAtTime(BELL.peak, t + BELL.attackS);
+    env.gain.setTargetAtTime(0.0001, t + BELL.attackS, BELL.tau);
     modulator.connect(modDepth).connect(carrier.frequency);
     carrier.connect(env).connect(g.sfx);
     carrier.start(t);
     modulator.start(t);
-    carrier.stop(t + 2.6);
-    modulator.stop(t + 2.6);
+    carrier.stop(t + BELL.stopS);
+    modulator.stop(t + BELL.stopS);
   },
   /** Barramento de ambiência das salas (Fase 2+); null quando o som não deve tocar. */
   ambienceBus(): { ctx: AudioContext; destination: GainNode } | null {

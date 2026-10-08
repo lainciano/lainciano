@@ -1,6 +1,7 @@
 import gsap from "gsap";
 import Matter from "matter-js";
 import { createRateLimiter } from "@/interaction/sound/limiter";
+import { AFTER_PORTAL_MS, autoCollapseAction } from "./autoCollapse";
 import {
   IMPACT,
   RUINA,
@@ -267,6 +268,29 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
     if (event.pointerId === dragPointer) release();
   };
 
+  // A queda automática (60% visível por 500 ms) não acontece atrás do Portal: espera ele fechar e
+  // dá um respiro para ver o nome parado antes de desabar (e para o sino do Portal soar inteiro).
+  let lastRatio = 0;
+  const portal = () => document.getElementById("portal") as HTMLDialogElement | null;
+  const scheduleAutoCollapse = () => {
+    const dialog = portal();
+    const action = autoCollapseAction({ ratio: lastRatio, portalOpen: Boolean(dialog?.open) });
+    if (action === "schedule") {
+      collapseTimer = window.setTimeout(collapse, RUINA.collapseDelayMs);
+    } else if (action === "wait-portal" && dialog) {
+      dialog.addEventListener(
+        "close",
+        () => {
+          window.clearTimeout(collapseTimer);
+          collapseTimer = window.setTimeout(() => {
+            if (lastRatio >= RUINA.collapseRatio) collapse();
+          }, AFTER_PORTAL_MS);
+        },
+        { once: true },
+      );
+    }
+  };
+
   const visibility = new IntersectionObserver(
     ([entry]) => {
       if (!entry) return;
@@ -274,9 +298,8 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
       if (visible) start();
       else stop();
       window.clearTimeout(collapseTimer);
-      if (entry.isIntersecting && entry.intersectionRatio >= RUINA.collapseRatio) {
-        collapseTimer = window.setTimeout(collapse, RUINA.collapseDelayMs);
-      }
+      lastRatio = entry.isIntersecting ? entry.intersectionRatio : 0;
+      scheduleAutoCollapse();
     },
     { threshold: [0, RUINA.collapseRatio] },
   );
