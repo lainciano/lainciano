@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { TransitionLink } from "@/components/ui/TransitionLink";
+import { readingStore, useReadingMode } from "@/interaction/reading-mode/store";
+import { hud } from "@/lib/content/copy";
 import { SOCIAL_LABELS } from "@/lib/social";
 import type { NavLink } from "@/lib/nav";
 import type { SocialLinks } from "@/types/content";
@@ -47,6 +49,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
   const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const skipPathnameCloseRef = useRef(true);
   const pathname = usePathname();
+  const reading = useReadingMode();
   const lenis = useLenis();
   const lenisRef = useRef(lenis);
 
@@ -128,7 +131,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
               }`}
             >
               <div className="content-container flex items-center justify-between py-3">
-                <span className="text-nav-logo">{siteName}</span>
+                <span className="text-nav-logo wordmark">{siteName}</span>
                 <button
                   type="button"
                   onPointerUp={(event) => {
@@ -157,6 +160,14 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
               </nav>
 
               <div className="content-container flex flex-col gap-6 border-t border-foreground/30 py-8">
+                <button
+                  type="button"
+                  aria-pressed={reading}
+                  onClick={() => readingStore.toggle()}
+                  className="hud-btn focus-ring w-fit"
+                >
+                  {hud.menuReading}: {reading ? hud.on : hud.off}
+                </button>
                 {activeSocials.length > 0 && (
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                     <span className="caps text-foreground/90">Sociais:</span>

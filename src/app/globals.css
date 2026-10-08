@@ -723,3 +723,19 @@ body {
     cursor: none;
   }
 }
+
+/* --- Cripta: HUD --- */
+.hud {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: var(--z-hud);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: var(--hud-h);
+  padding: calc(env(safe-area-inset-top, 0px) + var(--space-2xs)) var(--edge-padding) var(--space-2xs);
+  color: var(--osso);
+  mix-blend-mode: difference;
+}
