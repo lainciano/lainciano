@@ -50,6 +50,7 @@ export const relicStore = {
     return state;
   },
   unlock(id: RelicId) {
+    this.hydrate(); // nunca gravar por cima do progresso salvo antes de lê-lo
     const result = unlockRelic(state, id, Date.now());
     if (!result.isNew) return;
     state = result.state;

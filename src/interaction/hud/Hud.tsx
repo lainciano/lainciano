@@ -64,7 +64,6 @@ export function Hud({ siteName, email, availability, socialLinks }: HudProps) {
             className="hud-btn focus-ring"
             aria-haspopup="dialog"
             onClick={() => {
-              soundEngine.play("click");
               drawerRef.current?.showModal();
             }}
           >
@@ -87,7 +86,6 @@ export function Hud({ siteName, email, availability, socialLinks }: HudProps) {
             aria-pressed={sound}
             onClick={() => {
               soundEngine.setEnabled(!sound);
-              soundEngine.play("click");
             }}
           >
             {hud.sound}: {sound ? hud.on : hud.off}

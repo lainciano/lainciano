@@ -3,7 +3,6 @@
 import { useLenis } from "lenis/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { soundEngine } from "@/interaction/sound/engine";
 import { hud } from "@/lib/content/copy";
 
 type Mark = { id: string; label: string };
@@ -52,7 +51,6 @@ export function ProgressRail() {
                 const target = document.getElementById(mark.id);
                 if (!target) return;
                 event.preventDefault();
-                soundEngine.play("tick");
                 if (lenis) lenis.scrollTo(target, { offset: -64 });
                 else target.scrollIntoView();
               }}

@@ -3,11 +3,14 @@ import { parseSoundPref, shouldPlay } from "@/interaction/sound/policy";
 import { SFX } from "@/interaction/sound/sfx";
 
 describe("shouldPlay", () => {
-  it("só toca com som on e fora do modo leitura", () => {
-    expect(shouldPlay("on", false)).toBe(true);
-    expect(shouldPlay("on", true)).toBe(false);
-    expect(shouldPlay("off", false)).toBe(false);
-    expect(shouldPlay(null, false)).toBe(false);
+  it("só toca com som on, fora do modo leitura e depois de um gesto", () => {
+    expect(shouldPlay("on", false, true)).toBe(true);
+    expect(shouldPlay("on", true, true)).toBe(false);
+    expect(shouldPlay("off", false, true)).toBe(false);
+    expect(shouldPlay(null, false, true)).toBe(false);
+  });
+  it("nunca toca antes do primeiro gesto, mesmo com preferência on", () => {
+    expect(shouldPlay("on", false, false)).toBe(false);
   });
 });
 

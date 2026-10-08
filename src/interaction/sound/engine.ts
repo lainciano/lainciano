@@ -12,6 +12,8 @@ let graph: Graph | null = null;
 let pref: SoundPref | null = null;
 let voices = 0;
 let initialized = false;
+// Vira true no primeiro gesto (ou ao ligar o som por um clique): antes disso o contexto nem é criado.
+let unlocked = false;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -44,7 +46,7 @@ function ensure(): Graph | null {
 }
 
 function canPlay(): boolean {
-  return shouldPlay(pref, readingStore.getSnapshot());
+  return shouldPlay(pref, readingStore.getSnapshot(), unlocked);
 }
 
 function playTone(g: Graph, tone: Tone) {
@@ -77,6 +79,7 @@ export const soundEngine = {
     }
     // O navegador só libera áudio após um gesto: o primeiro gesto acorda o contexto.
     const wake = () => {
+      unlocked = true;
       if (pref === "on") ensure();
     };
     window.addEventListener("pointerdown", wake, { once: true });
@@ -97,6 +100,7 @@ export const soundEngine = {
   },
   setEnabled(on: boolean) {
     pref = on ? "on" : "off";
+    if (on) unlocked = true; // ligar o som é um gesto do visitante
     try {
       localStorage.setItem(STORAGE_KEYS.sound, pref);
     } catch {}
