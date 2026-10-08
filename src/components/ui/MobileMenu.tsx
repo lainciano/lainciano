@@ -109,7 +109,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
         aria-controls="mobile-menu"
         data-lenis-prevent
         data-lenis-prevent-touch
-        className="relative z-20 touch-manipulation p-1 text-accent transition-colors hover:text-hover"
+        className="relative z-20 inline-flex min-h-11 min-w-11 touch-manipulation items-center justify-center text-accent transition-colors hover:text-hover"
       >
         <GridIcon />
       </button>
@@ -140,7 +140,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
                     closeMenu();
                   }}
                   aria-label="Fechar menu"
-                  className="touch-manipulation p-1 transition-opacity hover:opacity-70"
+                  className="inline-flex min-h-11 min-w-11 touch-manipulation items-center justify-center transition-opacity hover:opacity-70"
                 >
                   <CloseIcon />
                 </button>
@@ -177,7 +177,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
                         href={url!}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="link-underline caps"
+                        className="link-underline caps inline-flex min-h-11 items-center"
                       >
                         {SOCIAL_LABELS[key]}
                       </a>
@@ -187,7 +187,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
 
                 <div className="flex flex-col gap-1">
                   <span className="text-small-heading italic text-foreground/90">{availability}</span>
-                  <a href={`mailto:${email}`} className="link-underline caps w-fit">
+                  <a href={`mailto:${email}`} className="link-underline caps inline-flex min-h-11 w-fit items-center">
                     {email}
                   </a>
                 </div>

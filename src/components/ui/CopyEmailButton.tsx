@@ -32,7 +32,7 @@ export function CopyEmailButton({
     <button
       type="button"
       onClick={handleCopy}
-      className={`link-underline focus-ring cursor-pointer bg-transparent text-left transition-colors duration-[var(--motion-fast)] hover:text-accent ${copied ? "text-accent" : ""} ${className}`.trim()}
+      className={`link-underline focus-ring inline-flex min-h-11 items-center cursor-pointer bg-transparent text-left transition-colors duration-[var(--motion-fast)] hover:text-accent ${copied ? "text-accent" : ""} ${className}`.trim()}
       aria-label={copied ? "E-mail copiado" : `Copiar e-mail ${email}`}
       aria-live="polite"
     >

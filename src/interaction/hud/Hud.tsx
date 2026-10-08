@@ -35,7 +35,7 @@ export function Hud({ siteName, email, availability, socialLinks }: HudProps) {
         <TransitionLink
           href="/"
           transitionDirection="back"
-          className="wordmark focus-ring text-[clamp(1.375rem,2.6vw,2.125rem)] leading-none"
+          className="wordmark focus-ring inline-flex min-h-11 items-center text-[clamp(1.375rem,2.6vw,2.125rem)] leading-none"
         >
           {siteName}
         </TransitionLink>

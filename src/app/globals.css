@@ -546,21 +546,24 @@ body {
 
 
 /* --- Cripta: botões do HUD e gaveta de relíquias --- */
-.hud-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-height: 2.75rem;
-  padding: 0 var(--space-xs);
-  border: 1px solid currentColor;
-  background: none;
-  color: inherit;
-  font-family: var(--font-jetbrains), ui-monospace, monospace;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition: transform var(--motion-fast) var(--ease-out);
+/* Em @layer components para que as utilidades do Tailwind (hidden, sm:inline-flex) consigam sobrescrever. */
+@layer components {
+  .hud-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    min-height: 2.75rem;
+    padding: 0 var(--space-xs);
+    border: 1px solid currentColor;
+    background: none;
+    color: inherit;
+    font-family: var(--font-jetbrains), ui-monospace, monospace;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: transform var(--motion-fast) var(--ease-out);
+  }
 }
 
 .hud-btn:active {

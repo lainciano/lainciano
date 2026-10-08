@@ -49,7 +49,7 @@ export function Footer({ site }: FooterProps) {
                 <TransitionLink
                   key={href}
                   href={href}
-                  className="link-underline text-small-heading"
+                  className="link-underline inline-flex min-h-11 items-center text-small-heading"
                 >
                   {label}
                 </TransitionLink>
@@ -64,7 +64,7 @@ export function Footer({ site }: FooterProps) {
                       href={url!}
                       target={url!.startsWith("http") ? "_blank" : undefined}
                       rel={url!.startsWith("http") ? "noopener noreferrer" : undefined}
-                      className="link-underline caps"
+                      className="link-underline caps inline-flex min-h-11 items-center"
                     >
                       {SOCIAL_LABELS[key]}
                     </a>
