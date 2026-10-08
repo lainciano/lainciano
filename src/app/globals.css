@@ -580,3 +580,13 @@ body {
     animation-delay: 0s !important;
   }
 }
+
+/* --- Modo leitura: sem movimento decorativo --- */
+:root[data-reading="on"] .marquee-track {
+  animation: none !important;
+  transform: none !important;
+}
+
+:root[data-reading="on"] .section-heading-layer {
+  display: none;
+}
