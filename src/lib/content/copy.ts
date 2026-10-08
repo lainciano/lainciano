@@ -120,3 +120,13 @@ export const hud = {
   railLabel: "Seções desta página",
   menuReading: "Modo leitura",
 };
+
+/** Portal da primeira visita (spec 7.1). */
+export const portal = {
+  lede: "Entre. Quase tudo aqui responde ao toque.",
+  withSound: "Entrar com som",
+  silent: "Entrar em silêncio",
+  reading: "Modo leitura",
+  enterKey: "Enter",
+  escKey: "Esc",
+};
