@@ -705,7 +705,7 @@ body {
 }
 
 @media (pointer: fine) {
-  :root:not([data-reading="on"]) [data-verbo] {
+  :root[data-cursor="on"] [data-verbo] {
     cursor: none;
   }
 }
@@ -766,7 +766,7 @@ body {
   top: 25%;
   bottom: 25%;
   width: 3px;
-  background: var(--apagado);
+  background: var(--cinza);
   transition: background-color var(--motion-fast);
 }
 

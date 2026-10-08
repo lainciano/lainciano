@@ -13,7 +13,11 @@ export function RelicDrawer({ ref }: { ref: Ref<HTMLDialogElement> }) {
       className="relic-drawer"
       data-lenis-prevent
       onClick={(event) => {
-        if (event.target === event.currentTarget) event.currentTarget.close();
+        // Só o backdrop fecha: cliques no padding do próprio dialog ficam dentro do retângulo.
+        const box = event.currentTarget.getBoundingClientRect();
+        const inside =
+          event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
+        if (!inside) event.currentTarget.close();
       }}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-[var(--space-sm)]">

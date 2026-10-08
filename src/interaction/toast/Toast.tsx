@@ -1,7 +1,7 @@
 "use client";
 
 import gsap from "gsap";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { useReadingMode } from "@/interaction/reading-mode/store";
 import { TOAST_HOLD_MS, toastStore } from "./store";
 
@@ -10,7 +10,7 @@ export function Toast() {
   const reading = useReadingMode();
   const boxRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const box = boxRef.current;
     if (!message || !box) return;
     const hide = () => toastStore.clear(message.id);

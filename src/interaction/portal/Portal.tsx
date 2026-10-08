@@ -5,18 +5,23 @@ import { useEffect, useRef } from "react";
 import { readingStore } from "@/interaction/reading-mode/store";
 import { soundEngine } from "@/interaction/sound/engine";
 import { portal } from "@/lib/content/copy";
-import { pauseLenis, resumeLenis } from "@/lib/lenis-bridge";
+import { resumeLenis } from "@/lib/lenis-bridge";
 
 type EntryMode = "sound" | "silent" | "reading";
 
+// Evita reentrada: cliques/Esc repetidos durante a animação não duplicam sino nem timeline.
+const entering = new WeakSet<HTMLDialogElement>();
+
 // Aplica a escolha e abre as folhas da porta (direto, em modo leitura).
 function enterPortal(dialog: HTMLDialogElement | null, mode: EntryMode) {
-  if (!dialog?.open) return;
+  if (!dialog?.open || entering.has(dialog)) return;
+  entering.add(dialog);
   if (mode === "reading") readingStore.set("on");
   soundEngine.setEnabled(mode === "sound");
   if (mode === "sound") soundEngine.bell();
   const close = () => {
     dialog.close();
+    entering.delete(dialog);
     resumeLenis();
   };
   if (readingStore.getSnapshot()) {
@@ -39,14 +44,22 @@ export function Portal({ siteName }: { siteName: string }) {
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (dialog.open) pauseLenis();
     // Esc dispara "cancel": em vez de só fechar, entra em silêncio.
     const onCancel = (event: Event) => {
       event.preventDefault();
       enterPortal(dialog, "silent");
     };
+    // Um segundo Esc rápido pode fechar sem "cancel": persiste a escolha mesmo assim.
+    const onClose = () => {
+      if (entering.has(dialog)) return;
+      soundEngine.setEnabled(false);
+    };
     dialog.addEventListener("cancel", onCancel);
-    return () => dialog.removeEventListener("cancel", onCancel);
+    dialog.addEventListener("close", onClose);
+    return () => {
+      dialog.removeEventListener("cancel", onCancel);
+      dialog.removeEventListener("close", onClose);
+    };
   }, []);
 
   return (

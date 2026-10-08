@@ -30,6 +30,7 @@ export function Cursor() {
   useEffect(() => {
     const root = rootRef.current;
     if (!active || !root) return;
+    document.documentElement.dataset.cursor = "on";
     const moveX = gsap.quickTo(root, "x", { duration: 0.18, ease: "power3" });
     const moveY = gsap.quickTo(root, "y", { duration: 0.18, ease: "power3" });
     let magnet: Element | null = null;
@@ -72,6 +73,7 @@ export function Cursor() {
       document.removeEventListener("pointerover", onOver);
       document.documentElement.removeEventListener("pointerleave", onLeave);
       offCharge();
+      delete document.documentElement.dataset.cursor;
     };
   }, [active]);
 

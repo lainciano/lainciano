@@ -22,10 +22,10 @@ export function RelicGrid() {
             >
               {relic.sigil}
             </span>
-            <h3 className={`font-mono text-[0.9375rem] font-bold uppercase tracking-[0.06em] ${isWon ? "text-osso" : "text-apagado"}`}>
+            <h3 className={`font-mono text-[0.9375rem] font-bold uppercase tracking-[0.06em] ${isWon ? "text-osso" : "text-cinza"}`}>
               {isWon ? relic.name : hud.locked}
             </h3>
-            <p className={`font-mono text-[0.8125rem] leading-snug ${isWon ? "text-cinza" : "text-apagado"}`}>
+            <p className={`font-mono text-[0.8125rem] leading-snug ${"text-cinza"}`}>
               {isWon ? relic.how : hud.lockedHow}
             </p>
           </li>

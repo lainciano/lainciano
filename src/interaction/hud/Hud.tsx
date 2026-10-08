@@ -83,7 +83,6 @@ export function Hud({ siteName, email, availability, socialLinks }: HudProps) {
           <button
             type="button"
             className="hud-btn focus-ring"
-            aria-pressed={sound}
             onClick={() => {
               soundEngine.setEnabled(!sound);
             }}

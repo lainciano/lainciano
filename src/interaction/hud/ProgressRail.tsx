@@ -3,6 +3,7 @@
 import { useLenis } from "lenis/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useReadingMode } from "@/interaction/reading-mode/store";
 import { hud } from "@/lib/content/copy";
 
 type Mark = { id: string; label: string };
@@ -11,6 +12,7 @@ type Mark = { id: string; label: string };
 export function ProgressRail() {
   const pathname = usePathname();
   const lenis = useLenis();
+  const reading = useReadingMode();
   const [marks, setMarks] = useState<Mark[]>([]);
   const [active, setActive] = useState<string | null>(null);
 
@@ -51,7 +53,9 @@ export function ProgressRail() {
                 const target = document.getElementById(mark.id);
                 if (!target) return;
                 event.preventDefault();
-                if (lenis) lenis.scrollTo(target, { offset: -64 });
+                const hudHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hud-h")) *
+                  parseFloat(getComputedStyle(document.documentElement).fontSize);
+                if (lenis) lenis.scrollTo(target, { offset: -hudHeight, immediate: reading });
                 else target.scrollIntoView();
               }}
             >
