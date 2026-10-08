@@ -81,6 +81,9 @@
   --portrait-max: 32.5rem; /* retrato 3:5, 520 px */
   --z-room-fx: 4; /* onda, efeitos dentro da sala */
   --z-room-ui: 5; /* controles e legenda HQ dentro da sala */
+  --space-snug: 0.625rem; /* 10 px: gap de peças e selos (protótipo, fora da escala --space-*) */
+  --space-chip: 0.875rem; /* 14 px: padding de laje, botão de arena e selo */
+  --tap-min: 2.75rem; /* alvo de toque mínimo (44 px, spec 11) */
 }
 
 @theme inline {
@@ -886,10 +889,10 @@ body {
 .selo-estado {
   display: inline-flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: var(--space-snug);
   width: fit-content;
   margin: 0;
-  padding: 0.625rem 0.875rem;
+  padding: var(--space-snug) var(--space-chip);
   border: 1px solid var(--linha);
   font-family: var(--font-jetbrains), ui-monospace, monospace;
   font-size: 0.875rem;
@@ -985,7 +988,7 @@ body {
 .link-mono {
   display: inline-flex;
   align-items: center;
-  min-height: 2.75rem;
+  min-height: var(--tap-min);
   font-family: var(--font-jetbrains), ui-monospace, monospace;
   font-size: 0.875rem;
   text-transform: uppercase;
@@ -1032,7 +1035,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.625rem;
+  gap: var(--space-snug);
   padding: var(--space-md);
 }
 
@@ -1041,7 +1044,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.625rem 0.875rem;
+  gap: var(--space-snug) var(--space-chip);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1063,7 +1066,7 @@ body {
 .arena__laje {
   display: grid;
   gap: 0.375rem;
-  padding: 0.875rem 1rem;
+  padding: var(--space-chip) var(--space-sm);
   border: var(--frame-w) solid var(--breu);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-weight: 900;
@@ -1121,8 +1124,8 @@ body {
 }
 
 .arena__btn {
-  min-height: 2.75rem;
-  padding: 0 0.875rem;
+  min-height: var(--tap-min);
+  padding: 0 var(--space-chip);
   border: 1.5px solid var(--osso);
   background: var(--breu);
   color: var(--osso);
@@ -1242,7 +1245,7 @@ body {
 }
 
 .selo__tags li {
-  padding: 0.25rem 0.5rem;
+  padding: var(--space-3xs) var(--space-2xs);
   border: 1px solid var(--linha);
 }
 
@@ -1290,7 +1293,7 @@ body {
 .ledger-row__resumo {
   display: block;
   max-width: 58ch;
-  margin-top: 0.625rem;
+  margin-top: var(--space-snug);
   line-height: 1.55;
   color: var(--cinza);
 }
@@ -1394,7 +1397,7 @@ body {
   bottom: calc(var(--frame-w) * -1);
   max-width: 80%;
   margin: 0;
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-2xs) var(--space-xs);
   transform: translateY(50%);
   border: var(--frame-w) solid var(--breu);
   background: var(--osso);
@@ -1419,8 +1422,8 @@ body {
   right: var(--space-xs);
   display: grid;
   gap: 0.125rem;
-  min-height: 2.75rem;
-  padding: 0.375rem 0.875rem;
+  min-height: var(--tap-min);
+  padding: 0.375rem var(--space-chip);
   border: 1.5px solid var(--osso);
   background: linear-gradient(90deg, var(--sangue) calc(var(--carga, 0) * 100%), var(--breu) 0);
   color: var(--osso);
@@ -1449,7 +1452,7 @@ body {
 .gravura__texto {
   display: grid;
   gap: 1.75rem;
-  padding-top: 0.5rem;
+  padding-top: var(--space-2xs);
 }
 
 /* --- Cripta Fase 2: Sobre (cargo e Inscrições) --- */
@@ -1473,7 +1476,7 @@ body {
 }
 
 .placa {
-  padding: 0.625rem 0.875rem;
+  padding: var(--space-snug) var(--space-chip);
   border: 1px solid var(--osso);
   font-family: var(--font-jetbrains), ui-monospace, monospace;
   font-size: 0.875rem;
