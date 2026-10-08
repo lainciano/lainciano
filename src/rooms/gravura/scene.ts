@@ -39,8 +39,13 @@ export async function createGravuraScene({ canvas, host, coarse, wake }: WebGLSc
   if (!image) throw new Error("gravura: retrato ausente");
   await image.decode();
 
+  // O three dimensiona a textura por image.width/height, que numa <img> é o tamanho EXIBIDO (a caixa de
+  // recorte tem ~3× a moldura), não o natural: o upload falha e a textura sai preta. Um ImageBitmap
+  // carrega o tamanho real. flipY vem do próprio bitmap (o three não vira bitmaps no upload).
+  const bitmap = await createImageBitmap(image, { imageOrientation: "flipY" });
   const renderer = new WebGLRenderer({ canvas, antialias: false });
-  const texture = new Texture(image);
+  const texture = new Texture(bitmap);
+  texture.flipY = false;
   texture.minFilter = LinearFilter;
   texture.generateMipmaps = false;
   texture.needsUpdate = true; // sem colorSpace: lê e escreve valores crus, como o r128 do protótipo
@@ -198,6 +203,7 @@ export async function createGravuraScene({ canvas, host, coarse, wake }: WebGLSc
       geometry.dispose();
       material.dispose();
       texture.dispose();
+      bitmap.close();
       renderer.dispose();
       if (!renderer.getContext().isContextLost()) renderer.forceContextLoss();
     },
