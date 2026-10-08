@@ -1,5 +1,5 @@
 type MarqueeTextProps = {
-  /** Texto repetido dentro da faixa (ex.: "LAIN "). */
+  /** Texto repetido dentro da faixa (ex.: "lainciano "). */
   text: string;
   /** Direção do letreiro: header = esquerda→direita; footer = direita→esquerda. */
   direction: "ltr" | "rtl";

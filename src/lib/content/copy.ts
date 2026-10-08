@@ -13,10 +13,9 @@ export const about = {
     "Engenheiro de software full stack — do front ao back, com foco em web, mobile e cibersegurança.",
     "Construo produtos de ponta a ponta: interfaces acessíveis e rápidas, APIs e arquiteturas que escalam — com segurança pensada em cada etapa.",
   ],
-  nextEvent: {
-    label: "Disponível para projetos",
-    date: "Julho de 2026",
-  },
+  statusLabel: "Agora",
+  photoAlt: "Foto de Luciano Rodrigues",
+  talkCta: "Vamos conversar",
 };
 
 export const skills: Skill[] = [
