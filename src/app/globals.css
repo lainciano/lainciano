@@ -81,6 +81,7 @@
   --portrait-max: 32.5rem; /* retrato 3:5, 520 px */
   --z-room-fx: 4; /* onda, efeitos dentro da sala */
   --z-room-ui: 5; /* controles e legenda HQ dentro da sala */
+  --z-room-card: 9000; /* cartão de entrada de sala: acima do HUD, abaixo de toast, cursor e Portal */
   --space-snug: 0.625rem; /* 10 px: gap de peças e selos (protótipo, fora da escala --space-*) */
   --space-chip: 0.875rem; /* 14 px: padding de laje, botão de arena e selo */
   --tap-min: 2.75rem; /* alvo de toque mínimo (44 px, spec 11) */
@@ -1520,4 +1521,86 @@ body {
   font-size: 0.875rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+/* --- Cripta: cartão cinematográfico de entrada de sala --- */
+.room-card {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-room-card);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--edge-padding);
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 55%, transparent 25%, color-mix(in srgb, var(--breu) 70%, black) 100%),
+    repeating-linear-gradient(0deg, var(--breu) 0 3px, color-mix(in srgb, var(--osso) 5%, var(--breu)) 3px 4px);
+  color: var(--osso);
+  cursor: none;
+  /* Se o JS falhar no meio do caminho, o cartão some sozinho: ele nunca pode prender a página. */
+  animation: room-card-failsafe 0.01s linear 4.5s forwards;
+}
+
+@keyframes room-card-failsafe {
+  to {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+.room-card__numeral {
+  position: absolute;
+  right: calc(var(--edge-padding) * -0.5);
+  bottom: -0.18em;
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(14rem, 46vw, 46rem);
+  line-height: 1;
+  color: var(--linha);
+  opacity: 0.55;
+  user-select: none;
+}
+
+.room-card__capitulo {
+  margin: 0;
+  color: var(--cinza);
+}
+
+.room-card__titulo {
+  position: relative;
+  margin: 0;
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(4.5rem, 17vw, 15rem);
+  line-height: 0.9;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.room-card__letra {
+  display: inline-block;
+}
+
+.room-card__linha {
+  width: min(100%, 38rem);
+  height: var(--frame-w);
+  background: var(--sangue);
+  transform-origin: left;
+}
+
+.room-card__epigrafe {
+  margin: var(--space-xs) 0 0;
+  font-size: clamp(1.125rem, 2.2vw, 1.75rem);
+  font-weight: 500;
+  color: var(--osso);
+}
+
+.room-card__pular {
+  position: absolute;
+  right: var(--edge-padding);
+  top: var(--edge-padding);
+  color: var(--cinza);
 }

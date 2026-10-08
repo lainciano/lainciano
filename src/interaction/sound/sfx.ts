@@ -23,7 +23,8 @@ export type SfxName =
   | "impact"
   | "case"
   | "hold"
-  | "drip";
+  | "drip"
+  | "chapter";
 
 // Receitas da matriz de feedback (spec 8.1) e das salas (spec 7.2, 7.3, 8.3).
 export const SFX: Record<SfxName, Tone[]> = {
@@ -55,6 +56,11 @@ export const SFX: Record<SfxName, Tone[]> = {
   // Gravura: início do segurar (protótipo) e gota enquanto segura.
   hold: [{ freq: 110, dur: 0.25, type: "sawtooth", gain: 0.03 }],
   drip: [{ freq: 900, dur: 0.05, type: "sine", gain: 0.03, glideTo: 1800 }],
+  // Cartão de entrada de sala: swell grave que desce, como uma porta pesada assentando.
+  chapter: [
+    { freq: 98, dur: 1, type: "sine", gain: 0.06, glideTo: 49 },
+    { freq: 147, dur: 0.9, type: "triangle", gain: 0.025, glideTo: 73, delay: 0.05 },
+  ],
 };
 
 /** Rajada de ruído branco filtrado (estrondo, rasgo). */

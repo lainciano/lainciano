@@ -160,3 +160,15 @@ export const doors = {
   caseRoom: "Câmara",
   homeLabel: "Home",
 };
+
+/** Cartão de entrada de sala: epígrafes da jornada (Ruína → Projetos → Câmara → Gravura → Biblioteca → Terminal). */
+export const chapters = {
+  label: (numeral: string, total: string) => `capítulo ${numeral} de ${total}`,
+  skip: "pular",
+  ruina: { title: "Ruína", epigraph: "Tudo cai. O que fica foi bem feito." },
+  projetos: { title: "Projetos", epigraph: "O que foi construído, em ordem." },
+  camara: { title: "Câmara", epigraph: "Um projeto por vez, de perto." },
+  gravura: { title: "Gravura", epigraph: "Quem constrói, e como." },
+  biblioteca: { title: "Biblioteca", epigraph: "O que se aprendeu pelo caminho." },
+  terminal: { title: "Terminal", epigraph: "Escreva. Alguém responde." },
+};
