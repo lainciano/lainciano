@@ -1,0 +1,33 @@
+---
+title: "Coletiva"
+slug: "coletiva"
+year: 2026
+tags: ["Next.js", "React", "TypeScript", "Tailwind CSS", "Supabase", "Tiptap"]
+coverImage: "/projects/coletiva-project.png"
+coverAlt: "Página da linha editorial da Coletiva, plataforma de escrita"
+accentColor: "#5A280D"
+published: true
+summary: "Plataforma de escrita coletiva: um feed de textos publicados, perfis públicos de autores e réplicas em texto."
+link: "https://coletiva-me.vercel.app"
+---
+
+## Contexto
+
+A Coletiva é um lugar para escrever. Nasceu na margem de Brasília — cidade satélite, periferia e roça no mesmo mapa — e declara o seu ângulo editorial em vez de fingir neutralidade: todo mundo escreve de algum lugar, e a plataforma diz qual é.
+
+## O que construí
+
+- Uma home que é o feed de todos os textos publicados.
+- Perfis públicos por endereço (`/@handle`), com capa, bio, cor e a lista de textos do autor.
+- A réplica como única interação: texto responde texto, sem comentário, curtida ou contador público.
+- Editor de texto rico com Tiptap, renderizado no servidor a partir do JSON salvo.
+
+## Decisões
+
+- Supabase (Postgres + Auth) com Row Level Security em todas as tabelas.
+- Nenhum HTML vindo do banco chega ao navegador: o conteúdo é salvo como JSON e renderizado no servidor.
+- Testes com Vitest.
+
+## Antes disso
+
+O projeto começou como um agregador de notícias com scraping e resumo por IA. Esse pipeline foi arquivado; o que existe hoje é uma plataforma de escrita aberta a quem quiser escrever.

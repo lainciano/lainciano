@@ -1,0 +1,31 @@
+---
+title: "Braz Skate"
+slug: "brazskate"
+year: 2026
+tags: ["Next.js", "React", "TypeScript", "Tailwind CSS", "GSAP"]
+coverImage: "/projects/brazskate-project.png"
+coverAlt: "Página inicial do site Braz Skate, com a marca do campeonato sobre foto de manobra na pista de Brazlândia"
+accentColor: "#8F2F06"
+role: "Organização do campeonato e desenvolvimento do site"
+published: true
+summary: "Site do campeonato comunitário de skate da ASB em Brazlândia, com a informação do evento e a galeria pós-campeonato."
+link: "https://brazskate.vercel.app"
+---
+
+## Contexto
+
+O Braz Skate é o campeonato de skate organizado pela ASB, a Associação Skate Brazlândia, na pista da cidade. A edição de 2026 aconteceu em 13 de setembro, e o site precisava funcionar em duas fases: antes, para inscrição, programação e patrocínio; depois, como registro do que aconteceu.
+
+## O que fiz
+
+Fiz parte da organização e construí o site de ponta a ponta: interface, páginas do evento, regulamento, termo de participação, área de patrocínio e apoio via Pix.
+
+## Decisões
+
+- Site 100% estático (SSG), sem backend, hospedado na Vercel.
+- Direito de imagem tratado no tipo: na galeria, `permissao` só aceita o literal `true`, então uma foto sem permissão registrada não compila. Todo crédito de foto é obrigatório.
+- Movimento com GSAP pontual e respeito a `prefers-reduced-motion`.
+
+## Depois do evento
+
+Com o campeonato encerrado, inscrição e programação saíram do ar, a contagem regressiva deu lugar ao aviso da próxima edição, e o site ganhou uma galeria com as fotos da pista e uma seção de agradecimentos a quem ajudou no dia.

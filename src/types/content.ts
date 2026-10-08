@@ -29,6 +29,10 @@ export type ProjectMeta = {
   summary: string;
   /** URL externa do projeto (deploy ou repositório). */
   link?: string;
+  /** Texto alternativo da captura; fallback em coverAltFor(). */
+  coverAlt?: string;
+  /** Papel no projeto, quando confirmado. */
+  role?: string;
 };
 
 export type PostMeta = {
