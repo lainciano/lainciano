@@ -48,3 +48,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# artefatos locais de agentes (companion de brainstorming, capturas do Playwright)
+.superpowers/
+.playwright-mcp/

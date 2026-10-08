@@ -13,10 +13,9 @@ export const about = {
     "Engenheiro de software full stack — do front ao back, com foco em web, mobile e cibersegurança.",
     "Construo produtos de ponta a ponta: interfaces acessíveis e rápidas, APIs e arquiteturas que escalam — com segurança pensada em cada etapa.",
   ],
-  nextEvent: {
-    label: "Disponível para projetos",
-    date: "Julho de 2026",
-  },
+  statusLabel: "Agora",
+  photoAlt: "Foto de Luciano Rodrigues",
+  talkCta: "Vamos conversar",
 };
 
 export const skills: Skill[] = [
@@ -102,4 +101,40 @@ export const footer = {
   workDaysLabel: "Dias de trabalho",
   workDays: "Segunda – Sexta",
   projectPrompt: "Tem um projeto em mente?",
+};
+
+/** HUD, inventário e avisos (Cripta). */
+export const hud = {
+  relics: "relíquias",
+  sound: "som",
+  on: "on",
+  off: "off",
+  reading: "leitura",
+  close: "fechar",
+  drawerTitle: "Relíquias",
+  drawerRole: "Cada interação escondida desbloqueia um sigilo. O progresso fica salvo neste navegador.",
+  locked: "???",
+  lockedHow: "Ainda escondida.",
+  relicPrefix: "relíquia:",
+  progress: (won: number, total: number) => `${won} de ${total}`,
+  railLabel: "Seções desta página",
+  menuReading: "Modo leitura",
+};
+
+/** Portal da primeira visita (spec 7.1). */
+export const portal = {
+  lede: "Entre. Quase tudo aqui responde ao toque.",
+  withSound: "Entrar com som",
+  silent: "Entrar em silêncio",
+  reading: "Modo leitura",
+  enterKey: "Enter",
+  escKey: "Esc",
+};
+
+/** Títulos e papéis de sala (Fase 1: papéis neutros; as fases seguintes trocam pelo verbo da sala). */
+export const rooms = {
+  about: { title: "Gravura", role: "Sobre. Quem constrói, e como." },
+  work: { title: "Projetos", role: "Índice de projetos." },
+  blog: { title: "Biblioteca", role: "Notas sobre desenvolvimento web, performance, design e segurança." },
+  contact: { title: "Terminal", role: "Contato. Escreva direto para o e-mail abaixo." },
 };

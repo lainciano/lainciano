@@ -1,11 +1,13 @@
 type MarqueeTextProps = {
-  /** Texto repetido dentro da faixa (ex.: "LAIN "). */
+  /** Texto repetido dentro da faixa (ex.: "lainciano "). */
   text: string;
   /** Direção do letreiro: header = esquerda→direita; footer = direita→esquerda. */
   direction: "ltr" | "rtl";
   className?: string;
   /** Repetições por metade da faixa (cada metade é idêntica para loop sem salto). */
   repeat?: number;
+  /** Aplica o estilo do wordmark (sem caixa alta). */
+  wordmark?: boolean;
 };
 
 // Letreiro infinito via CSS transform (GPU). Duas metades idênticas no track:
@@ -15,13 +17,14 @@ export function MarqueeText({
   direction,
   className = "",
   repeat = 4,
+  wordmark = false,
 }: MarqueeTextProps) {
   const segment = `${text} `.repeat(repeat).trim();
 
   return (
     <div className={`marquee overflow-hidden ${className}`.trim()} aria-hidden="true">
       <div
-        className={`marquee-track marquee-track--${direction} text-marquee whitespace-nowrap`}
+        className={`marquee-track marquee-track--${direction} text-marquee whitespace-nowrap ${wordmark ? "wordmark" : ""}`}
       >
         <span className="marquee-segment">{segment}</span>
         <span className="marquee-segment">{segment}</span>

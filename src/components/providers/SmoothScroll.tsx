@@ -7,6 +7,7 @@ import { ReactLenis, useLenis } from "lenis/react";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { createBackgroundProgress } from "@/animations/backgroundProgress";
+import { useReadingMode } from "@/interaction/reading-mode/store";
 import { registerLenisControls, resumeLenis } from "@/lib/lenis-bridge";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
@@ -60,8 +61,9 @@ function ScrollBridge() {
 }
 
 export function SmoothScroll({ children }: SmoothScrollProps) {
+  const reading = useReadingMode();
   return (
-    <ReactLenis root options={{ lerp: 0.1, duration: 1.2, smoothWheel: true }}>
+    <ReactLenis root options={{ lerp: 0.1, duration: 1.2, smoothWheel: !reading }}>
       <ScrollBridge />
       {children}
     </ReactLenis>

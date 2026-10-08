@@ -1,13 +1,16 @@
 import Image from "next/image";
 import { Pill } from "@/components/ui/Pill";
+import { getSiteSettings } from "@/lib/content/site";
 import { SkillBadge } from "@/components/ui/SkillBadge";
 import { about, skills } from "@/lib/content/copy";
 
 export function About() {
-  const { roleTop, roleBottom, paragraphs, nextEvent } = about;
+  const { roleTop, roleBottom, paragraphs, statusLabel, photoAlt, talkCta } = about;
+  const { availability } = getSiteSettings();
 
   return (
     <section
+      data-rail="Sobre"
       id="about"
       className="content-container grid grid-cols-1 gap-12 pb-section pt-4 lg:grid-cols-12 lg:gap-x-10 lg:pt-6 2xl:gap-x-12"
       aria-label="Sobre"
@@ -18,7 +21,7 @@ export function About() {
         <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[42%_58%_60%_40%/45%_45%_55%_55%] bg-secondary">
           <Image
             src="/foto-lain.jpeg"
-            alt="Foto do Lain"
+            alt={photoAlt}
             fill
             sizes="(max-width: 1024px) 100vw, 40vw"
             priority
@@ -48,10 +51,10 @@ export function About() {
         </div>
 
         <div className="flex w-fit flex-col gap-2 rounded-card border border-accent p-5">
-          <span className="caps text-muted">{nextEvent.label}</span>
-          <span className="text-small-heading text-foreground">{nextEvent.date}</span>
+          <span className="caps text-muted">{statusLabel}</span>
+          <span className="text-small-heading text-foreground">{availability}</span>
           <Pill href="/contact" className="mt-2 w-fit">
-            Vamos conversar
+            {talkCta}
           </Pill>
         </div>
       </div>

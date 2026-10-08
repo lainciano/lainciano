@@ -23,6 +23,9 @@ export const metadata: Metadata = buildPageMetadata({
 export default function HomePage() {
   return (
     <div className="mt-8 lg:mt-12">
+      <h1 className="wordmark content-container text-[clamp(4rem,17vw,16rem)] leading-[0.8] text-osso">
+        {site.siteName}
+      </h1>
       <About />
       <Work />
       <LatestBlog />

@@ -2,7 +2,7 @@
 
 :root {
   --background: #100a08;
-  --foreground: #f4f4f4;
+  --foreground: var(--osso);
   --secondary: #5a280d;
   --accent: #8f2f06;
   --hover: #975025;
@@ -51,7 +51,26 @@
   --z-header: 20; /* navbar sticky */
   --z-overlay: 9998; /* fallback de transição de página */
   --z-mobile-menu: 9999; /* painel do MobileMenu */
-  --z-loader: 10000; /* overlay do Loader */
+  /* ---------- Cripta v2: paleta ---------- */
+  --breu: #100a08;
+  --osso: #ece4d6;
+  --ferrugem: #8f2f06;
+  --sangue: #c0230f;
+  --brasa: #975025;
+  --cinza: #a08769;
+  --linha: #3a1d0f;
+  --apagado: #6f5a45; /* só texto decorativo que também existe em estado legível */
+
+  /* ---------- Cripta v2: layout / motion / camadas ---------- */
+  --hud-h: 4.25rem;
+  --frame-w: 2px;
+  --motion-cursor: 180ms;
+  --motion-door: 700ms;
+  --z-rail: 25;
+  --z-hud: 30;
+  --z-cursor: 9990;
+  --z-toast: 9995;
+  --z-portal: 10000;
 }
 
 @theme inline {
@@ -62,6 +81,15 @@
   --color-hover: var(--hover);
   --color-muted: var(--muted);
   --color-highlight: var(--highlight);
+  --color-breu: var(--breu);
+  --color-osso: var(--osso);
+  --color-ferrugem: var(--ferrugem);
+  --color-sangue: var(--sangue);
+  --color-cinza: var(--cinza);
+  --color-linha: var(--linha);
+  --color-apagado: var(--apagado);
+  --font-gothic: var(--font-grenze);
+  --font-mono: var(--font-jetbrains);
   --radius-card: var(--card-radius);
   --radius-card-hover: var(--hover-radius);
   --font-sans: var(--font-geist-sans);
@@ -109,11 +137,6 @@ body {
   background: var(--background);
 }
 
-/* Faixa do nome gigante — altura de uma linha; overflow não vaza para a navbar/hero. */
-.route-banner {
-  max-height: calc(clamp(5rem, 16vw, 18rem) * 0.85 + 2.5rem);
-}
-
 /* Nome gigante (Hero / faixa do footer) — sans display pesado, uppercase */
 .text-marquee {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
@@ -128,7 +151,6 @@ body {
 .text-nav-logo {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-weight: 900;
-  text-transform: uppercase;
   font-size: clamp(2rem, 4vw, 3.25rem);
   line-height: 1;
   letter-spacing: -0.02em;
@@ -160,6 +182,51 @@ body {
   font-family: var(--font-instrument-serif), Georgia, serif;
   font-size: clamp(1.25rem, 2vw, 2rem);
   line-height: 1.15;
+}
+
+/* Wordmark: o nome é escrito em caixa baixa — nunca transformar. */
+.wordmark {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  text-transform: none;
+}
+
+/* Título de sala — gótico, nunca em texto corrido nem abaixo de 32px. */
+.text-room-title {
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(3.5rem, 10vw, 9.375rem);
+  line-height: 0.85;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+/* Linha de papel da sala (o que fazer aqui). */
+.text-room-role {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--cinza);
+  max-width: 44ch;
+}
+
+/* Rótulo de verbo (cursor, dicas, trilho). */
+.text-verb {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.frame {
+  border: var(--frame-w) solid var(--osso);
+}
+
+.shadow-hard {
+  box-shadow: 6px 6px 0 var(--sangue);
 }
 
 /* Sombra dos cards de projeto — timing assimétrico (entrada rápida, saída suave). */
@@ -205,9 +272,9 @@ body {
 
 /* Anel de foco padrão do DS — aplicar em todo elemento focável. */
 .focus-ring:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 2px;
+  outline: 2px solid var(--sangue);
+  outline-offset: 3px;
+  border-radius: 0;
 }
 
 /* Link com sublinhado animado (origin-left) */
@@ -256,7 +323,7 @@ body {
   padding-right: 0.15em;
 }
 
-/* Header: esquerda → direita */
+/* Letreiro: esquerda → direita */
 .marquee-track--ltr {
   animation: marquee-ltr 40s linear infinite;
 }
@@ -354,21 +421,12 @@ body {
 }
 
 /* --- Motion (Sprint 3) --- */
-.hero-layer {
-  will-change: transform;
-}
-
 .section-heading-layer {
   will-change: transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-layer,
   .section-heading-layer {
-    display: none;
-  }
-
-  .loader-overlay {
     display: none;
   }
 }
@@ -507,4 +565,339 @@ body {
     animation-duration: 0s !important;
     animation-delay: 0s !important;
   }
+}
+
+/* --- Modo leitura: sem movimento decorativo --- */
+:root[data-reading="on"] .marquee-track {
+  animation: none !important;
+  transform: none !important;
+}
+
+:root[data-reading="on"] .section-heading-layer {
+  display: none;
+}
+
+/* --- Cripta: botões do HUD e gaveta de relíquias --- */
+.hud-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 2.75rem;
+  padding: 0 var(--space-xs);
+  border: 1px solid currentColor;
+  background: none;
+  color: inherit;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.hud-btn:active {
+  transform: scale(0.96);
+}
+
+.relic-drawer {
+  width: min(64rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: var(--space-lg);
+  display: none;
+  flex-direction: column;
+  gap: var(--space-md);
+  background: var(--breu);
+  color: var(--osso);
+  border: var(--frame-w) solid var(--osso);
+  overflow-y: auto;
+}
+
+.relic-drawer[open] {
+  display: flex;
+}
+
+.relic-drawer::backdrop {
+  background: color-mix(in srgb, var(--breu) 80%, transparent);
+}
+
+/* --- Cripta: cursor contextual --- */
+.cursor-cripta {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: var(--z-cursor);
+  pointer-events: none;
+}
+
+.cursor-cripta[data-hidden="on"] {
+  opacity: 0;
+}
+
+.cursor-cripta__anel {
+  position: absolute;
+  width: 2.125rem;
+  height: 2.125rem;
+  left: -1.0625rem;
+  top: -1.0625rem;
+  border: 1.5px solid var(--osso);
+  border-radius: 50%;
+  mix-blend-mode: difference;
+  transition:
+    width var(--motion-base) var(--ease-out),
+    height var(--motion-base) var(--ease-out),
+    left var(--motion-base) var(--ease-out),
+    top var(--motion-base) var(--ease-out),
+    background-color var(--motion-fast);
+}
+
+.cursor-cripta[data-zone="on"] .cursor-cripta__anel {
+  width: 4.625rem;
+  height: 4.625rem;
+  left: -2.3125rem;
+  top: -2.3125rem;
+}
+
+.cursor-cripta[data-link="on"] .cursor-cripta__anel {
+  background: var(--osso);
+}
+
+.cursor-cripta__verbo {
+  position: absolute;
+  left: 1.375rem;
+  top: 0.875rem;
+  padding: 0.3125rem 0.4375rem;
+  background: var(--osso);
+  color: var(--breu);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity var(--motion-fast),
+    transform var(--motion-fast);
+}
+
+.cursor-cripta[data-zone="on"] .cursor-cripta__verbo {
+  opacity: 1;
+  transform: none;
+}
+
+.cursor-cripta__carga {
+  position: absolute;
+  left: -2.3125rem;
+  top: -2.3125rem;
+  width: 4.625rem;
+  height: 4.625rem;
+  transform: rotate(-90deg);
+  opacity: 0;
+}
+
+.cursor-cripta[data-charging="on"] .cursor-cripta__carga {
+  opacity: 1;
+}
+
+.cursor-cripta__carga circle {
+  fill: none;
+  stroke: var(--sangue);
+  stroke-width: 4;
+}
+
+@media (pointer: fine) {
+  :root[data-cursor="on"] [data-verbo] {
+    cursor: none;
+  }
+}
+
+/* --- Cripta: HUD --- */
+.hud {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: var(--z-hud);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: var(--hud-h);
+  padding: calc(env(safe-area-inset-top, 0px) + var(--space-2xs)) var(--edge-padding) var(--space-2xs);
+  color: var(--osso);
+  mix-blend-mode: difference;
+}
+
+/* --- Cripta: trilho de progresso --- */
+.progress-rail {
+  position: fixed;
+  right: var(--space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: var(--z-rail);
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .progress-rail {
+    display: block;
+  }
+}
+
+.progress-rail ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  border-right: 1px solid var(--linha);
+}
+
+.progress-rail__mark {
+  position: relative;
+  display: block;
+  width: 1.5rem;
+  height: 2.75rem;
+}
+
+.progress-rail__mark::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 25%;
+  bottom: 25%;
+  width: 3px;
+  background: var(--cinza);
+  transition: background-color var(--motion-fast);
+}
+
+.progress-rail__mark[aria-current="location"]::after {
+  background: var(--sangue);
+}
+
+.progress-rail__label {
+  position: absolute;
+  right: 1.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.25rem 0.4rem;
+  background: var(--osso);
+  color: var(--breu);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast);
+}
+
+.progress-rail__mark:hover .progress-rail__label,
+.progress-rail__mark:focus-visible .progress-rail__label {
+  opacity: 1;
+}
+
+/* --- Cripta: Portal --- */
+.portal {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--osso);
+  overflow: hidden;
+}
+
+.portal:not([open]) {
+  display: none;
+}
+
+.portal::backdrop {
+  background: transparent;
+}
+
+.portal__folha {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  background: repeating-linear-gradient(
+    0deg,
+    var(--breu) 0 3px,
+    color-mix(in srgb, var(--osso) 6%, var(--breu)) 3px 4px
+  );
+  animation: portal-deriva 12s linear infinite;
+}
+
+.portal__folha--esq {
+  left: 0;
+  border-right: 1px solid var(--linha);
+}
+
+.portal__folha--dir {
+  right: 0;
+}
+
+@keyframes portal-deriva {
+  to {
+    background-position: 0 40px;
+  }
+}
+
+:root[data-reading="on"] .portal__folha {
+  animation: none;
+  background: var(--breu);
+}
+
+.portal__conteudo {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-lg);
+  padding: var(--edge-padding);
+}
+
+.portal__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 3rem;
+  padding: 0 var(--space-md);
+  border: var(--frame-w) solid var(--osso);
+  background: none;
+  color: var(--osso);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast),
+    transform var(--motion-fast);
+}
+
+.portal__btn:hover,
+.portal__btn--primario {
+  background: var(--osso);
+  color: var(--breu);
+}
+
+.portal__btn--primario {
+  box-shadow: 6px 6px 0 var(--sangue);
+}
+
+.portal__btn:active {
+  transform: scale(0.96);
+}
+
+.portal__btn kbd {
+  font: inherit;
+  font-size: 0.6875rem;
+  opacity: 0.6;
 }

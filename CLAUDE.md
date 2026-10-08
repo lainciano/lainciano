@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Personal portfolio site for Lain (Luciano Rodrigues) — Next.js 16 (App Router) + React 19 + TypeScript, 100% file-based content (MDX + JSON), no database. Dark editorial theme, GSAP/Lenis motion, View Transitions between routes. Content and copy are in Portuguese (pt-BR); code identifiers are in English.
 
+## Work in progress — "Cripta" redesign
+
+A full redesign (gothic/brutal/hacker, gamified, GSAP + Three.js + Matter.js, WebAudio) was approved on 2026-10-08 and is being implemented in phases. **Before changing any UI, read `docs/superpowers/HANDOFF-cripta.md`** — it points to the spec (`docs/superpowers/specs/2026-10-08-portfolio-cripta-design.md`), the Phase 1 plan, the phase roadmap and the approved prototype (local copy under `docs/superpowers/specs/assets/cripta/`). Those docs live in the gitignored `docs/` folder (local only). Where the spec conflicts with this file (e.g. the Upstash Redis exception for the ranking, the removal of the route banner/Loader), the spec wins.
+
 ## Commands
 
 Package manager is **pnpm** (pinned via `packageManager` in `package.json`; migrated from npm — do not reintroduce `package-lock.json`).
@@ -15,9 +19,10 @@ pnpm dev      # start dev server
 pnpm build    # production build
 pnpm start    # serve production build
 pnpm lint     # eslint (eslint-config-next core-web-vitals + typescript)
+pnpm test     # vitest
 ```
 
-No test suite is configured. There is no `typecheck` script — use `pnpm exec tsc --noEmit` if type-checking is needed standalone.
+Tests run with Vitest (`pnpm test`). There is no `typecheck` script — use `pnpm exec tsc --noEmit` if type-checking is needed standalone.
 
 ## Architecture
 
@@ -45,7 +50,7 @@ System/UI copy (labels, headings, microcopy, CTA text) is centralized in `src/li
 `src/app/globals.css` is the single source of truth for design tokens (`:root` + Tailwind v4 `@theme inline`): color, spacing (`--space-*`), motion durations/easings, z-index layers, border radius, typography scale. Full reference: `docs/design-system.md`.
 
 - **Never hardcode a color, spacing, duration, or z-index value in a component** — add/use a token instead. If a value repeats in 2+ places, it should become a token.
-- Per-route accent color override happens via `data-accent-color`/inline `--color-accent` on the route wrapper (e.g. `app/(site)/work/[slug]/layout.tsx`), not by hardcoding hex per component.
+- Per-route accent color override happens via `data-accent-color`/inline `--color-accent` on the route wrapper, not by hardcoding hex per component.
 - Do **not** add new `--spacing-{xs,sm,md,lg,xl,2xl}` names to `@theme` — they collide with Tailwind's built-in size scale and silently break `max-w-*` utilities. Only `--spacing-section` (→ `py-section`) is exposed as a named Tailwind utility; other spacing tokens are used as raw CSS vars (`gap-[var(--space-lg)]`).
 - Two type families: Instrument Serif (editorial headings) and Geist (display/body). Section/page headings are always serif; card titles are Geist bold uppercase — don't mix.
 - Every interactive element needs `focus-visible` via the `.focus-ring` utility class.
@@ -53,11 +58,12 @@ System/UI copy (labels, headings, microcopy, CTA text) is centralized in `src/li
 
 ### Animation stack
 
-- **GSAP** (`+ ScrollTrigger`, `@gsap/react`) for scroll-driven timelines, stagger, parallax — timelines live in `src/animations/*.ts`, one file per effect (e.g. `heroMarquee.ts`, `servicesStack.ts`).
+- **GSAP** (`+ ScrollTrigger`, `@gsap/react`) for scroll-driven timelines, stagger, parallax — timelines live in `src/animations/*.ts`, one file per effect (e.g. `servicesStack.ts`).
+- Núcleo de interação em `src/interaction/` (cursor, som WebAudio, relíquias, HUD, Portal, modo leitura). Salas em `src/rooms/` a partir da Fase 2. Spec: `docs/superpowers/specs/2026-10-08-portfolio-cripta-design.md`.
 - **Lenis** for smooth scroll, bridged via `src/lib/lenis-bridge.ts` (`pauseLenis()`/`resumeLenis()`) and `SmoothScroll` provider — must be paused/resumed around page transitions.
 - **View Transitions API** (Next.js `experimental.viewTransition`, enabled in `next.config.ts`) drives route transitions, with a GSAP crossfade fallback (`src/animations/pageTransitionFallback.ts`) when the API is unsupported or reduced-motion is active. Full flow documented in `docs/view-transitions.md`.
   - `src/lib/navigation.ts` → `navigateWithTransition()` is the actual navigation logic (View Transition vs. fallback, direction-aware `nav-forward`/`nav-back`).
-  - `src/lib/nav.ts` → just the static `NAV_LINKS` array shared by Header/Footer. Don't confuse the two files.
+  - `src/lib/nav.ts` → just the static `NAV_LINKS` array shared by HUD/Footer. Don't confuse the two files.
   - `TransitionLink` / `LinkHover` components and `useViewTransition` hook wrap this for use in components.
 - Desktop-only spatial effects (card scatter/deck layouts) must degrade to a normal document-flow layout on mobile — never animation-gate content visibility (avoid FOIC: content must be legible without JS/scroll).
 
@@ -86,7 +92,7 @@ No backend/form submission — `/contact` only offers a `mailto:` CTA (`ContactC
 
 ## Explicitly out of scope for this project
 
-- No database or ORM (Prisma, Supabase, Neon, etc.)
+- No database or ORM (Prisma, Supabase, Neon, etc.). Exceção aprovada: Upstash Redis apenas para o ranking da platina (spec Cripta 8.5), provisionado na Fase 7.
 - No headless CMS (Sanity, Contentful)
 - No Framer Motion as the primary animation library (GSAP is)
 - No `@studio-freight/react-lenis` (deprecated — use `lenis` directly)
