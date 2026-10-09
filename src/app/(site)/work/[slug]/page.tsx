@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { MdxContent } from "@/components/content/MdxContent";
-import { Pill, Tag } from "@/components/ui/Pill";
+import { LitCaption } from "@/components/ui/LitCaption";
 import { RoomDoor } from "@/components/ui/RoomDoor";
-import { RoomSound } from "@/interaction/sound/RoomSound";
-import { pages, rooms } from "@/lib/content/copy";
-import { getProjectBySlug, getProjects } from "@/lib/content/projects";
+import { TransitionLink } from "@/components/ui/TransitionLink";
+import { CaseFacts } from "@/components/work/CaseFacts";
+import { NextCase } from "@/components/work/NextCase";
+import { camara, doors, pages, rooms } from "@/lib/content/copy";
+import { coverAltFor, getAdjacentProjects, getProjectBySlug, getProjects, linkKind } from "@/lib/content/projects";
 import { navLabel } from "@/lib/nav";
 import { buildPageMetadata } from "@/lib/seo/metadata";
+import { LensCapture } from "@/rooms/camara/LensCapture";
 
 type Params = { slug: string };
 
@@ -16,11 +18,7 @@ export function generateStaticParams() {
   return getProjects().map((project) => ({ slug: project.slug }));
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<Params>;
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { slug } = await params;
   const project = getProjectBySlug(slug);
   if (!project) return { title: "Projeto não encontrado" };
@@ -34,71 +32,46 @@ export async function generateMetadata({
   });
 }
 
-function linkLabel(url: string): string {
-  return url.includes("github.com") ? "Ver repositório" : "Acessar projeto";
-}
-
-export default async function ProjectPage({
-  params,
-}: {
-  params: Promise<Params>;
-}) {
+// Case — Câmara (spec 7.5): nome gigante, captura com lente, fatos, resumo que acende, corpo em 66ch,
+// "Visitar o site", próximo case (wrap) e a porta da jornada para o Sobre (D13).
+export default async function ProjectPage({ params }: { params: Promise<Params> }) {
   const { slug } = await params;
   const project = getProjectBySlug(slug);
   if (!project) notFound();
+  const { next } = getAdjacentProjects(project.slug);
 
   return (
     <>
-      <RoomSound name="vela" />
-    <article className="content-container py-12 lg:py-16">
-      <div className="mb-8 flex flex-col gap-4">
-        <span className="caps text-muted">{project.year}</span>
-        <h1 className="text-large-heading text-foreground">{project.title}</h1>
-        <div className="flex flex-wrap gap-2">
-          {project.tags.map((tag) => (
-            <Tag key={tag}>{tag}</Tag>
-          ))}
+      <article data-rail={doors.caseRoom} id="camara" className="content-container camara py-section">
+        <header className="camara__cabeca">
+          <TransitionLink href="/work" transitionDirection="back" className="link-mono focus-ring">
+            {pages.work.back}
+          </TransitionLink>
+          <p className="text-room-role">{camara.role}</p>
+          <h1 className="camara__titulo">{project.title}</h1>
+        </header>
+
+        <div className="camara__grade">
+          <LensCapture src={project.coverImage} alt={coverAltFor(project)} title={project.title} />
+          <CaseFacts project={project} />
         </div>
-      </div>
 
-      <div
-        className="relative mb-10 aspect-[16/9] w-full max-w-3xl overflow-hidden rounded-card"
-        style={{ backgroundColor: project.accentColor ?? "var(--color-secondary)" }}
-      >
-        {project.coverImage && (
-          <Image
-            src={project.coverImage}
-            alt={`Capa do projeto ${project.title}`}
-            fill
-            className="object-cover rounded-card border border-secondary shadow-lg"
-            sizes="(max-width: 768px) 100vw, 768px"
-            priority
-          />
-        )}
-      </div>
+        <LitCaption paragraphs={[project.summary]} className="camara__resumo" />
 
-      <p className="text-large-body max-w-2xl text-foreground/90">{project.summary}</p>
+        <div className="camara__corpo">
+          <MdxContent source={project.content} />
+        </div>
 
-      <div className="mt-10 max-w-2xl">
-        <MdxContent source={project.content} />
-      </div>
-
-      <div className="mt-12 flex flex-wrap gap-4">
         {project.link && (
-          <a
-            href={project.link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="caps focus-ring inline-flex items-center justify-center rounded-full bg-accent px-6 py-3 text-foreground transition-colors duration-[var(--motion-base)] ease-out-soft hover:bg-hover"
-          >
-            {linkLabel(project.link)} ↗
-          </a>
+          <p>
+            <a href={project.link} target="_blank" rel="noopener noreferrer" className="camara__visitar focus-ring">
+              {camara.visit[linkKind(project.link)]}
+              <span aria-hidden="true"> ↗</span>
+            </a>
+          </p>
         )}
-        <Pill href="/work" transitionDirection="back">
-          {pages.work.back}
-        </Pill>
-      </div>
-    </article>
+      </article>
+      {next && <NextCase project={next} />}
       <RoomDoor href="/about" room={rooms.about.title} label={navLabel("/about")} />
     </>
   );

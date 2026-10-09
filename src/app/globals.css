@@ -95,6 +95,7 @@
   --preview-h: 14.0625rem; /* 225 px (16:10) */
   --z-preview: 15; /* prévia flutuante: acima do .page-shell (10), abaixo do trilho (25) e do HUD (30) */
   --focus-offset: 3px; /* afastamento do anel de foco (spec 11) */
+  --measure-body: 66ch; /* coluna de leitura do corpo (spec 7.5, 7.7) */
 }
 
 @theme inline {
@@ -2022,5 +2023,227 @@ body {
 
   .legenda-hq__toque {
     display: inline;
+  }
+}
+
+.camara {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.camara__cabeca {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-sm);
+}
+
+.camara__titulo {
+  margin: 0;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-weight: 900;
+  font-size: clamp(3rem, 11vw, 10rem);
+  line-height: 0.85;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.camara__grade {
+  display: grid;
+  grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
+  align-items: start;
+  gap: clamp(1.5rem, 4vw, 4rem);
+}
+
+@media (max-width: 63.99rem) {
+  .camara__grade {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.fatos__lista {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-xs) var(--space-md);
+  margin: 0;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--linha);
+}
+
+.fatos__lista dt {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cinza);
+}
+
+.fatos__lista dd {
+  margin: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/* Links em texto de corpo: osso com sublinhado sangue; --sangue em texto pequeno não passa 4,5:1 (D15). */
+.fatos__link,
+.camara__corpo .mdx-content a {
+  color: var(--osso);
+  text-decoration: underline;
+  text-decoration-color: var(--sangue);
+  text-decoration-thickness: var(--frame-w);
+  text-underline-offset: 0.2em;
+  transition: text-decoration-color var(--motion-fast);
+}
+
+.fatos__link:hover,
+.fatos__link:focus-visible,
+.camara__corpo .mdx-content a:hover,
+.camara__corpo .mdx-content a:focus-visible {
+  color: var(--osso);
+  text-decoration-color: var(--osso);
+}
+
+.camara__resumo {
+  max-width: var(--measure-body);
+}
+
+.camara__corpo {
+  max-width: var(--measure-body);
+}
+
+.camara__corpo .mdx-content h2 {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-weight: 900;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.camara__corpo .mdx-content ul {
+  list-style: none;
+  padding-left: var(--space-md);
+}
+
+.camara__corpo .mdx-content ul > li {
+  position: relative;
+}
+
+.camara__corpo .mdx-content ul > li::before {
+  content: "†";
+  content: "†" / "";
+  position: absolute;
+  left: calc(var(--space-md) * -1);
+  color: var(--sangue);
+}
+
+.camara__visitar {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  padding: var(--space-tick) var(--space-chip);
+  border: var(--stroke-ui) solid var(--osso);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--osso);
+  text-decoration: none;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast);
+}
+
+.camara__visitar:hover,
+.camara__visitar:focus-visible {
+  background: var(--osso);
+  color: var(--breu);
+}
+
+.camara__visitar:active {
+  transform: scale(0.96);
+}
+
+/* Próximo case (D13): linha-link com mini captura cinza. */
+.proximo-case {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 12rem;
+  grid-template-areas:
+    "rotulo mini"
+    "nome mini";
+  align-items: end;
+  gap: var(--space-2xs) var(--space-md);
+  padding-block: var(--space-lg);
+  border-top: 1px solid var(--linha);
+  color: var(--osso);
+  text-decoration: none;
+}
+
+.proximo-case__rotulo {
+  grid-area: rotulo;
+  color: var(--cinza);
+}
+
+.proximo-case__nome {
+  grid-area: nome;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-weight: 900;
+  font-size: clamp(1.75rem, 5vw, 4.5rem);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  transition: color var(--motion-fast);
+}
+
+.proximo-case__miniatura {
+  grid-area: mini;
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border: var(--frame-w) solid var(--osso);
+  background: var(--breu);
+}
+
+.proximo-case__foto {
+  object-fit: cover;
+  object-position: top center;
+  filter: grayscale(1) contrast(1.35);
+}
+
+.proximo-case:hover .proximo-case__nome,
+.proximo-case:focus-visible .proximo-case__nome {
+  color: var(--sangue);
+}
+
+@media (max-width: 47.99rem) {
+  .proximo-case {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "rotulo"
+      "nome"
+      "mini";
+  }
+}
+
+:root[data-reading="on"] .camara__visitar,
+:root[data-reading="on"] .proximo-case__nome,
+:root[data-reading="on"] .fatos__link,
+:root[data-reading="on"] .camara__corpo .mdx-content a {
+  transition: none;
+}
+
+:root[data-reading="on"] .camara__visitar:active {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .camara__visitar:active {
+    transform: none;
   }
 }
