@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
-import { ExplorerMark } from "@/interaction/relics/ExplorerMark";
 import { notFound } from "next/navigation";
+import { POST_MDX_COMPONENTS } from "@/components/blog/CodeBlock";
+import { PostNav } from "@/components/blog/PostNav";
 import { MdxContent } from "@/components/content/MdxContent";
-import { Pill, Tag } from "@/components/ui/Pill";
+import { RoomDoor } from "@/components/ui/RoomDoor";
+import { TransitionLink } from "@/components/ui/TransitionLink";
+import { ExplorerMark } from "@/interaction/relics/ExplorerMark";
 import { RoomSound } from "@/interaction/sound/RoomSound";
-import { pages } from "@/lib/content/copy";
+import { pages, rooms } from "@/lib/content/copy";
+import { getPostNeighbors } from "@/lib/content/library";
 import { getPostBySlug, getPosts } from "@/lib/content/posts";
 import { formatDate } from "@/lib/format";
+import { navLabel } from "@/lib/nav";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
 type Params = { slug: string };
@@ -18,11 +23,7 @@ export function generateStaticParams() {
   return getPosts().map((post) => ({ slug: post.slug }));
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<Params>;
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { slug } = await params;
   const post = getPostBySlug(slug);
   if (!post) return { title: "Post não encontrado" };
@@ -36,42 +37,38 @@ export async function generateMetadata({
   });
 }
 
-export default async function PostPage({
-  params,
-}: {
-  params: Promise<Params>;
-}) {
+// Post — leitura (spec 7.7, mockup): cabeçalho, corpo em 66ch, anterior/próximo e a porta para o Contato (D5).
+export default async function PostPage({ params }: { params: Promise<Params> }) {
   const { slug } = await params;
   const post = getPostBySlug(slug);
   if (!post) notFound();
+  const { older, newer } = getPostNeighbors(getPosts(), post.slug);
 
   return (
     <>
       <ExplorerMark area="post" />
       <RoomSound name="biblioteca" />
-    <article className="content-container py-12 lg:py-16">
-      <div className="mb-8 flex flex-col gap-4">
-        <span className="caps text-muted">{formatDate(post.createdAt)}</span>
-        <h1 className="text-large-heading text-foreground">{post.title}</h1>
-        <div className="flex flex-wrap gap-2">
-          {post.tags.map((tag) => (
-            <Tag key={tag}>{tag}</Tag>
-          ))}
-        </div>
-      </div>
-
-      <p className="text-large-body max-w-2xl text-foreground/90">{post.excerpt}</p>
-
-      <div className="mt-10 max-w-2xl">
-        <MdxContent source={post.content} />
-      </div>
-
-      <div className="mt-12">
-        <Pill href="/blog" transitionDirection="back">
+      <article className="content-container leitura py-section">
+        <TransitionLink href="/blog" transitionDirection="back" className="link-mono focus-ring leitura__voltar">
           {pages.blog.back}
-        </Pill>
-      </div>
-    </article>
+        </TransitionLink>
+
+        <header className="leitura__cabeca">
+          <p className="leitura__linha">
+            <time dateTime={post.createdAt}>{formatDate(post.createdAt)}</time>
+            <span>{post.tags.join(", ")}</span>
+          </p>
+          <h1 className="leitura__titulo">{post.title}</h1>
+          <p className="leitura__standfirst">{post.excerpt}</p>
+        </header>
+
+        <div id="corpo" className="leitura__corpo">
+          <MdxContent source={post.content} components={POST_MDX_COMPONENTS} />
+        </div>
+
+        <PostNav older={older} newer={newer} />
+      </article>
+      <RoomDoor href="/contact" room={rooms.contact.title} label={navLabel("/contact")} />
     </>
   );
 }
