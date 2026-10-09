@@ -21,6 +21,7 @@ export function ConsoleOverlay() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const closeTween = useRef<gsap.core.Tween | null>(null);
   const [everOpened, setEverOpened] = useState(false);
   if (open && !everOpened) setEverOpened(true);
 
@@ -55,6 +56,14 @@ export function ConsoleOverlay() {
     const dialog = dialogRef.current;
     const panel = panelRef.current;
     if (!dialog || !panel) return;
+    if (open && closeTween.current) {
+      // Reabriu durante a animação de fechar: mata o tween (o onComplete fecharia o diálogo recém-aberto).
+      closeTween.current.kill();
+      closeTween.current = null;
+      gsap.set(panel, { clearProps: "transform,opacity" });
+      dialog.querySelector<HTMLInputElement>(".console__input")?.focus();
+      return;
+    }
     if (open && !dialog.open) {
       dialog.showModal();
       pauseLenis();
@@ -69,12 +78,13 @@ export function ConsoleOverlay() {
         dialog.close();
         return;
       }
-      gsap.to(panel, {
+      closeTween.current = gsap.to(panel, {
         yPercent: 8,
         opacity: 0,
         duration: OUT_S,
         ease: "power2.in",
         onComplete: () => {
+          closeTween.current = null;
           dialog.close();
           gsap.set(panel, { clearProps: "transform,opacity" });
         },
