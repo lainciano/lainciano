@@ -22,20 +22,27 @@ export function CopyButton({ text, label, doneLabel, failLabel, className = "" }
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
+  const feedback = state === "done" ? doneLabel : state === "fail" ? failLabel : null;
+
   return (
-    <button
-      type="button"
-      className={`hud-btn focus-ring ${className}`.trim()}
-      aria-live="polite"
-      onClick={async () => {
-        const copied = await copyText(text);
-        soundEngine.play(copied ? "copy" : "error");
-        setState(copied ? "done" : "fail");
-        window.clearTimeout(timer.current);
-        timer.current = window.setTimeout(() => setState("idle"), COPIED_MS);
-      }}
-    >
-      {state === "done" ? doneLabel : state === "fail" ? failLabel : label}
-    </button>
+    <>
+      <button
+        type="button"
+        className={`hud-btn focus-ring ${className}`.trim()}
+        onClick={async () => {
+          const copied = await copyText(text);
+          soundEngine.play(copied ? "copy" : "error");
+          setState(copied ? "done" : "fail");
+          window.clearTimeout(timer.current);
+          timer.current = window.setTimeout(() => setState("idle"), COPIED_MS);
+        }}
+      >
+        {feedback ?? label}
+      </button>
+      {/* Região viva irmã: o anúncio não depende de o próprio botão trocar de rótulo. */}
+      <span role="status" className="sr-only">
+        {feedback}
+      </span>
+    </>
   );
 }
