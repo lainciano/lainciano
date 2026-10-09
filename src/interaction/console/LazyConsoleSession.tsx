@@ -8,8 +8,10 @@ import { lazy, Suspense, type ComponentProps } from "react";
 const Session = lazy(() => import("./ConsoleSession").then((m) => ({ default: m.ConsoleSession })));
 
 export function LazyConsoleSession(props: ComponentProps<typeof Session>) {
+  // Embutido: o quadro vazio já ocupa a altura do console, então a página não pula quando ele chega (CLS).
+  const fallback = props.inline ? <div className={`console ${props.className ?? ""}`} aria-hidden="true" /> : null;
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={fallback}>
       <Session {...props} />
     </Suspense>
   );
