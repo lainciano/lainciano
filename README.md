@@ -22,13 +22,14 @@
   <img src="https://img.shields.io/badge/Next.js-100A08?style=for-the-badge&logo=nextdotjs&logoColor=975025"/>
   <img src="https://img.shields.io/badge/React-100A08?style=for-the-badge&logo=react&logoColor=975025"/>
   <img src="https://img.shields.io/badge/React_Native-100A08?style=for-the-badge&logo=react&logoColor=975025"/>
+  <img src="https://img.shields.io/badge/Flutter-100A08?style=for-the-badge&logo=flutter&logoColor=975025"/>
+  <img src="https://img.shields.io/badge/Firebase100A08?style=for-the-badge&logo=firebase&logoColor=975025"/>
   <img src="https://img.shields.io/badge/Supabase-100A08?style=for-the-badge&logo=supabase&logoColor=975025"/>
   <img src="https://img.shields.io/badge/PostgreSQL-100A08?style=for-the-badge&logo=postgresql&logoColor=975025"/>
   <img src="https://img.shields.io/badge/TailwindCSS-100A08?style=for-the-badge&logo=tailwindcss&logoColor=975025"/>
   <img src="https://img.shields.io/badge/Linux-100A08?style=for-the-badge&logo=linux&logoColor=975025"/>
   <img src="https://img.shields.io/badge/Git-100A08?style=for-the-badge&logo=git&logoColor=975025"/>
   <img src="https://img.shields.io/badge/Figma-100A08?style=for-the-badge&logo=figma&logoColor=975025"/>
-  <img src="https://img.shields.io/badge/Cybersecurity-100A08?style=for-the-badge&logo=kalilinux&logoColor=975025"/>
 </p>
 
 ---
