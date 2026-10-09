@@ -2503,3 +2503,16 @@ body {
   gap: var(--space-2xs);
   margin-block: var(--space-sm) var(--space-md);
 }
+
+/* --- Cripta: 404 — Cripta vazia (spec 7.9) --- */
+.cripta-vazia__console {
+  margin-top: var(--space-lg);
+  max-width: var(--measure-body);
+}
+
+.cripta-vazia__caminhos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  margin-top: var(--space-md);
+}
