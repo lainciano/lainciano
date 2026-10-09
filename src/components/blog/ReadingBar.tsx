@@ -7,6 +7,8 @@ import { READER, readingProgress, shouldUnlockReader } from "@/lib/reading";
 
 // pointerdown cobre também o arrasto da barra de rolagem.
 const INPUT_EVENTS = ["wheel", "touchmove", "keydown", "pointerdown"] as const;
+// Margem: o timer pode disparar ~1 ms antes de performance.now() - mountedAt >= dwellMs.
+const DWELL_TIMER_MS = READER.dwellMs + 50;
 const subscribeNothing = () => () => {};
 
 /**
@@ -21,6 +23,9 @@ export function ReadingBar({ targetId }: { targetId: string }) {
   useEffect(() => {
     const bar = barRef.current;
     const target = document.getElementById(targetId);
+    if (mounted && !target && process.env.NODE_ENV !== "production") {
+      console.warn(`[ReadingBar] #${targetId} nao encontrado; barra e relíquia Leitor inativas`);
+    }
     if (!mounted || !bar || !target) return;
     const startY = window.scrollY;
     let mountedAt = performance.now();
@@ -53,12 +58,12 @@ export function ReadingBar({ targetId }: { targetId: string }) {
       schedule();
     };
     // Tempo parado só conta com a aba visível: ao voltar, recomeça os 15 s.
-    let dwell = window.setTimeout(schedule, READER.dwellMs);
+    let dwell = window.setTimeout(schedule, DWELL_TIMER_MS);
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
       mountedAt = performance.now();
       window.clearTimeout(dwell);
-      dwell = window.setTimeout(schedule, READER.dwellMs);
+      dwell = window.setTimeout(schedule, DWELL_TIMER_MS);
       schedule();
     };
 
