@@ -100,6 +100,8 @@
   --ledger-nudge: 0.5rem; /* 8 px: recuo da linha do livro-razão no hover (spec 7.6) */
   --ledger-tags: 12.5rem; /* coluna das tags do livro-razão */
   --ledger-date-short: 6rem; /* 96 px: coluna da data curta "25 mar" (mockup do Blog) */
+  --z-reading: 31; /* barra de leitura: acima do HUD (30), abaixo de cursor, toast e Portal */
+  --reading-bar-h: 2px; /* spec 7.7 */
   --terminal-min: 26.25rem; /* 420 px: altar e console (protótipo) */
   --terminal-min-mobile: 20rem; /* 320 px: altar no celular */
   --terminal-max: 35rem; /* 560 px: console embutido (protótipo) */
@@ -2853,4 +2855,16 @@ body {
     border-left: 0;
     border-top: 1px solid var(--linha);
   }
+}
+
+.reading-bar {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: var(--z-reading);
+  height: var(--reading-bar-h);
+  background: var(--sangue);
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
 }

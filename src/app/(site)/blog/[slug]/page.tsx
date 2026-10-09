@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { POST_MDX_COMPONENTS } from "@/components/blog/CodeBlock";
 import { PostNav } from "@/components/blog/PostNav";
+import { ReadingBar } from "@/components/blog/ReadingBar";
 import { MdxContent } from "@/components/content/MdxContent";
 import { RoomDoor } from "@/components/ui/RoomDoor";
 import { TransitionLink } from "@/components/ui/TransitionLink";
@@ -48,6 +49,7 @@ export default async function PostPage({ params }: { params: Promise<Params> }) 
     <>
       <ExplorerMark area="post" />
       <RoomSound name="biblioteca" />
+      <ReadingBar key={post.slug} targetId="corpo" />
       <article className="content-container leitura py-section">
         <TransitionLink href="/blog" transitionDirection="back" className="link-mono focus-ring leitura__voltar">
           {pages.blog.back}
