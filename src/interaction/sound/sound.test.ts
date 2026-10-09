@@ -53,6 +53,8 @@ describe("NOISE", () => {
   });
   it("risco de troca de linha do Relicário: curto e agudo (spec 7.4)", () => {
     expect(NOISE.scratch).toEqual([{ dur: 0.04, gain: 0.03, filter: "highpass", freq: 3200 }]);
+  });
+  it("folha do Blog: curta e abafada, abaixo do risco (D16)", () => {
     expect(NOISE.page).toEqual([{ dur: 0.09, gain: 0.02, filter: "bandpass", freq: 1800, q: 0.7 }]);
   });
 });

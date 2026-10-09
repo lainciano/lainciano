@@ -35,6 +35,13 @@ describe("shouldUnlockReader (só para quem leu — Review Focus 1)", () => {
   it("95% na montagem sem scroll (post curto em tela alta, recarregar no fim): não", () => {
     expect(shouldUnlockReader({ ...base, dwellMs: 60000 })).toBe(false);
   });
+  it("95% exatos sem scroll e sem esperar: não; com scroll: sim (borda)", () => {
+    expect(shouldUnlockReader({ ...base, progress: READER.threshold })).toBe(false);
+    expect(shouldUnlockReader({ ...base, progress: READER.threshold, scrolled: true })).toBe(true);
+  });
+  it("página que não rola mesmo com scroll registrado: vale o scroll", () => {
+    expect(shouldUnlockReader({ ...base, scrolled: true, scrollable: false })).toBe(true);
+  });
   it("página que não rola: só depois de 15 s", () => {
     expect(shouldUnlockReader({ ...base, scrollable: false, dwellMs: 14999 })).toBe(false);
     expect(shouldUnlockReader({ ...base, scrollable: false, dwellMs: 15000 })).toBe(true);

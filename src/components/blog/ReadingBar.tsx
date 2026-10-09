@@ -59,6 +59,7 @@ export function ReadingBar({ targetId }: { targetId: string }) {
       mountedAt = performance.now();
       window.clearTimeout(dwell);
       dwell = window.setTimeout(schedule, READER.dwellMs);
+      schedule();
     };
 
     window.addEventListener("scroll", onScroll, { passive: true });
