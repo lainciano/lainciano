@@ -94,6 +94,7 @@
   --preview-w: 22.5rem; /* prévia do Relicário: 360 px (spec 7.4) */
   --preview-h: 14.0625rem; /* 225 px (16:10) */
   --z-preview: 15; /* prévia flutuante: acima do .page-shell (10), abaixo do trilho (25) e do HUD (30) */
+  --focus-offset: 3px; /* afastamento do anel de foco (spec 11) */
 }
 
 @theme inline {
@@ -1929,4 +1930,97 @@ body {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* --- Cripta Fase 3: Câmara (/work/[slug]) --- */
+.camara__moldura {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  margin: 0 0 var(--space-lg);
+  border: var(--frame-w) solid var(--osso);
+  background: var(--breu);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* A camada focável fica dentro de um overflow:hidden: o anel vai na moldura (lição da Fase 2). */
+.camara__moldura:has(.camara__camada:focus-visible) {
+  outline: var(--frame-w) solid var(--sangue);
+  outline-offset: var(--focus-offset);
+}
+
+.camara__camada:focus-visible {
+  outline: none;
+}
+
+.camara__janela {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.camara__foto {
+  object-fit: cover;
+  object-position: top center;
+}
+
+/* Com JS e fora do modo leitura, cinza até a gravura assumir (D19). Sem JS (sem data-reading), em
+   modo leitura e com o WebGL perdido: cores normais (spec 7.5). */
+:root[data-reading="off"] .camara__moldura:not([data-fallback]) .camara__foto {
+  filter: grayscale(1) contrast(1.3);
+}
+
+.camara__camada {
+  position: absolute;
+  inset: 0;
+}
+
+.camara__canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.camara__moldura:has(.camara__canvas[data-ready]) .camara__foto {
+  visibility: hidden;
+}
+
+/* Contador "revelado N%" (aprovado pelo dono): Mono, no canto, só com a cena viva. */
+.camara__revelado {
+  position: absolute;
+  z-index: var(--z-room-ui);
+  top: var(--space-xs);
+  right: var(--space-xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  background: var(--breu);
+  color: var(--osso);
+  border: var(--stroke-ui) solid var(--osso);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* A legenda fala da lente: só existe com a lente. */
+.camara__moldura .legenda-hq {
+  display: none;
+}
+
+.camara__moldura:has(.camara__canvas[data-ready]) .legenda-hq {
+  display: block;
+}
+
+.legenda-hq__toque {
+  display: none;
+}
+
+@media (hover: none) {
+  .legenda-hq__mouse {
+    display: none;
+  }
+
+  .legenda-hq__toque {
+    display: inline;
+  }
 }
