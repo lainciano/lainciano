@@ -88,6 +88,12 @@
   --space-tick: 0.375rem; /* 6 px: respiro mínimo de rótulo e laje */
   --space-wide: 1.75rem; /* 28 px: ritmo vertical de linha de livro-razão e coluna de texto */
   --stroke-ui: 1.5px; /* contorno de botões de sala e do cursor */
+  --row-min: 4.5rem; /* 72 px: linha do índice de projetos (spec 7.4) */
+  --row-shift: 0.75rem; /* 12 px: deslize da linha no hover/foco (spec 7.4) */
+  --thumb-max: 32rem; /* miniatura estática do índice no mobile/toque */
+  --preview-w: 22.5rem; /* prévia do Relicário: 360 px (spec 7.4) */
+  --preview-h: 14.0625rem; /* 225 px (16:10) */
+  --z-preview: 15; /* prévia flutuante: acima do .page-shell (10), abaixo do trilho (25) e do HUD (30) */
 }
 
 @theme inline {
@@ -1721,4 +1727,159 @@ body {
   font-family: var(--font-jetbrains), ui-monospace, monospace;
   font-size: 0.75rem;
   color: var(--cinza);
+}
+
+/* --- Cripta Fase 3: Relicário (/work) --- */
+.relicario {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--linha);
+}
+
+.relicario > li {
+  border-top: 1px solid var(--linha);
+}
+
+.relicario-linha {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 16rem) 2rem;
+  grid-template-areas: "ano nome meta seta";
+  align-items: baseline;
+  column-gap: var(--space-md);
+  min-height: var(--row-min);
+  padding-block: var(--space-sm);
+  color: var(--osso);
+  text-decoration: none;
+  transition: transform var(--motion-base) var(--ease-out);
+}
+
+.relicario-linha__ano,
+.relicario-linha__meta {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--cinza);
+  font-variant-numeric: tabular-nums;
+}
+
+.relicario-linha__ano {
+  grid-area: ano;
+}
+
+.relicario-linha__nome {
+  grid-area: nome;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-weight: 900;
+  font-size: clamp(1.75rem, 5vw, 4.5rem);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  transition: color var(--motion-fast);
+}
+
+.relicario-linha__meta {
+  grid-area: meta;
+  display: grid;
+  gap: var(--space-3xs);
+}
+
+.relicario-linha__seta {
+  grid-area: seta;
+  justify-self: end;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 1.5rem;
+  color: var(--cinza);
+  transition:
+    color var(--motion-fast),
+    transform var(--motion-base) var(--ease-out);
+}
+
+.relicario-linha__miniatura {
+  display: none;
+}
+
+.relicario-linha:hover,
+.relicario-linha:focus-visible,
+.relicario-linha[data-active="on"] {
+  transform: translateX(var(--row-shift));
+}
+
+.relicario-linha:hover .relicario-linha__nome,
+.relicario-linha:focus-visible .relicario-linha__nome,
+.relicario-linha[data-active="on"] .relicario-linha__nome,
+.relicario-linha:hover .relicario-linha__seta,
+.relicario-linha:focus-visible .relicario-linha__seta,
+.relicario-linha[data-active="on"] .relicario-linha__seta {
+  color: var(--sangue);
+}
+
+.relicario-linha:hover .relicario-linha__seta,
+.relicario-linha:focus-visible .relicario-linha__seta,
+.relicario-linha[data-active="on"] .relicario-linha__seta {
+  transform: translateX(var(--space-2xs));
+}
+
+/* Mobile e toque: sem prévia flutuante; captura estática em cinza abaixo do nome (spec 7.4, D12). */
+@media (max-width: 47.99rem), (hover: none) {
+  .relicario-linha {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "ano seta"
+      "nome nome"
+      "meta meta"
+      "mini mini";
+    row-gap: var(--space-2xs);
+  }
+
+  .relicario-linha__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--space-sm);
+  }
+
+  .relicario-linha__miniatura {
+    grid-area: mini;
+    position: relative;
+    display: block;
+    width: 100%;
+    max-width: var(--thumb-max);
+    aspect-ratio: 16 / 10;
+    margin-top: var(--space-2xs);
+    overflow: hidden;
+    border: var(--frame-w) solid var(--osso);
+    background: var(--breu);
+  }
+
+  .relicario-linha__foto {
+    object-fit: cover;
+    object-position: top center;
+    filter: grayscale(1) contrast(1.35);
+  }
+}
+
+:root[data-reading="on"] .relicario-linha,
+:root[data-reading="on"] .relicario-linha__nome,
+:root[data-reading="on"] .relicario-linha__seta {
+  transition: none;
+}
+
+:root[data-reading="on"] .relicario-linha:hover,
+:root[data-reading="on"] .relicario-linha:focus-visible,
+:root[data-reading="on"] .relicario-linha[data-active="on"],
+:root[data-reading="on"] .relicario-linha:hover .relicario-linha__seta,
+:root[data-reading="on"] .relicario-linha:focus-visible .relicario-linha__seta {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relicario-linha:hover,
+  .relicario-linha:focus-visible,
+  .relicario-linha[data-active="on"],
+  .relicario-linha:hover .relicario-linha__seta,
+  .relicario-linha:focus-visible .relicario-linha__seta {
+    transform: none;
+  }
 }
