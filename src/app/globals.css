@@ -1883,3 +1883,50 @@ body {
     transform: none;
   }
 }
+
+/* Prévia flutuante (portal em <body>, fixed normal — nunca popover). Só aparece com a cena viva e a
+   primeira captura carregada: nada de moldura vazia. */
+.relicario-previa {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: var(--z-preview);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--motion-fast) var(--ease-out),
+    visibility 0s linear var(--motion-fast);
+}
+
+.relicario-previa[data-on="on"]:has(.relicario-previa__camada[data-loaded="on"]) {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity var(--motion-fast) var(--ease-out),
+    visibility 0s;
+}
+
+.relicario-previa__mover {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--preview-w);
+  height: var(--preview-h);
+  border: var(--frame-w) solid var(--osso);
+  background: var(--breu);
+  will-change: transform;
+}
+
+.relicario-previa__camada {
+  position: absolute;
+  inset: 0;
+}
+
+.relicario-previa__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
