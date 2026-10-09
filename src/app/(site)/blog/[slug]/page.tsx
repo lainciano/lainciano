@@ -11,6 +11,9 @@ import { buildPageMetadata } from "@/lib/seo/metadata";
 
 type Params = { slug: string };
 
+// Slug fora do conteúdo é URL sem rota: cai no 404 da raiz, que sai renderizado no servidor (sem JS).
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return getPosts().map((post) => ({ slug: post.slug }));
 }
