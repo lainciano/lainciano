@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ExplorerMark } from "@/interaction/relics/ExplorerMark";
 import { notFound } from "next/navigation";
 import { MdxContent } from "@/components/content/MdxContent";
 import { Pill, Tag } from "@/components/ui/Pill";
@@ -43,6 +44,7 @@ export default async function PostPage({
 
   return (
     <>
+      <ExplorerMark area="post" />
       <RoomSound name="biblioteca" />
     <article className="content-container py-12 lg:py-16">
       <div className="mb-8 flex flex-col gap-4">

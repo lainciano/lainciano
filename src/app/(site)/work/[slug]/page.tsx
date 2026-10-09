@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ExplorerMark } from "@/interaction/relics/ExplorerMark";
 import { notFound } from "next/navigation";
 import { MdxContent } from "@/components/content/MdxContent";
 import { LitCaption } from "@/components/ui/LitCaption";
@@ -42,6 +43,7 @@ export default async function ProjectPage({ params }: { params: Promise<Params> 
 
   return (
     <>
+      <ExplorerMark area="case" />
       <article data-rail={doors.caseRoom} id="camara" className="content-container camara py-section">
         <header className="camara__cabeca">
           <TransitionLink href="/work" transitionDirection="back" className="link-mono focus-ring">

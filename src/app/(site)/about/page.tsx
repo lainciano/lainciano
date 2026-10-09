@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ExplorerMark } from "@/interaction/relics/ExplorerMark";
 import { AvailabilitySeal } from "@/components/ui/AvailabilitySeal";
 import { LitCaption } from "@/components/ui/LitCaption";
 import { RoomDoor } from "@/components/ui/RoomDoor";
@@ -23,6 +24,7 @@ export default function AboutPage() {
 
   return (
     <div className="mt-8 lg:mt-12">
+      <ExplorerMark area="about" />
       <RoomTitle title={rooms.about.title} role={rooms.about.role} className="content-container mb-[var(--space-xl)]" />
       <section data-rail={rooms.about.title} id="gravura" aria-label={rooms.about.title} className="content-container gravura pb-section">
         <Gravura />

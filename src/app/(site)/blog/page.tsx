@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ExplorerMark } from "@/interaction/relics/ExplorerMark";
 import { BlogCard } from "@/components/ui/BlogCard";
 import { RoomSound } from "@/interaction/sound/RoomSound";
 import { PageContent } from "@/components/ui/PageContent";
@@ -20,6 +21,7 @@ export default function BlogPage() {
 
   return (
     <PageContent>
+      <ExplorerMark area="blog" />
       <RoomSound name="biblioteca" />
       <section className="content-container py-section">
         <RoomTitle title={rooms.blog.title} role={rooms.blog.role} className="mb-[var(--space-xl)]" />
