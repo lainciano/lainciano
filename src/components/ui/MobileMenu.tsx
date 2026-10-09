@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { TransitionLink } from "@/components/ui/TransitionLink";
+import { consoleStore } from "@/interaction/console/store";
 import { readingStore, useReadingMode } from "@/interaction/reading-mode/store";
 import { VolumeControl } from "@/interaction/sound/VolumeControl";
 import { hud } from "@/lib/content/copy";
@@ -169,6 +170,16 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
                   className="hud-btn focus-ring w-fit"
                 >
                   {hud.menuReading}: {reading ? hud.on : hud.off}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeMenu();
+                    consoleStore.open();
+                  }}
+                  className="hud-btn focus-ring w-fit"
+                >
+                  {hud.menuConsole}
                 </button>
                 {activeSocials.length > 0 && (
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2">

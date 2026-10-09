@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useRef } from "react";
 import { MobileMenu } from "@/components/ui/MobileMenu";
 import { TransitionLink } from "@/components/ui/TransitionLink";
+import { consoleStore } from "@/interaction/console/store";
 import { readingStore, useReadingMode } from "@/interaction/reading-mode/store";
 import { RELICS } from "@/interaction/relics/catalog";
 import { RelicDrawer } from "@/interaction/relics/RelicDrawer";
@@ -60,6 +61,19 @@ export function Hud({ siteName, email, availability, socialLinks }: HudProps) {
         </nav>
 
         <div className="flex items-center gap-[var(--space-2xs)]">
+          <button
+            type="button"
+            className="hud-btn focus-ring hidden md:inline-flex"
+            aria-haspopup="dialog"
+            aria-keyshortcuts="/"
+            aria-label={hud.consoleLabel}
+            onClick={() => consoleStore.open()}
+          >
+            <kbd aria-hidden="true">/</kbd>
+            <span aria-hidden="true" className="hidden lg:inline">
+              {hud.console}
+            </span>
+          </button>
           <button
             type="button"
             className="hud-btn focus-ring"

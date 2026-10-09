@@ -2347,3 +2347,56 @@ body {
     font-size: 1rem;
   }
 }
+
+/* --- Cripta: console sobreposto (spec 8.6, D12) --- */
+.console-overlay {
+  position: fixed;
+  inset: auto 0 0;
+  width: 100%;
+  max-width: none;
+  height: var(--console-overlay-h);
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--osso);
+  overflow: visible;
+}
+
+.console-overlay:not([open]) {
+  display: none;
+}
+
+.console-overlay::backdrop {
+  background: color-mix(in srgb, var(--breu) 70%, transparent);
+}
+
+.console-overlay__painel {
+  height: 100%;
+  padding: var(--space-sm) var(--edge-padding);
+  border-top: var(--frame-w) solid var(--osso);
+  background: var(--breu);
+}
+
+.console-overlay .console {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+}
+
+@media (max-width: 47.99rem) {
+  .console-overlay {
+    inset: 0;
+    height: 100dvh;
+  }
+
+  .console-overlay__painel {
+    padding: 0;
+    border-top: 0;
+  }
+
+  .console-overlay .console {
+    border: 0;
+  }
+}
