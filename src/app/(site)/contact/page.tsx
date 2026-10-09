@@ -4,6 +4,8 @@ import { RoomSound } from "@/interaction/sound/RoomSound";
 import { PageContent } from "@/components/ui/PageContent";
 import { RoomDoor } from "@/components/ui/RoomDoor";
 import { RoomTitle } from "@/components/ui/RoomTitle";
+import { AsciiRelic } from "@/rooms/terminal/AsciiRelic";
+import { ALTAR_STILL } from "@/rooms/terminal/still";
 import { doors, pages, rooms } from "@/lib/content/copy";
 import { getSiteSettings } from "@/lib/content/site";
 import { buildPageMetadata } from "@/lib/seo/metadata";
@@ -22,6 +24,13 @@ export default function ContactPage() {
       <RoomSound name="terminal" />
       <section className="content-container grid w-full grid-cols-1 gap-12 py-section lg:grid-cols-12 lg:gap-16">
         <RoomTitle title={rooms.contact.title} role={rooms.contact.role} className="lg:col-span-12" />
+        <div className="lg:col-span-12">
+          <AsciiRelic>
+            <pre className="altar__still" aria-hidden="true">
+              {ALTAR_STILL}
+            </pre>
+          </AsciiRelic>
+        </div>
         <div className="flex flex-col gap-6 lg:col-span-5">
           <p className="text-large-body text-foreground/90">{pages.contact.intro}</p>
           <div className="flex flex-col gap-2">

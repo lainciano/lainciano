@@ -2400,3 +2400,85 @@ body {
     border: 0;
   }
 }
+
+/* --- Cripta: Terminal — sala e altar ASCII (spec 7.8; porte do protótipo .terminal-sala/.altar) --- */
+.terminal__sala {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: clamp(var(--space-md), 4vw, var(--space-xl));
+  align-items: stretch;
+  margin-top: var(--space-lg);
+}
+
+@media (max-width: 53.75rem) {
+  .terminal__sala {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.altar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: var(--terminal-min);
+  overflow: hidden;
+  border: var(--frame-w) solid var(--osso);
+  background: var(--breu);
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.altar:focus-visible {
+  outline: var(--frame-w) solid var(--sangue);
+  outline-offset: var(--focus-offset);
+}
+
+@media (max-width: 53.75rem) {
+  .altar {
+    min-height: var(--terminal-min-mobile);
+  }
+}
+
+.altar__still,
+.altar__ascii,
+.altar__ascii table {
+  grid-area: 1 / 1;
+  margin: 0;
+  color: var(--osso);
+  font-family: var(--font-jetbrains), ui-monospace, monospace !important; /* o AsciiEffect escreve "courier new" inline na <table> */
+  line-height: 1 !important;
+}
+
+.altar__still {
+  font-size: var(--altar-glyph);
+  white-space: pre;
+}
+
+.altar[data-live="on"] .altar__still {
+  visibility: hidden;
+}
+
+.altar__camada {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+/* O AsciiEffect lê os pixels deste canvas; quem aparece é a tabela de texto. */
+.altar__gl {
+  display: none;
+}
+
+.altar__rotulo {
+  position: absolute;
+  left: var(--space-xs);
+  bottom: var(--space-xs);
+  z-index: var(--z-room-ui);
+  color: var(--cinza);
+  font: 400 0.75rem / 1.3 var(--font-jetbrains), ui-monospace, monospace;
+}
+
+:root[data-reading="on"] .altar__rotulo {
+  display: none;
+}
