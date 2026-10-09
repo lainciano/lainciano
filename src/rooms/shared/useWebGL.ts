@@ -59,6 +59,7 @@ export function useWebGL(layerRef: RefObject<HTMLElement | null>, { enabled, cre
     let cancelled = false;
     let scene: WebGLScene | null = null;
     let holdsSlot = false;
+    let pending = true;
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     let dpr = capDpr(window.devicePixelRatio, coarse);
     const guard = createFpsGuard();
@@ -73,9 +74,10 @@ export function useWebGL(layerRef: RefObject<HTMLElement | null>, { enabled, cre
       webglBudget.release();
       if (DEV) console.debug(`[webgl] contextos vivos: ${webglBudget.live()}`);
     };
+    // Tamanho de layout (ignora transform): a prévia do Relicário inclina, e o retângulo de uma caixa
+    // girada é maior que ela (D9). Sem transform, é o mesmo valor de antes.
     const measure = () => {
-      const rect = layer.getBoundingClientRect();
-      scene?.resize(rect.width, rect.height, dpr);
+      scene?.resize(layer.clientWidth, layer.clientHeight, dpr);
     };
     const tick: Tick = (_time, deltaTime) => {
       if (!scene) return;
@@ -109,8 +111,10 @@ export function useWebGL(layerRef: RefObject<HTMLElement | null>, { enabled, cre
 
     start().then(
       (created) => {
+        pending = false;
         if (cancelled) {
           created.dispose();
+          releaseSlot(); // o contexto só morre no dispose: o slot é liberado depois dele (D26)
           return;
         }
         scene = created;
@@ -122,6 +126,7 @@ export function useWebGL(layerRef: RefObject<HTMLElement | null>, { enabled, cre
         wake();
       },
       () => {
+        pending = false;
         releaseSlot();
         canvas.remove();
         if (!cancelled) setStatus("fallback");
@@ -136,7 +141,7 @@ export function useWebGL(layerRef: RefObject<HTMLElement | null>, { enabled, cre
       canvas.removeEventListener("webglcontextlost", onLost);
       scene?.dispose();
       scene = null;
-      releaseSlot();
+      if (!pending) releaseSlot(); // cena ainda em criação: o .then libera depois do dispose
       canvas.remove();
     };
   }, [enabled, near, layerRef, canvasClassName, sleep, wake]);
