@@ -70,14 +70,10 @@ export const pages = {
   },
 };
 
-/** CTA de contato (abre o cliente de e-mail via mailto). */
+/** Assunto e corpo do e-mail aberto pelo "escrever" do Contato (mailto, sem backend). */
 export const contactCta = {
-  heading: "Vamos conversar?",
-  description: "Abra seu e-mail com uma mensagem já pronta — é só completar e enviar.",
-  button: "Enviar e-mail ↗",
   mailtoSubject: "Contato pelo portfólio",
   mailtoBody: "Olá! Gostaria de conversar sobre um projeto.\n\n",
-  hint: "Ou escreva direto para",
 };
 
 /** Rótulos do rodapé. */
@@ -105,6 +101,9 @@ export const hud = {
   menuReading: "Modo leitura",
   volume: "volume",
   muted: "mudo",
+  console: "console",
+  consoleLabel: "Abrir console (atalho /)",
+  menuConsole: "Console",
 };
 
 /** Portal da primeira visita (spec 7.1). */
@@ -124,7 +123,7 @@ export const rooms = {
   about: { title: "Gravura", role: "Sobre. Segure sobre o retrato." },
   work: { title: "Projetos", role: "Índice. Passe o mouse para ver a relíquia." },
   blog: { title: "Biblioteca", role: "Notas sobre desenvolvimento web, performance, design e segurança." },
-  contact: { title: "Terminal", role: "Contato. Escreva direto para o e-mail abaixo." },
+  contact: { title: "Terminal", role: "Contato. Gire a relíquia, digite no console." },
 };
 
 /** Home — abertura e seções (spec 7.2). */
@@ -188,4 +187,81 @@ export const camara = {
   facts: { year: "Ano", kind: "Tipo", role: "Papel", stack: "Stack", site: "No ar", repo: "Código" },
   visit: { site: "Visitar o site", repo: "Ver o repositório" },
   nextCase: "Próximo case",
+};
+
+/** Console global e Terminal do Contato (spec 7.8, 8.6). Respostas em caixa baixa, como no protótipo. */
+export const terminal = {
+  title: "cripta — tty1",
+  hint: "digite ajuda",
+  prompt: "lainciano@cripta:~$",
+  promptShort: "~$",
+  inputLabel: "Comando do terminal",
+  placeholder: "ajuda",
+  overlayLabel: "Console",
+  close: "fechar",
+  greeting: "sessão aberta. digite ajuda para ver os comandos.",
+  notFoundGreeting: "endereço vazio. digite ajuda para achar um caminho.",
+  help: [
+    "ajuda                      esta lista",
+    "ir <sala>                  home, projetos, blog, sobre, contato",
+    "projetos | abrir <projeto> lista e abre um case",
+    "blog | ler <post>          lista e abre um post",
+    "sobre | contato            quem é e como falar",
+    "reliquias                  o que você já achou",
+    "som on|off | leitura on|off",
+    "arremessar | girar | revelar <projeto>",
+    "ranking | cripta | limpar",
+  ],
+  notFound: (name: string) => `comando não encontrado: ${name}. digite ajuda.`,
+  goUsage: "uso: ir <home|projetos|blog|sobre|contato>",
+  goUnknown: (room: string) => `sala desconhecida: ${room}. salas: home, projetos, blog, sobre, contato.`,
+  going: (room: string) => `indo para ${room} ...`,
+  openUsage: "uso: abrir <projeto>. digite projetos para ver a lista.",
+  projectNotFound: (query: string) => `projeto não encontrado: ${query}. digite projetos.`,
+  ambiguous: (options: readonly string[]) => `mais de um encontrado: ${options.join(", ")}.`,
+  opening: (title: string) => `abrindo case: ${title} ...`,
+  noProjects: "nenhum projeto publicado ainda.",
+  readUsage: "uso: ler <post>. digite blog para ver a lista.",
+  postNotFound: (query: string) => `post não encontrado: ${query}. digite blog.`,
+  readingPost: (title: string) => `abrindo post: ${title} ...`,
+  noPosts: "nenhum post publicado ainda.",
+  aboutMore: "mais em: ir sobre",
+  copied: "(copiado)",
+  copyFailed: "não deu para copiar. selecione o e-mail acima.",
+  relicsSummary: (won: number, total: number) => `${won} de ${total} relíquias.`,
+  locked: "???",
+  soundState: (on: boolean) => `som: ${on ? "on" : "off"}`,
+  soundUsage: "uso: som on|off",
+  readingState: (on: boolean) => `leitura: ${on ? "on" : "off"}`,
+  readingUsage: "uso: leitura on|off",
+  throwDone: "uma letra atravessou o teto da ruína.",
+  spinDone: "a relíquia girou até perder o eixo.",
+  revealUsage: "uso: revelar <projeto>. digite projetos para ver a lista.",
+  revealDone: (title: string) => `a lente passou por ${title} inteiro.`,
+  sudo: "permissão negada. a tentativa foi registrada no livro.",
+  cryptLocked: (won: number, total: number) => `a cripta só abre para quem platinou. ${won} de ${total}.`,
+  cryptSoon: "o livro dos que platinaram ainda está sendo encadernado.",
+  rankingSoon: "o livro dos que platinaram ainda não abriu.",
+};
+
+/** Contato — Terminal (spec 7.8). */
+export const contact = {
+  altarLabel:
+    "Relíquia ASCII: um nó facetado girando. Arraste para girar; com foco, segure as setas ← ou →. No console: girar.",
+  altarHintMouse: "arraste para girar",
+  altarHintTouch: "deslize para girar",
+  emailHeading: "Escreva",
+  copy: "copiar",
+  copied: "copiado",
+  copyFailed: "selecione e copie",
+  write: "escrever ↗",
+  relicsHeading: "Relíquias",
+  relicsRole: "Cada interação escondida desbloqueia um sigilo. O progresso fica salvo neste navegador.",
+};
+
+/** 404 — Cripta vazia (spec 7.9). */
+export const cryptEmpty = {
+  title: "Cripta vazia",
+  lede: "Não há nada neste endereço.",
+  pathsLabel: "Caminhos",
 };

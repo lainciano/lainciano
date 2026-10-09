@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseSoundPref, shouldPlay } from "@/interaction/sound/policy";
-import { BELL, NOISE, SFX } from "@/interaction/sound/sfx";
+import { BELL, KEY_PITCH, NOISE, SFX, keyPitch } from "@/interaction/sound/sfx";
 
 describe("shouldPlay", () => {
   it("só toca com som on, fora do modo leitura e depois de um gesto", () => {
@@ -80,5 +80,19 @@ describe("BELL (sino do Portal)", () => {
   });
   it("razão FM 1:3.5 (spec 8.3)", () => {
     expect(BELL.modRatio).toBe(3.5);
+  });
+});
+
+describe("sons do console (spec 7.8, 8.1)", () => {
+  it("tem bip duplo de sucesso e zumbido de negação", () => {
+    expect(SFX.ok).toHaveLength(2);
+    expect(SFX.denied[0]?.type).toBe("sawtooth");
+    expect(SFX.denied[0]?.freq).toBe(80);
+  });
+  it("a tecla soa entre 900 e 1200 Hz", () => {
+    const base = SFX.key[0]!.freq;
+    expect(base * keyPitch(() => 0)).toBeCloseTo(900);
+    expect(base * keyPitch(() => 1)).toBeCloseTo(1200);
+    expect(KEY_PITCH[0]).toBeLessThan(KEY_PITCH[1]);
   });
 });

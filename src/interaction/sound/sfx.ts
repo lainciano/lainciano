@@ -25,6 +25,8 @@ export type SfxName =
   | "hold"
   | "drip"
   | "chapter"
+  | "ok"
+  | "denied"
   | "tap"
   | "preview";
 
@@ -69,7 +71,20 @@ export const SFX: Record<SfxName, Tone[]> = {
     { freq: 98, dur: 1, type: "sine", gain: 0.06, glideTo: 49 },
     { freq: 147, dur: 0.9, type: "triangle", gain: 0.025, glideTo: 73, delay: 0.05 },
   ],
+  // Console (spec 7.8): sucesso = bip duplo; sudo = zumbido grave negado (protótipo: 80 Hz, 0,3 s).
+  ok: [
+    { freq: 660, dur: 0.04, type: "square", gain: 0.03 },
+    { freq: 990, dur: 0.05, type: "square", gain: 0.03, delay: 0.05 },
+  ],
+  denied: [{ freq: 80, dur: 0.3, type: "sawtooth", gain: 0.04 }],
 };
+
+/** Tecla do console: clique mecânico entre 900 e 1200 Hz (spec 8.1) — multiplicador do `key` (1000 Hz). */
+export const KEY_PITCH = [0.9, 1.2] as const;
+
+export function keyPitch(random: () => number = Math.random): number {
+  return KEY_PITCH[0] + (KEY_PITCH[1] - KEY_PITCH[0]) * random();
+}
 
 /** Rajada de ruído branco filtrado (estrondo, rasgo). */
 export type NoiseBurst = {

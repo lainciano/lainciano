@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { ContactCta } from "@/components/sections/ContactCta";
 import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
 import { RoomSound } from "@/interaction/sound/RoomSound";
 import { PageContent } from "@/components/ui/PageContent";
@@ -32,10 +31,6 @@ export default function ContactPage() {
             />
             <span className="text-small-body text-muted">{pages.contact.copyHint}</span>
           </div>
-        </div>
-
-        <div className="lg:col-span-7">
-          <ContactCta email={site.email} />
         </div>
       </section>
       <RoomDoor href="/" room={rooms.home.title} label={doors.homeLabel} />
