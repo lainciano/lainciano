@@ -2647,6 +2647,7 @@ body {
 
 .leitura__voltar {
   justify-self: start;
+  align-self: flex-start; /* no fluxo flex do mobile */
 }
 
 .leitura__cabeca {
@@ -2741,7 +2742,7 @@ body {
   position: relative;
 }
 
-.codigo pre {
+.leitura__corpo .codigo pre {
   margin: 0;
   overflow-x: auto;
   overscroll-behavior-x: contain;
@@ -2755,7 +2756,7 @@ body {
   color: var(--osso);
 }
 
-.codigo pre:focus-visible {
+.leitura__corpo .codigo pre:focus-visible {
   outline: var(--frame-w) solid var(--sangue);
   outline-offset: var(--focus-offset);
 }
