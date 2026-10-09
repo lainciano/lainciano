@@ -203,3 +203,14 @@ describe("busca e opções de Tab", () => {
     expect(argOptions("ajuda", data)).toEqual([]);
   });
 });
+
+describe("aliases", () => {
+  it("resolve help/clear e ignoram nomes herdados do Object", () => {
+    expect(texts("help")).toEqual(texts("ajuda"));
+    expect(run("clear").effects).toEqual([{ type: "clear" }]);
+    for (const name of ["constructor", "__proto__", "toString"]) {
+      expect(run(name).status).toBe("error");
+      expect(argOptions(name, data)).toEqual([]);
+    }
+  });
+});

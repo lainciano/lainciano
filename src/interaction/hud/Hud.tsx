@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useRef } from "react";
 import { MobileMenu } from "@/components/ui/MobileMenu";
 import { TransitionLink } from "@/components/ui/TransitionLink";
+import { preloadConsoleSession } from "@/interaction/console/LazyConsoleSession";
 import { consoleStore } from "@/interaction/console/store";
 import { readingStore, useReadingMode } from "@/interaction/reading-mode/store";
 import { RELICS } from "@/interaction/relics/catalog";
@@ -68,6 +69,8 @@ export function Hud({ siteName, email, availability, socialLinks }: HudProps) {
             aria-keyshortcuts="/"
             aria-label={hud.consoleLabel}
             onClick={() => consoleStore.open()}
+            onPointerEnter={preloadConsoleSession}
+            onFocus={preloadConsoleSession}
           >
             <kbd aria-hidden="true">/</kbd>
             <span aria-hidden="true" className="hidden lg:inline">

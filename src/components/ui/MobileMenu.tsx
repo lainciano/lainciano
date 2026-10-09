@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { TransitionLink } from "@/components/ui/TransitionLink";
+import { preloadConsoleSession } from "@/interaction/console/LazyConsoleSession";
 import { consoleStore } from "@/interaction/console/store";
 import { readingStore, useReadingMode } from "@/interaction/reading-mode/store";
 import { VolumeControl } from "@/interaction/sound/VolumeControl";
@@ -177,6 +178,8 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
                     closeMenu();
                     consoleStore.open();
                   }}
+                  onPointerEnter={preloadConsoleSession}
+                  onFocus={preloadConsoleSession}
                   className="hud-btn focus-ring w-fit"
                 >
                   {hud.menuConsole}

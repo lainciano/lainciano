@@ -89,7 +89,7 @@ Server Components by default (MDX/JSON reads, SEO, static markup); Client Compon
 
 ### Contact
 
-No backend/form submission — `/contact` only offers a `mailto:` CTA (`ContactCta`, built from `content/site.json` email) and a copy-to-clipboard button (`CopyEmailButton`). See `docs/contact.md`.
+No backend/form submission. `/contact` is the Terminal room: ASCII altar (`src/rooms/terminal/`), an embedded console (`LazyConsoleSession`), the visible email from `content/site.json` with a `CopyButton` and a `mailto:` link (`buildMailtoUrl`), plus the relic inventory. The footer keeps `CopyEmailButton`. See `docs/contact.md` (may be stale).
 
 ## Explicitly out of scope for this project
 

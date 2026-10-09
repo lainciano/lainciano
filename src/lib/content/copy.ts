@@ -63,11 +63,6 @@ export const pages = {
       "Notas sobre desenvolvimento web, performance, design e segurança — o que aprendo construindo.",
     back: "← Todos os posts",
   },
-  contact: {
-    intro:
-      "Tem um projeto em mente? Me conte os detalhes — respondo o mais breve possível.",
-    copyHint: "Clique para copiar o e-mail",
-  },
 };
 
 /** Assunto e corpo do e-mail aberto pelo "escrever" do Contato (mailto, sem backend). */
@@ -230,6 +225,10 @@ export const terminal = {
   copyFailed: "não deu para copiar. selecione o e-mail acima.",
   relicsSummary: (won: number, total: number) => `${won} de ${total} relíquias.`,
   locked: "???",
+  lockedPrefix: "· ",
+  alreadyHere: "você já está aqui.",
+  relicWon: (name: string, won: number, total: number) => `relíquia: ${name} — ${won} de ${total}.`,
+  unavailable: "console indisponível. recarregue a página.",
   soundState: (on: boolean) => `som: ${on ? "on" : "off"}`,
   soundUsage: "uso: som on|off",
   readingState: (on: boolean) => `leitura: ${on ? "on" : "off"}`,

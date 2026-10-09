@@ -45,6 +45,7 @@ export async function createAsciiScene({ canvas, host, coarse, wake }: WebGLScen
   let pointerId: number | null = null;
   let lastX = 0;
   let lastY = 0;
+  let dragging = false;
   const held = new Set<1 | -1>();
 
   const onPointerDown = (event: PointerEvent) => {
@@ -52,15 +53,20 @@ export async function createAsciiScene({ canvas, host, coarse, wake }: WebGLScen
     pointerId = event.pointerId;
     lastX = event.clientX;
     lastY = event.clientY;
+    dragging = false;
     altar.setPointerCapture(event.pointerId);
-    soundEngine.play("grab");
-    if (event.pointerType !== "mouse") vibrate(10);
     wake();
   };
   const onPointerMove = (event: PointerEvent) => {
     const box = altar.getBoundingClientRect();
     tilt = tiltFor((event.clientX - box.left) / box.width, (event.clientY - box.top) / box.height);
     if (event.pointerId === pointerId) {
+      // Pegar/vibrar só no primeiro movimento horizontal (arraste de verdade): rolar a página na vertical fica mudo.
+      if (!dragging && Math.abs(event.clientX - lastX) > Math.abs(event.clientY - lastY)) {
+        dragging = true;
+        soundEngine.play("grab");
+        if (event.pointerType !== "mouse") vibrate(10);
+      }
       spin = dragSpin(event.clientX - lastX, event.clientY - lastY);
       lastX = event.clientX;
       lastY = event.clientY;
@@ -71,7 +77,13 @@ export async function createAsciiScene({ canvas, host, coarse, wake }: WebGLScen
   const onPointerUp = (event: PointerEvent) => {
     if (event.pointerId !== pointerId) return;
     pointerId = null;
-    soundEngine.play("drop");
+    if (dragging) soundEngine.play("drop");
+    dragging = false;
+  };
+  const onPointerCancel = (event: PointerEvent) => {
+    if (event.pointerId !== pointerId) return;
+    pointerId = null;
+    dragging = false; // cancelado (o navegador assumiu o gesto): sem som de soltar
   };
   const onPointerLeave = () => {
     if (pointerId === null) tilt = { x: 0, y: 0 };
@@ -92,7 +104,7 @@ export async function createAsciiScene({ canvas, host, coarse, wake }: WebGLScen
   altar.addEventListener("pointerdown", onPointerDown);
   altar.addEventListener("pointermove", onPointerMove);
   altar.addEventListener("pointerup", onPointerUp);
-  altar.addEventListener("pointercancel", onPointerUp);
+  altar.addEventListener("pointercancel", onPointerCancel);
   altar.addEventListener("pointerleave", onPointerLeave);
   altar.addEventListener("keydown", onKeyDown);
   altar.addEventListener("keyup", onKeyUp);

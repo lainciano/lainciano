@@ -51,7 +51,11 @@ export const COMMANDS = [
   "sudo",
 ] as const;
 
-const ALIASES: Record<string, string> = { help: "ajuda", clear: "limpar" };
+const ALIASES: ReadonlyMap<string, string> = new Map([
+  ["help", "ajuda"],
+  ["clear", "limpar"],
+]);
+const resolveAlias = (name: string): string => ALIASES.get(name) ?? name;
 const SWITCH = ["on", "off"] as const;
 
 /** Chave de busca: só letras e dígitos ("Vermolin.ux" → "vermolinux"). */
@@ -70,7 +74,7 @@ export function findByPrefix<T extends { slug: string; title: string }>(items: r
 
 /** Opções do primeiro argumento para o Tab. */
 export function argOptions(command: string, data: ConsoleData): readonly string[] {
-  switch (ALIASES[command] ?? command) {
+  switch (resolveAlias(command)) {
     case "ir":
       return Object.keys(DESTINATIONS);
     case "abrir":
@@ -122,7 +126,7 @@ function toggle(arg: string | undefined, current: boolean, state: (on: boolean) 
 export function runCommand(raw: string, data: ConsoleData, state: ConsoleState): CommandResult | null {
   const parsed = parseCommand(raw);
   if (!parsed) return null;
-  const name = ALIASES[parsed.name] ?? parsed.name;
+  const name = resolveAlias(parsed.name);
   const { args, rest } = parsed;
 
   switch (name) {
@@ -171,7 +175,7 @@ export function runCommand(raw: string, data: ConsoleData, state: ConsoleState):
     case "reliquias":
       return ok([
         ...RELICS.map((relic) =>
-          state.won.includes(relic.id) ? `${relic.sigil} ${normalize(relic.name)}` : `· ${copy.locked}`,
+          state.won.includes(relic.id) ? `${relic.sigil} ${normalize(relic.name)}` : `${copy.lockedPrefix}${copy.locked}`,
         ),
         copy.relicsSummary(state.won.length, RELICS.length),
       ]);

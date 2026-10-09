@@ -1,8 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { readingStore, useReadingMode } from "@/interaction/reading-mode/store";
+import { RELICS, getRelic } from "@/interaction/relics/catalog";
 import { relicStore, useRelics } from "@/interaction/relics/store";
 import { soundEngine, useSoundEnabled } from "@/interaction/sound/engine";
 import { keyPitch } from "@/interaction/sound/sfx";
@@ -13,6 +14,9 @@ import { COMMANDS, argOptions, runCommand, type ConsoleEffect, type ConsoleLine 
 import { useConsoleData } from "./data";
 import { complete, historyDown, historyUp, pushHistory } from "./parse";
 import { consoleStore } from "./store";
+
+/** Espera o fechamento animado do sobreposto (--motion-console-out) antes de navegar. */
+const CLOSE_MS = 200;
 
 type Line = ConsoleLine & { id: number };
 
@@ -38,6 +42,7 @@ const withId = (line: ConsoleLine): Line => ({ ...line, id: (lineSeq += 1) });
 export function ConsoleSession({ greeting, inline = false, autoFocus = false, onNavigate, onClose, className = "" }: ConsoleSessionProps) {
   const data = useConsoleData();
   const router = useRouter();
+  const pathname = usePathname();
   const { won, platinumAt } = useRelics();
   const sound = useSoundEnabled();
   const reading = useReadingMode();
@@ -76,8 +81,18 @@ export function ConsoleSession({ greeting, inline = false, autoFocus = false, on
   const apply = (effect: ConsoleEffect) => {
     switch (effect.type) {
       case "navigate":
-        onNavigate?.();
-        navigateWithTransition(router, effect.href);
+        // Mesma rota: o pathname não muda, então o ScrollBridge nunca retomaria o Lenis (página travada).
+        if (effect.href === pathname) {
+          append([{ kind: "res", text: copy.alreadyHere }]);
+          return;
+        }
+        if (onNavigate) {
+          // O sobreposto fecha primeiro e só então a transição de rota começa.
+          onNavigate();
+          window.setTimeout(() => navigateWithTransition(router, effect.href), CLOSE_MS);
+        } else {
+          navigateWithTransition(router, effect.href);
+        }
         return;
       case "copy":
         void copyText(effect.text).then((copied) => {
@@ -86,6 +101,10 @@ export function ConsoleSession({ greeting, inline = false, autoFocus = false, on
         });
         return;
       case "unlock":
+        if (!won.includes(effect.id)) {
+          // O aviso (Toast) fica sob o <dialog> do top layer: a relíquia também é anunciada no log.
+          append([{ kind: "res", text: copy.relicWon(getRelic(effect.id).name, won.length + 1, RELICS.length) }]);
+        }
         relicStore.unlock(effect.id);
         return;
       case "sound":
