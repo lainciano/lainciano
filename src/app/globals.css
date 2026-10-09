@@ -644,7 +644,13 @@ body {
     height var(--motion-base) var(--ease-out),
     left var(--motion-base) var(--ease-out),
     top var(--motion-base) var(--ease-out),
-    background-color var(--motion-fast);
+    background-color var(--motion-fast),
+    transform var(--motion-fast) var(--ease-out);
+}
+
+/* Pressionado: o anel encolhe um pouco, como um botão físico. */
+.cursor-cripta[data-press="on"] .cursor-cripta__anel {
+  transform: scale(0.72);
 }
 
 .cursor-cripta[data-zone="on"] .cursor-cripta__anel {
@@ -1541,7 +1547,7 @@ body {
   color: var(--osso);
   cursor: none;
   /* Se o JS falhar no meio do caminho, o cartão some sozinho: ele nunca pode prender a página. */
-  animation: room-card-failsafe 0.01s linear 4.5s forwards;
+  animation: room-card-failsafe 0.01s linear 9s forwards; /* = FAILSAFE_S em room-card/timing.ts */
 }
 
 @keyframes room-card-failsafe {
@@ -1602,5 +1608,117 @@ body {
   position: absolute;
   right: var(--edge-padding);
   top: var(--edge-padding);
+  color: var(--cinza);
+}
+
+/* --- Cripta: feedback de clique e controle de volume --- */
+.click-ripple {
+  position: fixed;
+  z-index: var(--z-cursor);
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: -2.25rem 0 0 -2.25rem;
+  border: var(--stroke-ui) solid var(--sangue);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: click-ripple 600ms var(--ease-out) forwards;
+}
+
+@keyframes click-ripple {
+  from {
+    opacity: 0.95;
+    transform: scale(0.15);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+:root[data-reading="on"] .click-ripple {
+  display: none;
+}
+
+.volume {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: var(--tap-min);
+  color: inherit;
+}
+
+.volume__rotulo {
+  flex-shrink: 0;
+  min-width: 4.5ch;
+}
+
+.volume__valor {
+  flex-shrink: 0;
+  min-width: 4.5ch;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.volume__faixa {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1 1 8rem;
+  min-width: 6rem;
+  height: var(--tap-min);
+  background: transparent;
+  color: var(--osso);
+  cursor: pointer;
+}
+
+.volume--compacto .volume__faixa {
+  flex: 0 0 5.5rem;
+  min-width: 0;
+}
+
+.volume__faixa::-webkit-slider-runnable-track {
+  height: 0.25rem;
+  background: linear-gradient(90deg, var(--sangue) var(--volume, 80%), var(--linha) var(--volume, 80%));
+}
+
+.volume__faixa::-moz-range-track {
+  height: 0.25rem;
+  background: var(--linha);
+}
+
+.volume__faixa::-moz-range-progress {
+  height: 0.25rem;
+  background: var(--sangue);
+}
+
+.volume__faixa::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 0.875rem;
+  height: 1.375rem;
+  margin-top: -0.5rem;
+  border: var(--frame-w) solid var(--breu);
+  background: var(--osso);
+}
+
+.volume__faixa::-moz-range-thumb {
+  width: 0.875rem;
+  height: 1.375rem;
+  border: var(--frame-w) solid var(--breu);
+  border-radius: 0;
+  background: var(--osso);
+}
+
+.portal__volume {
+  display: grid;
+  gap: var(--space-3xs);
+  width: min(100%, 26rem);
+}
+
+.portal__dica {
+  margin: 0;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.75rem;
   color: var(--cinza);
 }

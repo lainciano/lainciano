@@ -2,6 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef } from "react";
+import { clickFeedback } from "@/interaction/click-feedback";
+import { spawnRipple } from "@/interaction/click-ripple";
 import { Cursor } from "@/interaction/cursor/Cursor";
 import { chapterFor, shouldShowCard } from "@/interaction/room-card/chapters";
 import { RoomCard } from "@/interaction/room-card/RoomCard";
@@ -45,14 +47,37 @@ export function InteractionProvider({ children }: { children: React.ReactNode })
       if (target && target !== lastHover) soundEngine.play("tick");
       lastHover = target;
     };
+    // Todo clique responde: som (click em link/botão, tap em área vazia) e onda no ponto do clique.
+    // Zonas com feedback próprio ([data-own-feedback]: arena, retrato, volume) não duplicam.
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const target = event.target as Element | null;
+      const fx = clickFeedback({
+        interactive: Boolean(target?.closest(INTERACTIVE)),
+        ownFeedback: Boolean(target?.closest("[data-own-feedback]")),
+        keyboard: false,
+      });
+      if (fx.sound) soundEngine.play(fx.sound);
+      if (fx.ripple && !readingStore.getSnapshot()) spawnRipple(event.clientX, event.clientY, target);
+    };
+    // Ativação por teclado (Enter/Espaço) gera click sem pointerdown (detail 0): só o som.
     const onClick = (event: MouseEvent) => {
-      if ((event.target as Element | null)?.closest(INTERACTIVE)) soundEngine.play("click");
+      if (event.detail !== 0) return;
+      const target = event.target as Element | null;
+      const fx = clickFeedback({
+        interactive: Boolean(target?.closest(INTERACTIVE)),
+        ownFeedback: Boolean(target?.closest("[data-own-feedback]")),
+        keyboard: true,
+      });
+      if (fx.sound && target?.closest(INTERACTIVE)) soundEngine.play(fx.sound);
     };
     document.addEventListener("pointerover", onOver);
+    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("click", onClick);
     return () => {
       offUnlock();
       document.removeEventListener("pointerover", onOver);
+      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("click", onClick);
     };
   }, []);

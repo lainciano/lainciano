@@ -83,10 +83,22 @@ export function Cursor() {
       chargeRef.current?.setAttribute("stroke-dashoffset", String(1 - value));
     });
 
+    const press = () => {
+      root.dataset.press = "on";
+    };
+    const release = () => {
+      root.dataset.press = "off";
+    };
+    window.addEventListener("pointerdown", press);
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
     window.addEventListener("pointermove", onMove, { passive: true });
     document.addEventListener("pointerover", onOver);
     document.documentElement.addEventListener("pointerleave", onLeave);
     return () => {
+      window.removeEventListener("pointerdown", press);
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
       window.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerover", onOver);
       document.documentElement.removeEventListener("pointerleave", onLeave);

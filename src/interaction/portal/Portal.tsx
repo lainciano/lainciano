@@ -4,6 +4,7 @@ import gsap from "gsap";
 import { useEffect, useRef } from "react";
 import { readingStore } from "@/interaction/reading-mode/store";
 import { soundEngine } from "@/interaction/sound/engine";
+import { VolumeControl } from "@/interaction/sound/VolumeControl";
 import { portal } from "@/lib/content/copy";
 import { resumeLenis } from "@/lib/lenis-bridge";
 
@@ -71,6 +72,10 @@ export function Portal({ siteName }: { siteName: string }) {
           {siteName}
         </h2>
         <p className="max-w-[34ch] text-[clamp(1.125rem,2vw,1.5rem)] font-medium">{portal.lede}</p>
+        <div className="portal__volume">
+          <VolumeControl id="portal-volume" />
+          <p className="portal__dica">{portal.volumeHint}</p>
+        </div>
         <div className="flex flex-wrap gap-[var(--space-sm)]">
           <button type="button" autoFocus onClick={() => enter("sound")} className="portal__btn portal__btn--primario focus-ring">
             {portal.withSound}

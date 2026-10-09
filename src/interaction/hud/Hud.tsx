@@ -9,6 +9,7 @@ import { RELICS } from "@/interaction/relics/catalog";
 import { RelicDrawer } from "@/interaction/relics/RelicDrawer";
 import { useRelics } from "@/interaction/relics/store";
 import { soundEngine, useSoundEnabled } from "@/interaction/sound/engine";
+import { VolumeControl } from "@/interaction/sound/VolumeControl";
 import { hud } from "@/lib/content/copy";
 import { NAV_LINKS } from "@/lib/nav";
 import type { SocialLinks } from "@/types/content";
@@ -89,6 +90,7 @@ export function Hud({ siteName, email, availability, socialLinks }: HudProps) {
           >
             {hud.sound}: {sound ? hud.on : hud.off}
           </button>
+          {sound && <VolumeControl id="hud-volume" compact className="hidden lg:flex" />}
           <button
             type="button"
             className="hud-btn focus-ring hidden sm:inline-flex"

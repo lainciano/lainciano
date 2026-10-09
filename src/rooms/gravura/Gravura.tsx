@@ -49,6 +49,7 @@ export function Gravura() {
           role={live ? "img" : undefined}
           aria-label={live ? copy.portraitLabel : undefined}
           data-verbo={live ? "segure" : undefined}
+          data-own-feedback={live ? "" : undefined}
         />
       </div>
       <figcaption className="legenda-hq" aria-hidden="true">

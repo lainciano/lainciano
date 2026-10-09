@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { createPortal } from "react-dom";
 import { TransitionLink } from "@/components/ui/TransitionLink";
 import { readingStore, useReadingMode } from "@/interaction/reading-mode/store";
+import { VolumeControl } from "@/interaction/sound/VolumeControl";
 import { hud } from "@/lib/content/copy";
 import { SOCIAL_LABELS } from "@/lib/social";
 import type { NavLink } from "@/lib/nav";
@@ -160,6 +161,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
               </nav>
 
               <div className="content-container flex flex-col gap-6 border-t border-foreground/30 py-8">
+                <VolumeControl id="menu-volume" className="w-full max-w-xs" />
                 <button
                   type="button"
                   aria-pressed={reading}

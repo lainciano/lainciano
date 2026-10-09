@@ -141,7 +141,7 @@ export function Ruina({ siteName, slabs }: RuinaProps) {
   }, [effects, near]);
 
   return (
-    <div ref={arenaRef} className="arena" data-verbo={effects ? "arraste" : undefined}>
+    <div ref={arenaRef} className="arena" data-verbo={effects ? "arraste" : undefined} data-own-feedback>
       {ready && effects && (
         <div className="arena__ui" data-arena-ui role="group" aria-label={copy.controlsLabel}>
           <button type="button" className="arena__btn focus-ring" onClick={() => worldRef.current?.collapse()}>

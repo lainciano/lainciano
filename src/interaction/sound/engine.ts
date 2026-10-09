@@ -2,18 +2,20 @@ import { useSyncExternalStore } from "react";
 import { STORAGE_KEYS } from "@/interaction/boot";
 import { readingStore } from "@/interaction/reading-mode/store";
 import { whiteNoise } from "./buffers";
-import { parseSoundPref, shouldPlay, type SoundPref } from "./policy";
+import { canPreview, parseSoundPref, shouldPlay, type SoundPref } from "./policy";
+import { DEFAULT_VOLUME, parseVolume, volumeToGain } from "./volume";
 import { BELL, NOISE, SFX, type NoiseBurst, type NoiseName, type SfxName, type Tone } from "./sfx";
 
 const MAX_VOICES = 12;
 
-type Graph = { ctx: AudioContext; sfx: GainNode; ambience: GainNode };
+type Graph = { ctx: AudioContext; master: GainNode; sfx: GainNode; ambience: GainNode };
 type PlayOptions = { gain?: number };
 
 let graph: Graph | null = null;
 let pref: SoundPref | null = null;
 let voices = 0;
 let initialized = false;
+let volume = DEFAULT_VOLUME;
 // Vira true no primeiro gesto (ou ao ligar o som por um clique): antes disso o contexto nem é criado.
 let unlocked = false;
 const listeners = new Set<() => void>();
@@ -37,7 +39,7 @@ function buildGraph(): Graph | null {
   compressor.release.value = 0.3;
   compressor.connect(ctx.destination);
   const master = ctx.createGain();
-  master.gain.value = 0.6;
+  master.gain.value = volumeToGain(volume);
   master.connect(compressor);
   const sfx = ctx.createGain();
   sfx.gain.value = 0.5;
@@ -45,7 +47,7 @@ function buildGraph(): Graph | null {
   const ambience = ctx.createGain();
   ambience.gain.value = 0.35;
   ambience.connect(master);
-  return { ctx, sfx, ambience };
+  return { ctx, master, sfx, ambience };
 }
 
 function ensure(): Graph | null {
@@ -110,6 +112,7 @@ export const soundEngine = {
     initialized = true;
     try {
       pref = parseSoundPref(localStorage.getItem(STORAGE_KEYS.sound));
+      volume = parseVolume(localStorage.getItem(STORAGE_KEYS.volume));
     } catch {
       pref = null;
     }
@@ -135,6 +138,30 @@ export const soundEngine = {
   },
   hasChosen(): boolean {
     return pref !== null;
+  },
+  /** Volume do usuário (0–1), lembrado entre visitas e aplicado ao master. */
+  getVolume(): number {
+    return volume;
+  },
+  setVolume(next: number) {
+    volume = Math.min(1, Math.max(0, next));
+    try {
+      localStorage.setItem(STORAGE_KEYS.volume, String(volume));
+    } catch {}
+    // Sem degrau: o ganho acompanha o controle em ~30 ms.
+    if (graph) graph.master.gain.setTargetAtTime(volumeToGain(volume), graph.ctx.currentTime, 0.03);
+    emit();
+  },
+  /**
+   * Prévia do volume (duas notas suaves): toca no Portal, antes de o visitante escolher som, e com o som
+   * ligado — o gesto no controle libera o áudio. Nunca com som desligado de propósito nem em modo leitura.
+   */
+  preview() {
+    if (!canPreview(pref, readingStore.getSnapshot())) return;
+    unlocked = true;
+    const g = ensure();
+    if (!g) return;
+    SFX.preview.forEach((tone) => playTone(g, tone, 1));
   },
   /** true quando um som tocaria agora (preferência on, fora do modo leitura, depois de um gesto). */
   canPlay(): boolean {
@@ -196,6 +223,10 @@ export const soundEngine = {
     return g ? { ctx: g.ctx, destination: g.ambience } : null;
   },
 };
+
+export function useVolume(): number {
+  return useSyncExternalStore(soundEngine.subscribe, soundEngine.getVolume, () => DEFAULT_VOLUME);
+}
 
 export function useSoundEnabled(): boolean {
   return useSyncExternalStore(soundEngine.subscribe, soundEngine.isEnabled, () => false);

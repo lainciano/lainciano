@@ -103,6 +103,8 @@ export const hud = {
   progress: (won: number, total: number) => `${won} de ${total}`,
   railLabel: "Seções desta página",
   menuReading: "Modo leitura",
+  volume: "volume",
+  muted: "mudo",
 };
 
 /** Portal da primeira visita (spec 7.1). */
@@ -111,6 +113,7 @@ export const portal = {
   withSound: "Entrar com som",
   silent: "Entrar em silêncio",
   reading: "Modo leitura",
+  volumeHint: "Ajuste agora: você ouve uma prévia.",
   enterKey: "Enter",
   escKey: "Esc",
 };

@@ -2,6 +2,7 @@
 export const STORAGE_KEYS = {
   reading: "lainciano:leitura:v1",
   sound: "lainciano:som:v1",
+  volume: "lainciano:volume:v1",
   relics: "lainciano:reliquias:v1",
 } as const;
 

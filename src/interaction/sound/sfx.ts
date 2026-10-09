@@ -24,7 +24,9 @@ export type SfxName =
   | "case"
   | "hold"
   | "drip"
-  | "chapter";
+  | "chapter"
+  | "tap"
+  | "preview";
 
 // Receitas da matriz de feedback (spec 8.1) e das salas (spec 7.2, 7.3, 8.3).
 export const SFX: Record<SfxName, Tone[]> = {
@@ -56,6 +58,12 @@ export const SFX: Record<SfxName, Tone[]> = {
   // Gravura: início do segurar (protótipo) e gota enquanto segura.
   hold: [{ freq: 110, dur: 0.25, type: "sawtooth", gain: 0.03 }],
   drip: [{ freq: 900, dur: 0.05, type: "sine", gain: 0.03, glideTo: 1800 }],
+  // Clique em área vazia (mais grave e curto que "click") e prévia do volume (duas notas suaves).
+  tap: [{ freq: 200, dur: 0.05, type: "sine", gain: 0.05, glideTo: 130 }],
+  preview: [
+    { freq: 440, dur: 0.12, type: "triangle", gain: 0.06 },
+    { freq: 660, dur: 0.18, type: "triangle", gain: 0.06, delay: 0.09 },
+  ],
   // Cartão de entrada de sala: swell grave que desce, como uma porta pesada assentando.
   chapter: [
     { freq: 98, dur: 1, type: "sine", gain: 0.06, glideTo: 49 },
