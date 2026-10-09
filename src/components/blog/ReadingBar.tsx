@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { relicStore } from "@/interaction/relics/store";
 import { READER, readingProgress, shouldUnlockReader } from "@/lib/reading";
 
+// pointerdown cobre também o arrasto da barra de rolagem.
+const INPUT_EVENTS = ["wheel", "touchmove", "keydown", "pointerdown"] as const;
 const subscribeNothing = () => () => {};
 
 /**
@@ -21,7 +23,8 @@ export function ReadingBar({ targetId }: { targetId: string }) {
     const target = document.getElementById(targetId);
     if (!mounted || !bar || !target) return;
     const startY = window.scrollY;
-    const mountedAt = performance.now();
+    let mountedAt = performance.now();
+    let interacted = false;
     let scrolled = false;
     let unlocked = false;
     let frame = 0;
@@ -31,7 +34,7 @@ export function ReadingBar({ targetId }: { targetId: string }) {
       const rect = target.getBoundingClientRect();
       const progress = readingProgress(rect.top, rect.height, window.innerHeight);
       bar.style.transform = `scaleX(${progress})`;
-      if (unlocked) return;
+      if (unlocked || document.visibilityState !== "visible") return;
       const scrollable = document.documentElement.scrollHeight > window.innerHeight + 1;
       if (shouldUnlockReader({ progress, scrolled, scrollable, dwellMs: performance.now() - mountedAt })) {
         unlocked = true;
@@ -41,18 +44,33 @@ export function ReadingBar({ targetId }: { targetId: string }) {
     const schedule = () => {
       if (!frame) frame = window.requestAnimationFrame(measure);
     };
+    // Só rolagem que segue um gesto do visitante conta; a restauração de scroll do navegador não (D8).
+    const onInput = () => {
+      interacted = true;
+    };
     const onScroll = () => {
-      if (window.scrollY !== startY) scrolled = true;
+      if (interacted && window.scrollY !== startY) scrolled = true;
       schedule();
+    };
+    // Tempo parado só conta com a aba visível: ao voltar, recomeça os 15 s.
+    let dwell = window.setTimeout(schedule, READER.dwellMs);
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      mountedAt = performance.now();
+      window.clearTimeout(dwell);
+      dwell = window.setTimeout(schedule, READER.dwellMs);
     };
 
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", schedule);
-    const dwell = window.setTimeout(schedule, READER.dwellMs);
+    for (const type of INPUT_EVENTS) window.addEventListener(type, onInput, { passive: true });
+    document.addEventListener("visibilitychange", onVisibility);
     schedule();
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", schedule);
+      for (const type of INPUT_EVENTS) window.removeEventListener(type, onInput);
+      document.removeEventListener("visibilitychange", onVisibility);
       window.clearTimeout(dwell);
       window.cancelAnimationFrame(frame);
     };
