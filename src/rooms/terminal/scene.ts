@@ -78,7 +78,7 @@ export async function createAsciiScene({ canvas, host, coarse, wake }: WebGLScen
   };
   const onKeyDown = (event: KeyboardEvent) => {
     const direction = KEY_DIRECTION[event.key];
-    if (!direction) return;
+    if (!direction || event.altKey || event.ctrlKey || event.metaKey) return; // Alt+← é voltar do navegador
     event.preventDefault();
     held.add(direction);
     wake();

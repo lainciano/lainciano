@@ -101,7 +101,8 @@
   --terminal-min-mobile: 20rem; /* 320 px: altar no celular */
   --terminal-max: 35rem; /* 560 px: console embutido (protótipo) */
   --console-overlay-h: 55dvh; /* console sobreposto: metade de baixo da tela (spec 8.6) */
-  --altar-glyph: 0.735rem; /* 11,76 px = 2 / resolução 0.17 (tamanho do caractere do AsciiEffect) */
+  --altar-glyph-h: 0.0283; /* glifo do quadro estático ÷ altura útil do altar (11,76 px ÷ 416 px, capturado a 0.17): o nó vivo escala com a altura, o quadro também */
+  --altar-glyph-w: 0.0256; /* teto pela largura: 1 ÷ (65 colunas do quadro × 0,6 em de avanço da JetBrains Mono); sem corte em telas estreitas */
   --motion-console-in: 300ms; /* abrir o console */
   --motion-console-out: 180ms; /* fechar: mais curto que abrir */
 }
@@ -2420,12 +2421,13 @@ body {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: var(--terminal-min);
+  height: var(--terminal-min); /* altura explícita: com min-height o cqh do container size vale 0 */
   overflow: hidden;
   border: var(--frame-w) solid var(--osso);
   background: var(--breu);
   touch-action: pan-y;
   user-select: none;
+  container-type: size; /* cqh: o quadro estático acompanha a altura do altar, como a câmera */
 }
 
 .altar:focus-visible {
@@ -2435,7 +2437,7 @@ body {
 
 @media (max-width: 53.75rem) {
   .altar {
-    min-height: var(--terminal-min-mobile);
+    height: var(--terminal-min-mobile);
   }
 }
 
@@ -2450,7 +2452,7 @@ body {
 }
 
 .altar__still {
-  font-size: var(--altar-glyph);
+  font-size: min(calc(100cqh * var(--altar-glyph-h)), calc(100cqw * var(--altar-glyph-w)));
   white-space: pre;
 }
 
