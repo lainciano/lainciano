@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } fro
 import { createPortal } from "react-dom";
 import { soundEngine } from "@/interaction/sound/engine";
 import { createRateLimiter } from "@/interaction/sound/limiter";
-import { useIdleReady } from "@/rooms/shared/useIdleReady";
+import { useIntentReady } from "@/rooms/shared/useIntentReady";
 import { useWebGL } from "@/rooms/shared/useWebGL";
 import type { WebGLSceneContext } from "@/rooms/shared/webgl";
 import { createPreviewChannel } from "./channel";
@@ -32,10 +32,10 @@ export function PreviewFollower({ listRef, previews }: PreviewFollowerProps) {
   const moverRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const [channel] = useState(createPreviewChannel);
-  const idle = useIdleReady();
+  const intent = useIntentReady(listRef);
 
   useWebGL(layerRef, {
-    enabled: idle,
+    enabled: intent,
     create: (context: WebGLSceneContext) =>
       import("./scene").then((module) => module.createPreviewScene(context, { channel, sources: previews })),
     canvasClassName: "relicario-previa__canvas",

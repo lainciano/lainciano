@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { useReadingMode } from "@/interaction/reading-mode/store";
 import { useRoomAmbience } from "@/interaction/sound/useRoomAmbience";
 import { camara as copy } from "@/lib/content/copy";
-import { useIdleReady } from "@/rooms/shared/useIdleReady";
+import { useIntentReady } from "@/rooms/shared/useIntentReady";
 import { useWebGL } from "@/rooms/shared/useWebGL";
 import type { WebGLSceneContext } from "@/rooms/shared/webgl";
 
@@ -17,10 +17,10 @@ export function LensCapture({ src, alt, title }: LensCaptureProps) {
   const frameRef = useRef<HTMLElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const reading = useReadingMode();
-  const idle = useIdleReady();
+  const intent = useIntentReady(frameRef);
   const [percent, setPercent] = useState(0);
   const { status } = useWebGL(layerRef, {
-    enabled: !reading && idle,
+    enabled: !reading && intent,
     create: (context: WebGLSceneContext) =>
       import("./scene").then((module) => module.createLensScene(context, { onProgress: setPercent })),
     canvasClassName: "camara__canvas",
