@@ -1,3 +1,4 @@
+import { getAdjacent, type Adjacent } from "@/lib/content/adjacent";
 import type { ProjectMeta } from "@/types/content";
 import {
   assertSlugMatch,
@@ -45,4 +46,29 @@ export function getProjectBySlug(slug: string): Project | null {
   const project = loadProject(filename);
   if (!project.published) return null;
   return project;
+}
+
+/** Quantas tags aparecem na linha do índice (spec 7.4; D11: as primeiras do MDX). */
+export const INDEX_STACK_SIZE = 2;
+
+export function indexStack(tags: readonly string[]): string {
+  return tags.slice(0, INDEX_STACK_SIZE).join(", ");
+}
+
+/** Link de projeto: repositório (GitHub) ou site no ar — muda o rótulo nos fatos da Câmara. */
+export function linkKind(url: string): "repo" | "site" {
+  return /^https?:\/\/(www\.)?github\.com\//i.test(url) ? "repo" : "site";
+}
+
+/** URL legível para os fatos: sem protocolo, sem www, sem barra final. */
+export function displayUrl(url: string): string {
+  return url
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .replace(/\/+$/, "");
+}
+
+/** Vizinhos de um case na ordem do índice, com wrap (spec 7.5: último → primeiro). */
+export function getAdjacentProjects(slug: string): Adjacent<ProjectMeta> {
+  return getAdjacent(getProjects(), slug, { wrap: true });
 }

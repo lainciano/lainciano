@@ -122,7 +122,7 @@ export const portal = {
 export const rooms = {
   home: { title: "Ruína", role: "Home. Agarre, arremesse. Dois cliques num projeto abrem o case." },
   about: { title: "Gravura", role: "Sobre. Segure sobre o retrato." },
-  work: { title: "Projetos", role: "Índice de projetos." },
+  work: { title: "Projetos", role: "Índice. Passe o mouse para ver a relíquia." },
   blog: { title: "Biblioteca", role: "Notas sobre desenvolvimento web, performance, design e segurança." },
   contact: { title: "Terminal", role: "Contato. Escreva direto para o e-mail abaixo." },
 };
@@ -174,4 +174,18 @@ export const chapters = {
   gravura: { title: "Gravura", epigraph: "Quem constrói, e como." },
   biblioteca: { title: "Biblioteca", epigraph: "O que se aprendeu pelo caminho." },
   terminal: { title: "Terminal", epigraph: "Escreva. Alguém responde." },
+};
+
+/** Câmara — case de projeto (spec 7.5). */
+export const camara = {
+  role: "Câmara. Passe a lente sobre a captura.",
+  captureLabel: (title: string) =>
+    `Captura de ${title} em gravura. Use as setas para mover a lente; segure Espaço para ampliá-la.`,
+  caption: { before: "Passe ", key: "a lente", after: " para ver a interface real." },
+  captionTouch: { before: "Segure ", key: "o dedo", after: " para abrir a lente." },
+  revealed: (percent: number) => `revelado ${percent}%`,
+  factsLabel: "Ficha do projeto",
+  facts: { year: "Ano", kind: "Tipo", role: "Papel", stack: "Stack", site: "No ar", repo: "Código" },
+  visit: { site: "Visitar o site", repo: "Ver o repositório" },
+  nextCase: "Próximo case",
 };

@@ -51,6 +51,9 @@ describe("NOISE", () => {
       }
     }
   });
+  it("risco de troca de linha do Relicário: curto e agudo (spec 7.4)", () => {
+    expect(NOISE.scratch).toEqual([{ dur: 0.04, gain: 0.03, filter: "highpass", freq: 3200 }]);
+  });
 });
 
 describe("SFX das salas (Fase 2)", () => {

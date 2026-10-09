@@ -81,13 +81,15 @@ export type NoiseBurst = {
   delay?: number;
 };
 
-export type NoiseName = "collapse" | "tear";
+export type NoiseName = "collapse" | "tear" | "scratch";
 
 export const NOISE: Record<NoiseName, NoiseBurst[]> = {
   // Corpo do estrondo do desabar (spec 8.3: "senoide 45 Hz com queda de pitch + ruído").
   collapse: [{ dur: 0.7, gain: 0.07, filter: "lowpass", freq: 180 }],
   // "Rasgo" ao mover rápido sobre o retrato (spec 7.3); o volume vem da velocidade.
   tear: [{ dur: 0.06, gain: 0.035, filter: "bandpass", freq: 2400, q: 0.8 }],
+  // "Risco" curto ao trocar de linha no Relicário (spec 7.4); limitado a 8/s pela ilha.
+  scratch: [{ dur: 0.04, gain: 0.03, filter: "highpass", freq: 3200 }],
 };
 
 /**
