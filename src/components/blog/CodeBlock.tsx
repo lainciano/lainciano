@@ -1,0 +1,16 @@
+import type { ComponentProps } from "react";
+import { library } from "@/lib/content/copy";
+import { CopyCodeButton } from "./CopyCodeButton";
+
+// Bloco de código do post (spec 7.7): borda, rolagem própria (focável, para rolar com as setas) e "copiar".
+export function CodeBlock(props: ComponentProps<"pre">) {
+  return (
+    <div className="codigo">
+      <pre {...props} tabIndex={0} aria-label={library.codeLabel} />
+      <CopyCodeButton />
+    </div>
+  );
+}
+
+/** Componentes do MDX dos posts (os cases não têm código e seguem com o MDX padrão). */
+export const POST_MDX_COMPONENTS = { pre: CodeBlock };

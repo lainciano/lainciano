@@ -8,7 +8,8 @@ import { copyText } from "@/lib/clipboard";
 export const COPIED_MS = 1500;
 
 type CopyButtonProps = {
-  text: string;
+  /** Texto fixo, ou lido no clique a partir do botão (o código de um bloco, Fase 5). */
+  text: string | ((button: HTMLButtonElement) => string);
   label: string;
   doneLabel: string;
   failLabel: string;
@@ -29,8 +30,9 @@ export function CopyButton({ text, label, doneLabel, failLabel, className = "" }
       <button
         type="button"
         className={`hud-btn focus-ring ${className}`.trim()}
-        onClick={async () => {
-          const copied = await copyText(text);
+        onClick={async (event) => {
+          const value = typeof text === "function" ? text(event.currentTarget) : text;
+          const copied = value !== "" && (await copyText(value));
           soundEngine.play(copied ? "copy" : "error");
           setState(copied ? "done" : "fail");
           window.clearTimeout(timer.current);

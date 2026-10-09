@@ -65,6 +65,17 @@ export const pages = {
   },
 };
 
+/** Biblioteca — post (spec 7.7). */
+export const library = {
+  older: "Anterior",
+  newer: "Próximo",
+  neighborsLabel: "Outros posts",
+  codeLabel: "Trecho de código",
+  copy: "copiar",
+  copied: "copiado",
+  copyFailed: "selecione e copie",
+};
+
 /** Assunto e corpo do e-mail aberto pelo "escrever" do Contato (mailto, sem backend). */
 export const contactCta = {
   mailtoSubject: "Contato pelo portfólio",
@@ -117,7 +128,7 @@ export const rooms = {
   home: { title: "Ruína", role: "Home. Derrube com um clique, agarre, arremesse. Dois cliques num projeto abrem o case." },
   about: { title: "Gravura", role: "Sobre. Segure sobre o retrato." },
   work: { title: "Projetos", role: "Índice. Passe o mouse para ver a relíquia." },
-  blog: { title: "Biblioteca", role: "Notas sobre desenvolvimento web, performance, design e segurança." },
+  blog: { title: "Biblioteca", role: "Blog. Leia até o fim." },
   contact: { title: "Terminal", role: "Contato. Gire a relíquia, digite no console." },
 };
 
