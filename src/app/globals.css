@@ -2484,3 +2484,22 @@ body {
 :root[data-reading="on"] .altar__rotulo {
   display: none;
 }
+
+/* --- Cripta: Contato — e-mail sempre visível (spec 7.8, D20) --- */
+.contato__email {
+  margin-top: var(--space-md);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-weight: 900;
+  font-size: clamp(1.75rem, 5vw, 3.5rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.contato__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  margin-block: var(--space-sm) var(--space-md);
+}
