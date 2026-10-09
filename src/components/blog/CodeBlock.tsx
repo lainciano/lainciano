@@ -7,7 +7,7 @@ export function CodeBlock(props: ComponentProps<"pre">) {
   return (
     <div className="codigo">
       <pre {...props} tabIndex={0} aria-label={library.codeLabel} />
-      <CopyCodeButton />
+      <CopyCodeButton label={library.copy} doneLabel={library.copied} failLabel={library.copyFailed} />
     </div>
   );
 }
