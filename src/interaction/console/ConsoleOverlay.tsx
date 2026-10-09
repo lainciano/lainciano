@@ -2,11 +2,11 @@
 
 import gsap from "gsap";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { readingStore } from "@/interaction/reading-mode/store";
 import { terminal as copy } from "@/lib/content/copy";
 import { pauseLenis, resumeLenis } from "@/lib/lenis-bridge";
-import { ConsoleSession } from "./ConsoleSession";
+import { LazyConsoleSession } from "./LazyConsoleSession";
 import { shouldOpenConsole } from "./shortcut";
 import { consoleStore, useConsoleOpen } from "./store";
 
@@ -21,6 +21,8 @@ export function ConsoleOverlay() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const [everOpened, setEverOpened] = useState(false);
+  if (open && !everOpened) setEverOpened(true);
 
   // Atalho `/` em qualquer página (fora de campos de texto e de outros diálogos — D11).
   useEffect(() => {
@@ -113,7 +115,14 @@ export function ConsoleOverlay() {
       }}
     >
       <div ref={panelRef} className="console-overlay__painel">
-        <ConsoleSession greeting={copy.greeting} onNavigate={() => consoleStore.close()} onClose={() => consoleStore.close()} />
+        {everOpened && (
+          <LazyConsoleSession
+            greeting={copy.greeting}
+            autoFocus
+            onNavigate={() => consoleStore.close()}
+            onClose={() => consoleStore.close()}
+          />
+        )}
       </div>
     </dialog>
   );

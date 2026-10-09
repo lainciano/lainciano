@@ -4,7 +4,7 @@ import { CopyButton } from "@/components/ui/CopyButton";
 import { PageContent } from "@/components/ui/PageContent";
 import { RoomDoor } from "@/components/ui/RoomDoor";
 import { RoomTitle } from "@/components/ui/RoomTitle";
-import { ConsoleSession } from "@/interaction/console/ConsoleSession";
+import { LazyConsoleSession } from "@/interaction/console/LazyConsoleSession";
 import { ExplorerMark } from "@/interaction/relics/ExplorerMark";
 import { RelicGrid } from "@/interaction/relics/RelicGrid";
 import { RoomSound } from "@/interaction/sound/RoomSound";
@@ -39,7 +39,7 @@ export default function ContactPage() {
               {ALTAR_STILL}
             </pre>
           </AsciiRelic>
-          <ConsoleSession inline greeting={terminal.greeting} />
+          <LazyConsoleSession inline greeting={terminal.greeting} />
         </div>
       </section>
 

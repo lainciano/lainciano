@@ -21,6 +21,8 @@ type ConsoleSessionProps = {
   greeting: string;
   /** Embutido na página (Contato, 404): `/` foca este console em vez de abrir o sobreposto. */
   inline?: boolean;
+  /** Foca o campo ao montar (o sobreposto carrega a sessão já aberto). */
+  autoFocus?: boolean;
   /** Antes de navegar (o sobreposto fecha). */
   onNavigate?: () => void;
   /** Só no sobreposto: botão "fechar" na linha de topo. */
@@ -33,7 +35,7 @@ let lineSeq = 0;
 const withId = (line: ConsoleLine): Line => ({ ...line, id: (lineSeq += 1) });
 
 // Console da Cripta (spec 8.6): a mesma sessão no <dialog> global, no Contato e no 404.
-export function ConsoleSession({ greeting, inline = false, onNavigate, onClose, className = "" }: ConsoleSessionProps) {
+export function ConsoleSession({ greeting, inline = false, autoFocus = false, onNavigate, onClose, className = "" }: ConsoleSessionProps) {
   const data = useConsoleData();
   const router = useRouter();
   const { won, platinumAt } = useRelics();
@@ -43,6 +45,10 @@ export function ConsoleSession({ greeting, inline = false, onNavigate, onClose, 
   const outputRef = useRef<HTMLDivElement>(null);
   const [lines, setLines] = useState<Line[]>(() => [{ id: 0, kind: "res", text: greeting }]);
   const [value, setValue] = useState("");
+
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+  }, [autoFocus]);
 
   useEffect(() => {
     if (!inline) return;
