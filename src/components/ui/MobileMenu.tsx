@@ -123,7 +123,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
               role="dialog"
               aria-modal="true"
               aria-label="Menu"
-              aria-hidden={!isOpen}
+              inert={!isOpen}
               data-lenis-prevent
               data-lenis-prevent-touch
               className={`fixed inset-0 z-[9999] flex flex-col bg-accent text-foreground transition-transform duration-500 ease-out ${
@@ -153,7 +153,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
                   <TransitionLink
                     key={href}
                     href={href}
-                    className="text-large-heading w-fit text-foreground transition-colors hover:text-background"
+                    className="text-large-heading inline-flex min-h-11 w-fit items-center text-foreground transition-colors hover:text-background"
                     onClick={closeMenu}
                   >
                     {label}

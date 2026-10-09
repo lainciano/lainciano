@@ -63,7 +63,7 @@ export function Hud({ siteName, email, availability, socialLinks }: HudProps) {
         <div className="flex items-center gap-[var(--space-2xs)]">
           <button
             type="button"
-            className="hud-btn focus-ring hidden md:inline-flex"
+            className="hud-btn focus-ring hidden min-w-11 justify-center md:inline-flex"
             aria-haspopup="dialog"
             aria-keyshortcuts="/"
             aria-label={hud.consoleLabel}
