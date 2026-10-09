@@ -114,7 +114,7 @@ export const portal = {
 
 /** Títulos e papéis de sala. Home e Sobre já com o verbo da sala (Fase 2); os demais trocam nas Fases 3–5. */
 export const rooms = {
-  home: { title: "Ruína", role: "Home. Agarre, arremesse. Dois cliques num projeto abrem o case." },
+  home: { title: "Ruína", role: "Home. Derrube com um clique, agarre, arremesse. Dois cliques num projeto abrem o case." },
   about: { title: "Gravura", role: "Sobre. Segure sobre o retrato." },
   work: { title: "Projetos", role: "Índice. Passe o mouse para ver a relíquia." },
   blog: { title: "Biblioteca", role: "Notas sobre desenvolvimento web, performance, design e segurança." },
