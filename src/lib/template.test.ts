@@ -9,4 +9,8 @@ describe("fillTemplate (rótulo do servidor com valor do cliente)", () => {
   it("marcador sem valor fica como está (erro visível, nunca 'undefined')", () => {
     expect(fillTemplate("olá {nome}", {})).toBe("olá {nome}");
   });
+  it("nome herdado do Object.prototype não vira valor", () => {
+    expect(fillTemplate("{constructor}", {})).toBe("{constructor}");
+    expect(fillTemplate("{toString}", {})).toBe("{toString}");
+  });
 });

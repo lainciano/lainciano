@@ -37,4 +37,9 @@ describe("checkSubmission", () => {
     expect(checkSubmission({ ...base, issuedAt: NOW + 60_001 })).toEqual({ ok: false, error: "bad_time" });
     expect(checkSubmission({ ...base, issuedAt: NOW + 60_000 })).toEqual({ ok: true });
   });
+  it("bilhete com issuedAt não finito é inválido", () => {
+    for (const issuedAt of [Number.NaN, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY]) {
+      expect(checkSubmission({ ...base, issuedAt })).toEqual({ ok: false, error: "bad_time" });
+    }
+  });
 });

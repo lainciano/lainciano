@@ -13,7 +13,7 @@ export function checkSubmission({ relics, elapsedMs, issuedAt, now }: Submission
   if (relics.length !== RELIC_IDS.length || unique.size !== RELIC_IDS.length || !RELIC_IDS.every((id) => unique.has(id))) {
     return { ok: false, error: "incomplete" };
   }
-  if (issuedAt > now + RUN_RULES.clockSkewMs) return { ok: false, error: "bad_time" };
+  if (!Number.isFinite(issuedAt) || issuedAt > now + RUN_RULES.clockSkewMs) return { ok: false, error: "bad_time" };
   if (!Number.isInteger(elapsedMs) || elapsedMs < 0 || elapsedMs > RUN_RULES.maxElapsedMs) return { ok: false, error: "bad_time" };
   if (elapsedMs < RUN_RULES.minElapsedMs) return { ok: false, error: "too_fast" };
   return { ok: true };

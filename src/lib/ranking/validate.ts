@@ -11,15 +11,19 @@ export function foldNickname(nickname: string): string {
     .replace(/[_-]/g, "");
 }
 
+// Palavras inocentes que contêm um termo bloqueado: retiradas antes do CONTAINS (Scunthorpe ↔ "cunt").
+const ALLOWED = ["scunthorpe"];
+
 // Termos longos: bloqueiam em qualquer posição. Curtos/ambíguos: só o apelido exato (D9: sem Scunthorpe).
 const CONTAINS = [
   "caralho", "buceta", "porra", "merda", "foder", "fodase", "punheta", "piroca", "xoxota", "arrombad",
-  "vagabund", "filhodaputa", "putaria", "cuzao", "nazi", "hitler", "estupr", "pedofil",
-  "fuck", "shit", "bitch", "whore", "nigger", "nigga", "faggot", "retard", "rapist", "porn",
+  "vagabund", "filhodaputa", "putaria", "putinha", "viadinh", "cuzao", "nazi", "hitler", "estupr", "pedofil",
+  "fuck", "shit", "bitch", "cunt", "asshole", "whore", "nigger", "nigga", "faggot", "retard", "rapist", "porn",
 ];
-const EXACT = ["puta", "puto", "viado", "bicha", "cu", "cunt", "pau", "fdp", "pqp", "vsf", "tnc", "kct", "cacete", "ass", "sex", "slut"];
+const EXACT = ["puta", "puto", "viado", "bicha", "cu", "pau", "fdp", "pqp", "vsf", "tnc", "kct", "cacete", "ass", "sex", "slut"];
 const RESERVED = ["admin", "administrador", "root", "lainciano", "moderador", "moderator", "sistema", "system", "cripta"];
 
+const ALLOWED_FOLDED = ALLOWED.map(foldNickname);
 const CONTAINS_FOLDED = CONTAINS.map(foldNickname);
 const EXACT_FOLDED = new Set([...EXACT, ...RESERVED].map(foldNickname));
 
@@ -28,8 +32,9 @@ export type NicknameVerdict = "ok" | "invalid" | "blocked";
 /** Formato primeiro (invalid), depois a lista (blocked). O mesmo código roda no formulário e na API. */
 export function validateNickname(raw: string): NicknameVerdict {
   const nickname = raw.trim();
-  if (!NICKNAME.pattern.test(nickname)) return "invalid";
+  if (!NICKNAME.pattern.test(nickname) || !/[A-Za-z0-9]/.test(nickname)) return "invalid";
   const folded = foldNickname(nickname);
-  if (EXACT_FOLDED.has(folded) || CONTAINS_FOLDED.some((term) => folded.includes(term))) return "blocked";
+  const scrubbed = ALLOWED_FOLDED.reduce((text, word) => text.replaceAll(word, ""), folded);
+  if (EXACT_FOLDED.has(folded) || CONTAINS_FOLDED.some((term) => scrubbed.includes(term))) return "blocked";
   return "ok";
 }
