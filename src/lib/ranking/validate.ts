@@ -11,7 +11,7 @@ export function foldNickname(nickname: string): string {
     .replace(/[_-]/g, "");
 }
 
-// Palavras inocentes que contêm um termo bloqueado: retiradas antes do CONTAINS (Scunthorpe ↔ "cunt").
+// Palavras inocentes que contêm um termo bloqueado (Scunthorpe ↔ "cunt"): só anulam a ocorrência que cabe inteira dentro delas.
 const ALLOWED = ["scunthorpe"];
 
 // Termos longos: bloqueiam em qualquer posição. Curtos/ambíguos: só o apelido exato (D9: sem Scunthorpe).
@@ -29,12 +29,31 @@ const EXACT_FOLDED = new Set([...EXACT, ...RESERVED].map(foldNickname));
 
 export type NicknameVerdict = "ok" | "invalid" | "blocked";
 
+/** A ocorrência [start, end) está inteira dentro de alguma palavra inocente? */
+function insideAllowed(folded: string, start: number, end: number): boolean {
+  return ALLOWED_FOLDED.some((word) => {
+    for (let at = folded.indexOf(word); at !== -1; at = folded.indexOf(word, at + 1)) {
+      if (at <= start && end <= at + word.length) return true;
+    }
+    return false;
+  });
+}
+
+/** Algum termo bloqueado aparece fora das palavras inocentes? Sobreposição não esconde termo. */
+function containsBlocked(folded: string): boolean {
+  return CONTAINS_FOLDED.some((term) => {
+    for (let at = folded.indexOf(term); at !== -1; at = folded.indexOf(term, at + 1)) {
+      if (!insideAllowed(folded, at, at + term.length)) return true;
+    }
+    return false;
+  });
+}
+
 /** Formato primeiro (invalid), depois a lista (blocked). O mesmo código roda no formulário e na API. */
 export function validateNickname(raw: string): NicknameVerdict {
   const nickname = raw.trim();
   if (!NICKNAME.pattern.test(nickname) || !/[A-Za-z0-9]/.test(nickname)) return "invalid";
   const folded = foldNickname(nickname);
-  const scrubbed = ALLOWED_FOLDED.reduce((text, word) => text.replaceAll(word, ""), folded);
-  if (EXACT_FOLDED.has(folded) || CONTAINS_FOLDED.some((term) => scrubbed.includes(term))) return "blocked";
+  if (EXACT_FOLDED.has(folded) || containsBlocked(folded)) return "blocked";
   return "ok";
 }

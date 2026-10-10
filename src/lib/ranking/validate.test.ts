@@ -51,6 +51,14 @@ describe("validateNickname — lista de bloqueio (D9)", () => {
       expect(validateNickname(fine)).toBe("ok");
     }
   });
+  it("palavra inocente não esconde termo bloqueado que se sobrepõe a ela", () => {
+    for (const blocked of ["scunthorpedofil", "scunthorpecunt", "cunt_scunthorpe", "xscunthorpedofil"]) {
+      expect(validateNickname(blocked)).toBe("blocked");
+    }
+  });
+  it("termo bloqueado inteiro dentro da palavra inocente segue inocente", () => {
+    expect(validateNickname("cuscunthorpe")).toBe("ok");
+  });
   it("reserva nomes do site", () => {
     for (const reserved of ["admin", "Lainciano", "root", "moderador"]) expect(validateNickname(reserved)).toBe("blocked");
   });
