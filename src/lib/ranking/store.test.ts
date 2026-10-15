@@ -43,3 +43,13 @@ describe("createMemoryStore", () => {
     expect(await store.top(20)).toEqual([]);
   });
 });
+
+describe("tombstone (I1)", () => {
+  it("remove apaga a linha mas mantém o runId queimado: gravar de novo → duplicate", async () => {
+    const store = createMemoryStore();
+    await store.record(entry("a", 400, 1));
+    expect(await store.remove("a")).toBe(true);
+    expect(await store.record(entry("a", 400, 2))).toEqual({ ok: false, error: "duplicate" });
+    expect(await store.top(20)).toEqual([]);
+  });
+});

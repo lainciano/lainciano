@@ -10,6 +10,7 @@ export const BOOK_SIZE = 20;
 export const MAX_BODY_BYTES = 2048;
 export const SECRET_MIN = 32;
 export const ADMIN_MIN = 24;
+const DAY_MS = 86_400_000;
 
 export type RankingDeps = {
   store: RankingStore;
@@ -52,17 +53,35 @@ export function clientKey(secret: string, request: Request): string {
   return createHmac("sha256", secret).update(`ip:${ip}`).digest("base64url");
 }
 
+/** Lê o corpo por pedaços e aborta ao passar de 2 KB (em bytes), mesmo sem content-length. */
 async function readJson(request: Request): Promise<unknown> {
   const declared = Number(request.headers.get("content-length") ?? "0");
-  if (declared > MAX_BODY_BYTES) return undefined;
-  const text = await request.text();
-  if (Buffer.byteLength(text) > MAX_BODY_BYTES) return undefined; // bytes, não caracteres
+  if (declared > MAX_BODY_BYTES || !request.body) return undefined;
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
   try {
-    return JSON.parse(text) as unknown;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_BODY_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        return undefined;
+      }
+      chunks.push(value);
+    }
+    return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
   } catch {
     return undefined;
   }
 }
+
+/** Só o próprio site chama os POSTs: pedido "simples" de outro site não gasta a cota do visitante (M1). */
+const isCrossSite = (request: Request) => {
+  const site = request.headers.get("sec-fetch-site");
+  return site !== null && site !== "same-origin";
+};
 
 /** Falha inesperada (loja fora do ar etc.): só o código, nunca stack nem mensagem (Review Focus 3). */
 function guarded<Args extends unknown[]>(handler: (...args: Args) => Promise<Response>) {
@@ -82,6 +101,7 @@ export function createRankingApi(deps: RankingDeps): RankingApi {
   const api: RankingApi = {
     async createRun(request) {
       if (!secret) return fail(503, "unavailable");
+      if (isCrossSite(request)) return fail(403, "forbidden");
       if (!(await deps.runLimiter.hit(clientKey(secret, request), deps.now()))) return fail(429, "rate_limited");
       const runId = deps.newRunId();
       const issuedAt = deps.now();
@@ -89,10 +109,16 @@ export function createRankingApi(deps: RankingDeps): RankingApi {
     },
 
     async listTop() {
+      if (!secret) return fail(503, "unavailable"); // D11: sem API de verdade, nem o GET finge um livro vazio
       const entries = await deps.store.top(BOOK_SIZE);
       return json(
         200,
-        { entries: entries.map(({ nickname, elapsedMs, createdAt }, index) => ({ position: index + 1, nickname, elapsedMs, createdAt })) },
+        { entries: entries.map(({ nickname, elapsedMs, createdAt }, index) => ({
+          position: index + 1,
+          nickname,
+          elapsedMs,
+          createdAt: createdAt - (createdAt % DAY_MS), // só o dia (UTC), sem ms: menos rastreável
+        })) },
         BOOK_CACHE,
       );
     },
@@ -100,6 +126,8 @@ export function createRankingApi(deps: RankingDeps): RankingApi {
     // Ordem das checagens (D6): o limitador só conta envios que passaram em tudo.
     async submit(request) {
       if (!secret) return fail(503, "unavailable");
+      if (isCrossSite(request)) return fail(403, "forbidden");
+      if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) return fail(400, "bad_request");
       const parsed = submissionSchema.safeParse(await readJson(request));
       if (!parsed.success) return fail(400, "bad_request");
       const body = parsed.data;

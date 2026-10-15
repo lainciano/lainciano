@@ -81,7 +81,7 @@ describe("POST /api/ranking — caminho feliz e livro", () => {
     expect(list.headers.get("cache-control")).toBe("public, s-maxage=30, stale-while-revalidate=30");
     const { entries } = await list.json();
     expect(entries.map((e: { nickname: string }) => e.nickname)).toEqual(["rapido", "lento"]);
-    expect(entries[0]).toEqual({ position: 1, nickname: "rapido", elapsedMs: 200_000, createdAt: clock });
+    expect(entries[0]).toEqual({ position: 1, nickname: "rapido", elapsedMs: 200_000, createdAt: clock - (clock % 86_400_000) });
     expect(JSON.stringify(entries)).not.toContain("runId");
   });
   it("apelido gravado sem os espaços das pontas", async () => {
@@ -208,5 +208,115 @@ describe("endurecimento extra", () => {
     const response = await makeApi({ store }).listTop();
     expect(response.status).toBe(500);
     expect(await response.text()).toBe('{"error":"server_error"}');
+  });
+});
+
+describe("fix wave A (revisão de segurança)", () => {
+  const del = (runId: string) =>
+    new Request(`http://localhost/api/ranking/${runId}`, { method: "DELETE", headers: { authorization: `Bearer ${ADMIN}` } });
+
+  it("I1: apagar não libera o runId — reenviar o mesmo corpo → 409 duplicate", async () => {
+    const api = makeApi({ submitLimiter: createMemoryLimiter(10, 3_600_000) });
+    const good = await submission(api);
+    expect((await api.submit(post("/api/ranking", good))).status).toBe(201);
+    expect((await api.remove(del(good.runId), good.runId)).status).toBe(200);
+    const again = await api.submit(post("/api/ranking", good));
+    expect(again.status).toBe(409);
+    expect(await again.json()).toEqual({ error: "duplicate" });
+    expect((await (await api.listTop()).json()).entries).toEqual([]);
+  });
+
+  it("M1: sec-fetch-site diferente de same-origin → 403 forbidden nos dois POSTs", async () => {
+    const api = makeApi();
+    for (const site of ["cross-site", "same-site", "none"]) {
+      const run = await api.createRun(post("/api/run", {}, { "sec-fetch-site": site }));
+      expect(run.status).toBe(403);
+      expect(run.headers.get("cache-control")).toBe("no-store");
+      expect(await run.json()).toEqual({ error: "forbidden" });
+      const sub = await api.submit(post("/api/ranking", await submission(api), { "sec-fetch-site": site }));
+      expect(sub.status).toBe(403);
+      expect(await sub.json()).toEqual({ error: "forbidden" });
+    }
+  });
+  it("M1: same-origin ou sem o cabeçalho (curl) passa", async () => {
+    const api = makeApi();
+    expect((await api.createRun(post("/api/run", {}, { "sec-fetch-site": "same-origin" }))).status).toBe(201);
+    const good = await submission(api);
+    expect((await api.submit(post("/api/ranking", good, { "sec-fetch-site": "same-origin" }))).status).toBe(201);
+  });
+  it("M1: a recusa cross-site não gasta cota do limitador", async () => {
+    const api = makeApi({ runLimiter: createMemoryLimiter(1, 3_600_000) });
+    await api.createRun(post("/api/run", {}, { "sec-fetch-site": "cross-site" }));
+    expect((await api.createRun(post("/api/run", {}))).status).toBe(201);
+  });
+  it("M1: POST /api/ranking exige content-type application/json → 400 bad_request", async () => {
+    const api = makeApi();
+    const good = await submission(api);
+    for (const type of ["text/plain", "application/x-www-form-urlencoded", ""]) {
+      const response = await api.submit(post("/api/ranking", good, { "content-type": type }));
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "bad_request" });
+    }
+    expect((await api.submit(post("/api/ranking", good, { "content-type": "application/json; charset=utf-8" }))).status).toBe(201);
+  });
+
+  it("M2/D11: GET sem segredo → 503 unavailable, sem cache", async () => {
+    const response = await makeApi({ secret: null }).listTop();
+    expect(response.status).toBe(503);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toEqual({ error: "unavailable" });
+  });
+
+  it("M4: createdAt público arredondado para o início do dia UTC; ordem segue o valor exato", async () => {
+    const api = makeApi({ submitLimiter: createMemoryLimiter(10, 3_600_000) });
+    const dayStart = clock - (clock % 86_400_000);
+    clock = dayStart + 5_000;
+    await api.submit(post("/api/ranking", await submission(api, { nickname: "primeiro" })));
+    clock = dayStart + 7_777;
+    await api.submit(post("/api/ranking", await submission(api, { nickname: "segundo" })));
+    const { entries } = await (await api.listTop()).json();
+    expect(entries.map((e: { nickname: string }) => e.nickname)).toEqual(["primeiro", "segundo"]);
+    expect(entries.map((e: { createdAt: number }) => e.createdAt)).toEqual([dayStart, dayStart]);
+  });
+
+  const stream = (chunks: Uint8Array[], onPull?: () => void) => {
+    let i = 0;
+    return new ReadableStream<Uint8Array>({
+      pull(controller) {
+        onPull?.();
+        if (i < chunks.length) controller.enqueue(chunks[i++]);
+        else controller.close();
+      },
+    });
+  };
+  const streamed = (body: ReadableStream<Uint8Array>) =>
+    new Request("http://localhost/api/ranking", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+      duplex: "half",
+    } as RequestInit);
+
+  it("#9: corpo em pedaços sem content-length acima de 2 KB → 400 e para de ler", async () => {
+    const api = makeApi();
+    const chunk = new TextEncoder().encode("x".repeat(1024));
+    let pulls = 0;
+    const response = await api.submit(streamed(stream(Array(50).fill(chunk), () => (pulls += 1))));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "bad_request" });
+    expect(pulls).toBeLessThan(10); // não consumiu os 50 KB
+  });
+  it("#9: pedaços multibyte contam em bytes", async () => {
+    const api = makeApi();
+    const chunk = new TextEncoder().encode("é".repeat(600)); // 1200 bytes cada
+    const response = await api.submit(streamed(stream([chunk, chunk])));
+    expect(response.status).toBe(400);
+  });
+  it("#9: corpo em pedaços dentro do limite ainda é aceito", async () => {
+    const api = makeApi();
+    const good = JSON.stringify(await submission(api));
+    const bytes = new TextEncoder().encode(good);
+    const response = await api.submit(streamed(stream([bytes.slice(0, 50), bytes.slice(50)])));
+    expect(response.status).toBe(201);
   });
 });

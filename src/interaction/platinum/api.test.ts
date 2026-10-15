@@ -13,6 +13,7 @@ describe("submitErrorFrom (código da API → mensagem conhecida)", () => {
     }
     expect(submitErrorFrom("bad_request")).toBe("invalid_run");
     expect(submitErrorFrom("qualquer")).toBe("unavailable");
+    expect(submitErrorFrom("forbidden")).toBe("unavailable"); // 403 cross-site
     expect(submitErrorFrom(undefined)).toBe("unavailable");
   });
 });

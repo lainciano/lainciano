@@ -2,7 +2,11 @@
 export type RankingEntry = { runId: string; nickname: string; elapsedMs: number; createdAt: number };
 export type RecordResult = { ok: true; position: number } | { ok: false; error: "duplicate" };
 
-/** Loja do livro. Fase 6: memória. Fase 7: Upstash (ZADD ranking:v1 elapsedMs "<createdAt 13 díg.>:<runId>" — D5). */
+/**
+ * Loja do livro. Fase 6: memória. Fase 7: Upstash (ZADD ranking:v1 elapsedMs "<createdAt 13 díg.>:<runId>" — D5).
+ * Contrato (a Fase 7 deve manter): `record` recusa um runId já gravado alguma vez; `remove` apaga só a linha
+ * e mantém o runId queimado (tombstone), para o mesmo envio assinado não voltar ao livro após a moderação.
+ */
 export interface RankingStore {
   record(entry: RankingEntry): Promise<RecordResult>;
   top(limit: number): Promise<RankingEntry[]>;
@@ -16,10 +20,12 @@ export function compareEntries(a: RankingEntry, b: RankingEntry): number {
 
 export function createMemoryStore(): RankingStore {
   const entries = new Map<string, RankingEntry>();
+  const recorded = new Set<string>(); // tombstone: sobrevive ao remove
   const sorted = () => [...entries.values()].sort(compareEntries);
   return {
     async record(entry) {
-      if (entries.has(entry.runId)) return { ok: false, error: "duplicate" };
+      if (recorded.has(entry.runId)) return { ok: false, error: "duplicate" };
+      recorded.add(entry.runId);
       entries.set(entry.runId, entry);
       return { ok: true, position: sorted().findIndex((candidate) => candidate.runId === entry.runId) + 1 };
     },
