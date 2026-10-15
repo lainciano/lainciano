@@ -65,6 +65,7 @@
   /* ---------- Cripta v2: layout / motion / camadas ---------- */
   --hud-h: 4.25rem;
   --frame-w: 2px;
+  --sombra-dura: 6px 6px 0 var(--sangue); /* sombra dura da spec 4.3 */
   --motion-cursor: 180ms;
   --motion-door: 700ms;
   --z-rail: 25;
@@ -92,6 +93,10 @@
   --row-min: 4.5rem; /* 72 px: linha do índice de projetos (spec 7.4) */
   --row-shift: 0.75rem; /* 12 px: deslize da linha no hover/foco (spec 7.4) */
   --thumb-max: 32rem; /* miniatura estática do índice no mobile/toque */
+  --platina-w: 34rem; /* painel da tela de platina */
+  --platina-selo: 9rem; /* diâmetro do selo de sigilos */
+  --platina-sigilo: 1.75rem; /* tamanho de cada sigilo no selo */
+  --measure-form: 24rem; /* largura do formulário de apelido */
   --preview-w: 22.5rem; /* prévia do Relicário: 360 px (spec 7.4) */
   --preview-h: 14.0625rem; /* 225 px (16:10) */
   --z-preview: 15; /* prévia flutuante: acima do .page-shell (10), abaixo do trilho (25) e do HUD (30) */
@@ -265,7 +270,7 @@ body {
 }
 
 .shadow-hard {
-  box-shadow: 6px 6px 0 var(--sangue);
+  box-shadow: var(--sombra-dura);
 }
 
 .text-card-title {
@@ -901,7 +906,7 @@ body {
 }
 
 .portal__btn--primario {
-  box-shadow: 6px 6px 0 var(--sangue);
+  box-shadow: var(--sombra-dura);
 }
 
 .portal__btn:active {
@@ -2888,4 +2893,140 @@ body {
   transform: scaleX(0);
   transform-origin: left center;
   pointer-events: none;
+}
+
+/* --- Cripta: tela de platina (spec 8.5) --- */
+.platina {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: var(--edge-padding);
+  border: 0;
+  background: color-mix(in srgb, var(--breu) 92%, transparent);
+  color: var(--osso);
+  overflow-y: auto;
+}
+
+.platina:not([open]) {
+  display: none;
+}
+
+.platina[open] {
+  display: grid;
+  place-items: center;
+}
+
+.platina::backdrop {
+  background: transparent;
+}
+
+.platina__painel {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-md);
+  width: min(100%, var(--platina-w));
+  padding: var(--space-xl) var(--space-lg);
+  border: var(--frame-w) solid var(--osso);
+  background: var(--breu);
+  text-align: center;
+}
+
+.platina__fechar {
+  position: absolute;
+  top: var(--space-2xs);
+  right: var(--space-2xs);
+}
+
+.platina__selo {
+  position: relative;
+  width: var(--platina-selo);
+  aspect-ratio: 1;
+}
+
+.platina__sigilo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-family: var(--font-gothic), serif;
+  font-size: var(--platina-sigilo);
+  line-height: 1;
+  color: var(--sangue);
+  transform: translate(-50%, -50%) rotate(calc(var(--i) * 36deg)) translateY(calc(var(--platina-selo) / -2.6))
+    rotate(calc(var(--i) * -36deg));
+}
+
+.platina__titulo {
+  font-family: var(--font-gothic), serif;
+  font-weight: 900;
+  font-size: clamp(3rem, 8vw, 5.5rem);
+  line-height: 0.9;
+}
+
+.platina__resumo {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.platina__form,
+.platina__gravado {
+  display: grid;
+  gap: var(--space-xs);
+  width: 100%;
+  max-width: var(--measure-form);
+  text-align: left;
+}
+
+.platina__gravado {
+  justify-items: start;
+  font-variant-numeric: tabular-nums;
+}
+
+.platina__rotulo {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.platina__campo {
+  min-height: var(--tap-min);
+  padding-inline: var(--space-xs);
+  border: var(--frame-w) solid var(--osso);
+  background: var(--poco);
+  color: var(--osso);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 1rem;
+}
+
+.platina__campo[aria-invalid="true"] {
+  border-color: var(--sangue);
+}
+
+.platina__dica,
+.platina__privacidade {
+  font-size: 0.8125rem;
+  color: var(--cinza);
+}
+
+.platina__erro {
+  font-size: 0.875rem;
+  color: var(--sangue-texto);
+}
+
+.platina__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.platina__gravar:not(:disabled) {
+  box-shadow: var(--sombra-dura);
+}
+
+.platina__gravar:disabled {
+  opacity: 0.6;
 }

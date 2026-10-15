@@ -12,6 +12,7 @@ import { vibrate } from "@/interaction/haptics";
 import { ProgressRail } from "@/interaction/hud/ProgressRail";
 import { readingStore } from "@/interaction/reading-mode/store";
 import { RELICS } from "@/interaction/relics/catalog";
+import { platinumStore } from "@/interaction/platinum/store";
 import { ensureRunTicket } from "@/interaction/platinum/ticket";
 import { relicStore } from "@/interaction/relics/store";
 import { soundEngine } from "@/interaction/sound/engine";
@@ -42,6 +43,10 @@ export function InteractionProvider({ children }: { children: React.ReactNode })
       });
       soundEngine.play(becamePlatinum ? "platinum" : "relic");
       vibrate(becamePlatinum ? [20, 40, 20, 40, 20] : [10, 30, 10]);
+      if (becamePlatinum) {
+        soundEngine.bell(); // spec 8.5: sino + acorde (o acorde é o "platinum" acima)
+        platinumStore.open();
+      }
     });
 
     let lastHover: Element | null = null;

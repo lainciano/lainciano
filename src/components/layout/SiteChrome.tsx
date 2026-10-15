@@ -6,7 +6,9 @@ import type { ConsoleData } from "@/interaction/console/commands";
 import { ConsoleOverlay } from "@/interaction/console/ConsoleOverlay";
 import { ConsoleDataProvider } from "@/interaction/console/data";
 import { Hud } from "@/interaction/hud/Hud";
+import { PlatinumHost } from "@/interaction/platinum/PlatinumHost";
 import { Portal } from "@/interaction/portal/Portal";
+import { platinum } from "@/lib/content/copy";
 import { getPosts } from "@/lib/content/posts";
 import { getProjects } from "@/lib/content/projects";
 import { getSiteSettings } from "@/lib/content/site";
@@ -34,6 +36,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         {/* Precisa vir logo depois do <dialog id="portal">: abre antes da hidratação. */}
         <script dangerouslySetInnerHTML={{ __html: PORTAL_BOOT_SCRIPT }} />
         <ConsoleOverlay />
+        <PlatinumHost labels={platinum} />
       </ConsoleDataProvider>
     </InteractionProvider>
   );
