@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { createBackgroundProgress } from "@/animations/backgroundProgress";
 import { useReadingMode } from "@/interaction/reading-mode/store";
-import { registerLenisControls, resumeLenis } from "@/lib/lenis-bridge";
+import { registerLenisControls, releaseNavigationHold } from "@/lib/lenis-bridge";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -36,7 +36,7 @@ function ScrollBridge() {
 
   useGSAP(() => {
     lenis?.scrollTo(0, { immediate: true });
-    resumeLenis("navigation");
+    releaseNavigationHold();
     ScrollTrigger.refresh();
     return createBackgroundProgress();
   }, [pathname, lenis]);

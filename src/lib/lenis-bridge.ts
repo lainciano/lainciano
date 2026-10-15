@@ -27,3 +27,22 @@ export function resumeLenis(owner?: string) {
   else if (pauses > 0) pauses -= 1;
   if (held() === 0) controls?.start();
 }
+
+const NAV_HOLD = "navigation";
+let navTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Libera a pausa da navegação e cancela o prazo dela (idempotente). */
+export function releaseNavigationHold() {
+  if (navTimer !== null) {
+    clearTimeout(navTimer);
+    navTimer = null;
+  }
+  resumeLenis(NAV_HOLD);
+}
+
+/** Pausa por navegação, com prazo: rota igual ou transição abortada não muda o pathname. Um timer só. */
+export function holdNavigation(maxMs: number) {
+  if (navTimer !== null) clearTimeout(navTimer);
+  pauseLenis(NAV_HOLD);
+  navTimer = setTimeout(releaseNavigationHold, maxMs);
+}
