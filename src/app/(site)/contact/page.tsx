@@ -8,11 +8,12 @@ import { LazyConsoleSession } from "@/interaction/console/LazyConsoleSession";
 import { ExplorerMark } from "@/interaction/relics/ExplorerMark";
 import { RelicGrid } from "@/interaction/relics/RelicGrid";
 import { RoomSound } from "@/interaction/sound/RoomSound";
-import { contact, contactCta, doors, rooms, terminal } from "@/lib/content/copy";
+import { book, contact, contactCta, doors, rooms, terminal } from "@/lib/content/copy";
 import { getSiteSettings } from "@/lib/content/site";
 import { buildMailtoUrl } from "@/lib/mailto";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import { AsciiRelic } from "@/rooms/terminal/AsciiRelic";
+import { PlatinumBook } from "@/rooms/terminal/PlatinumBook";
 import { ALTAR_STILL } from "@/rooms/terminal/still";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -22,7 +23,7 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 // Contato — Terminal (spec 7.8): relíquia ASCII + console embutido; o e-mail fica visível e copiável
-// sem o console; o inventário mostra as relíquias. O livro da platina chega na Fase 6 (D21).
+// sem o console; o inventário mostra as relíquias.
 export default function ContactPage() {
   const site = getSiteSettings();
   const mailto = buildMailtoUrl(site.email, { subject: contactCta.mailtoSubject, body: contactCta.mailtoBody });
@@ -75,6 +76,19 @@ export default function ContactPage() {
           <p className="text-room-role">{contact.relicsRole}</p>
         </div>
         <RelicGrid />
+      </section>
+
+      <section data-rail={book.rail} id="livro" aria-labelledby="livro-titulo" className="content-container pb-section">
+        <div className="mb-[var(--space-lg)] flex flex-wrap items-baseline justify-between gap-[var(--space-sm)]">
+          <h2 id="livro-titulo" className="text-room-subtitle">
+            {book.heading}
+          </h2>
+          <p className="text-room-role">{book.role}</p>
+        </div>
+        <noscript>
+          <p className="livro__estado">{book.noscript}</p>
+        </noscript>
+        <PlatinumBook labels={book} />
       </section>
 
       <RoomDoor href="/" room={rooms.home.title} label={doors.homeLabel} />

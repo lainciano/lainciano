@@ -3039,3 +3039,53 @@ body {
 .platina__gravar:disabled {
   opacity: 0.6;
 }
+
+/* --- Cripta: livro dos que platinaram (spec 7.8) --- */
+.livro {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.livro th {
+  padding-block: var(--space-xs);
+  padding-inline-end: var(--space-sm);
+  border-bottom: var(--frame-w) solid var(--osso);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cinza);
+}
+
+.livro td {
+  padding-block: var(--space-sm);
+  padding-inline-end: var(--space-sm);
+  border-bottom: 1px solid var(--linha);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+.livro__apelido {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.livro__primeiro td:first-child {
+  color: var(--sangue-texto);
+}
+
+.livro__estado {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-sm);
+  color: var(--cinza);
+}
+
+@media (max-width: 47.99rem) {
+  .livro__data {
+    display: none;
+  }
+}
