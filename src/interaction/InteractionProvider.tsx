@@ -12,6 +12,7 @@ import { vibrate } from "@/interaction/haptics";
 import { ProgressRail } from "@/interaction/hud/ProgressRail";
 import { readingStore } from "@/interaction/reading-mode/store";
 import { RELICS } from "@/interaction/relics/catalog";
+import { ensureRunTicket } from "@/interaction/platinum/ticket";
 import { relicStore } from "@/interaction/relics/store";
 import { soundEngine } from "@/interaction/sound/engine";
 import { Toast } from "@/interaction/toast/Toast";
@@ -30,6 +31,8 @@ export function InteractionProvider({ children }: { children: React.ReactNode })
     readingStore.init();
     soundEngine.init();
     relicStore.hydrate();
+    // Bilhete da run (Fase 6): fora do caminho crítico, sem bloquear nada se a API não responder.
+    const ticketTimer = window.setTimeout(() => void ensureRunTicket(), 0);
 
     const offUnlock = relicStore.onUnlock((relic, state, becamePlatinum) => {
       toastStore.show({
@@ -75,6 +78,7 @@ export function InteractionProvider({ children }: { children: React.ReactNode })
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("click", onClick);
     return () => {
+      window.clearTimeout(ticketTimer);
       offUnlock();
       document.removeEventListener("pointerover", onOver);
       document.removeEventListener("pointerdown", onPointerDown);

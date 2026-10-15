@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RELIC_IDS } from "@/interaction/relics/catalog";
 import {
-  EMPTY_STATE, formatElapsed, parseRelicState, platinumElapsedMs, startRun, unlockRelic,
+  EMPTY_STATE, attachTicket, formatElapsed, markRecorded, parseRelicState, platinumElapsedMs, startRun, unlockRelic,
 } from "@/interaction/relics/state";
 
 describe("startRun", () => {
@@ -52,5 +52,30 @@ describe("formatElapsed", () => {
   it("mm:ss com zero à esquerda", () => {
     expect(formatElapsed(65_000)).toBe("01:05");
     expect(formatElapsed(3_600_000)).toBe("60:00");
+  });
+});
+
+describe("bilhete e gravação (Fase 6, D4)", () => {
+  const ticket = { runId: "3f2b6c1e-9a4d-4e8b-8f1a-2c3d4e5f6a7b", issuedAt: 1_800_000_000_000, token: "tok" };
+
+  it("attachTicket troca o runId local pelo do servidor e guarda o bilhete; o cronômetro não muda", () => {
+    const state = startRun(EMPTY_STATE, "local-1", 1000);
+    const next = attachTicket(state, ticket);
+    expect(next).toEqual({ ...state, runId: ticket.runId, ticket: { issuedAt: ticket.issuedAt, token: "tok" } });
+    expect(next.startedAt).toBe(1000);
+  });
+  it("um segundo bilhete não substitui o primeiro", () => {
+    const once = attachTicket(EMPTY_STATE, ticket);
+    expect(attachTicket(once, { ...ticket, runId: "outro", token: "x" })).toBe(once);
+  });
+  it("markRecorded guarda a posição", () => {
+    expect(markRecorded(EMPTY_STATE, 3).recordedPosition).toBe(3);
+  });
+  it("parseRelicState lê bilhete e posição válidos e descarta lixo", () => {
+    const saved = { ...attachTicket(EMPTY_STATE, ticket), recordedPosition: 2 };
+    expect(parseRelicState(JSON.stringify(saved))).toMatchObject({ ticket: { issuedAt: ticket.issuedAt, token: "tok" }, recordedPosition: 2 });
+    const junk = parseRelicState(JSON.stringify({ ticket: { issuedAt: "x", token: 1 }, recordedPosition: -1 }));
+    expect(junk.ticket).toBeNull();
+    expect(junk.recordedPosition).toBeNull();
   });
 });
