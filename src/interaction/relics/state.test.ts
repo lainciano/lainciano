@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RELIC_IDS } from "@/interaction/relics/catalog";
 import {
-  EMPTY_STATE, attachTicket, formatElapsed, markRecorded, parseRelicState, platinumElapsedMs, startRun, unlockRelic,
+  EMPTY_STATE, attachTicket, dropTicket, formatElapsed, markRecorded, parseRelicState, platinumElapsedMs, startRun, unlockRelic,
 } from "@/interaction/relics/state";
 
 describe("startRun", () => {
@@ -63,6 +63,15 @@ describe("bilhete e gravação (Fase 6, D4)", () => {
     const next = attachTicket(state, ticket);
     expect(next).toEqual({ ...state, runId: ticket.runId, ticket: { issuedAt: ticket.issuedAt, token: "tok" } });
     expect(next.startedAt).toBe(1000);
+  });
+  it("dropTicket zera só o bilhete; runId e cronômetro ficam", () => {
+    const state = attachTicket(startRun(EMPTY_STATE, "local-1", 1000), ticket);
+    const dropped = dropTicket(state);
+    expect(dropped.ticket).toBeNull();
+    expect(dropped).toEqual({ ...state, ticket: null });
+    expect(dropped.startedAt).toBe(1000);
+    expect(dropTicket(dropped)).toBe(dropped);
+    expect(attachTicket(dropped, { ...ticket, runId: "novo", token: "t2" }).runId).toBe("novo");
   });
   it("um segundo bilhete não substitui o primeiro", () => {
     const once = attachTicket(EMPTY_STATE, ticket);

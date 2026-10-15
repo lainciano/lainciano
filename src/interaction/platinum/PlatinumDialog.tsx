@@ -100,20 +100,25 @@ export function PlatinumDialog({ labels, open, onClose }: PlatinumDialogProps) {
     }
     if (elapsed === null) return;
     setPhase({ kind: "sending" });
-    await ensureRunTicket();
-    const { runId, ticket, won } = relicStore.getSnapshot();
-    if (!runId || !ticket) {
-      setPhase({ kind: "error", error: "unavailable" });
-      return;
+    const attempt = async () => {
+      await ensureRunTicket();
+      const { runId, ticket, won } = relicStore.getSnapshot();
+      if (!runId || !ticket) return { ok: false as const, error: "unavailable" as SubmitError };
+      return submitRun({
+        runId,
+        issuedAt: ticket.issuedAt,
+        token: ticket.token,
+        nickname: nickname.trim(),
+        relics: won,
+        elapsedMs: Math.round(elapsed),
+      });
+    };
+    let result = await attempt();
+    // Segredo girou no servidor: o bilhete guardado nunca mais vale. Pede outro e tenta uma vez só.
+    if (!result.ok && result.error === "invalid_run") {
+      relicStore.dropTicket();
+      result = await attempt();
     }
-    const result = await submitRun({
-      runId,
-      issuedAt: ticket.issuedAt,
-      token: ticket.token,
-      nickname: nickname.trim(),
-      relics: won,
-      elapsedMs: Math.round(elapsed),
-    });
     if (result.ok) {
       relicStore.markRecorded(result.position);
       setPhase({ kind: "form" });

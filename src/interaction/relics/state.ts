@@ -44,6 +44,11 @@ export function attachTicket(state: RelicState, ticket: { runId: string; issuedA
   return { ...state, runId: ticket.runId, ticket: { issuedAt: ticket.issuedAt, token: ticket.token } };
 }
 
+/** Descarta só o bilhete (ex.: segredo girou no servidor); runId e cronômetro ficam até o novo bilhete. */
+export function dropTicket(state: RelicState): RelicState {
+  return state.ticket ? { ...state, ticket: null } : state;
+}
+
 export function markRecorded(state: RelicState, position: number): RelicState {
   return { ...state, recordedPosition: position };
 }
