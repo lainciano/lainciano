@@ -96,6 +96,8 @@
   --platina-w: 34rem; /* painel da tela de platina */
   --platina-selo: 9rem; /* diâmetro do selo de sigilos */
   --platina-sigilo: 1.75rem; /* tamanho de cada sigilo no selo */
+  --platina-raio: calc(var(--platina-selo) / -2.6); /* raio do anel de sigilos (negativo: sobe do centro) */
+  --text-platina: clamp(3rem, 8vw, 5.5rem); /* título "Platina." */
   --measure-form: 24rem; /* largura do formulário de apelido */
   --preview-w: 22.5rem; /* prévia do Relicário: 360 px (spec 7.4) */
   --preview-h: 14.0625rem; /* 225 px (16:10) */
@@ -2904,7 +2906,7 @@ body {
   margin: 0;
   padding: var(--edge-padding);
   border: 0;
-  background: color-mix(in srgb, var(--breu) 92%, transparent);
+  background: var(--breu);
   color: var(--osso);
   overflow-y: auto;
 }
@@ -2920,6 +2922,12 @@ body {
 
 .platina::backdrop {
   background: transparent;
+}
+
+.platina__painel,
+.platina__form,
+.platina__gravado {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .platina__painel {
@@ -2954,15 +2962,16 @@ body {
   font-size: var(--platina-sigilo);
   line-height: 1;
   color: var(--sangue);
-  transform: translate(-50%, -50%) rotate(calc(var(--i) * 36deg)) translateY(calc(var(--platina-selo) / -2.6))
-    rotate(calc(var(--i) * -36deg));
+  transform: translate(-50%, -50%) rotate(calc(var(--i) * 360deg / var(--n))) translateY(var(--platina-raio))
+    rotate(calc(var(--i) * -360deg / var(--n)));
 }
 
 .platina__titulo {
   font-family: var(--font-gothic), serif;
   font-weight: 900;
-  font-size: clamp(3rem, 8vw, 5.5rem);
+  font-size: var(--text-platina);
   line-height: 0.9;
+  overflow-wrap: anywhere;
 }
 
 .platina__resumo {
@@ -2981,11 +2990,6 @@ body {
 
 .platina__gravado {
   justify-items: start;
-  font-variant-numeric: tabular-nums;
-}
-
-.platina__status {
-  font-variant-numeric: tabular-nums;
 }
 
 /* Vazia, a região viva continua montada mas não ocupa o vão do grid. */
@@ -3001,13 +3005,16 @@ body {
 }
 
 .platina__campo {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   min-height: var(--tap-min);
   padding-inline: var(--space-xs);
   border: var(--frame-w) solid var(--osso);
   background: var(--poco);
   color: var(--osso);
   font-family: var(--font-jetbrains), ui-monospace, monospace;
-  font-size: 1rem;
+  font-size: 1rem; /* 16 px: abaixo disso o iOS dá zoom ao focar */
 }
 
 .platina__campo[aria-invalid="true"] {
@@ -3021,7 +3028,8 @@ body {
 }
 
 .platina__erro {
-  font-size: 0.875rem;
+  font-size: clamp(0.875rem, 1vw, 1rem); /* igual a .text-small-body */
+  line-height: 1.6;
   color: var(--sangue-texto);
 }
 
@@ -3032,11 +3040,11 @@ body {
   gap: var(--space-md);
 }
 
-.platina__gravar:not(:disabled) {
+.platina__gravar:not([aria-disabled="true"]) {
   box-shadow: var(--sombra-dura);
 }
 
-.platina__gravar:disabled {
+.platina__gravar[aria-disabled="true"] {
   opacity: 0.6;
 }
 
@@ -3060,6 +3068,15 @@ body {
   color: var(--cinza);
 }
 
+.livro tbody th {
+  font-size: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  color: inherit;
+  border-bottom: 1px solid var(--linha);
+  padding-block: var(--space-sm);
+}
+
 .livro td {
   padding-block: var(--space-sm);
   padding-inline-end: var(--space-sm);
@@ -3067,7 +3084,7 @@ body {
   font-family: var(--font-jetbrains), ui-monospace, monospace;
 }
 
-.livro__apelido {
+.livro .livro__apelido {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-weight: 700;
   overflow-wrap: anywhere;
@@ -3075,6 +3092,14 @@ body {
 
 .livro__primeiro td:first-child {
   color: var(--sangue-texto);
+}
+
+.livro__contorno:focus {
+  outline: none;
+}
+
+#livro {
+  scroll-margin-top: calc(var(--hud-h) + var(--space-sm));
 }
 
 .livro__estado {
