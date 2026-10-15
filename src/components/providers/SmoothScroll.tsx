@@ -36,7 +36,7 @@ function ScrollBridge() {
 
   useGSAP(() => {
     lenis?.scrollTo(0, { immediate: true });
-    resumeLenis();
+    resumeLenis("navigation");
     ScrollTrigger.refresh();
     return createBackgroundProgress();
   }, [pathname, lenis]);

@@ -9,6 +9,9 @@ export function supportsViewTransitions(): boolean {
   return typeof document !== "undefined" && "startViewTransition" in document;
 }
 
+const NAV_HOLD = "navigation"; // dono idempotente: N navegações seguidas contam como uma pausa
+const NAV_HOLD_MAX_MS = 3000;
+
 /** Navega com View Transitions API ou fallback GSAP crossfade. */
 export function navigateWithTransition(
   router: AppRouterInstance,
@@ -17,9 +20,11 @@ export function navigateWithTransition(
 ) {
   const transitionTypes = direction === "back" ? ["nav-back"] : ["nav-forward"];
 
-  pauseLenis();
+  pauseLenis(NAV_HOLD);
+  // Rota igual ou transição abortada não muda o pathname: o prazo garante que o Lenis volta.
+  window.setTimeout(() => resumeLenis(NAV_HOLD), NAV_HOLD_MAX_MS);
 
-  const resume = () => resumeLenis();
+  const resume = () => resumeLenis(NAV_HOLD);
 
   if (supportsViewTransitions() && !prefersReducedMotion()) {
     router.push(href, { transitionTypes });
