@@ -3,14 +3,17 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { readingStore, useReadingMode } from "@/interaction/reading-mode/store";
+import { fetchBook } from "@/interaction/platinum/api";
+import { platinumStore } from "@/interaction/platinum/store";
 import { RELICS, getRelic } from "@/interaction/relics/catalog";
+import { formatElapsed } from "@/interaction/relics/state";
 import { relicStore, useRelics } from "@/interaction/relics/store";
 import { soundEngine, useSoundEnabled } from "@/interaction/sound/engine";
 import { keyPitch } from "@/interaction/sound/sfx";
 import { copyText } from "@/lib/clipboard";
 import { terminal as copy } from "@/lib/content/copy";
 import { navigateWithTransition } from "@/lib/navigation";
-import { COMMANDS, argOptions, runCommand, type ConsoleEffect, type ConsoleLine } from "./commands";
+import { COMMANDS, RANKING_PREVIEW, argOptions, runCommand, type ConsoleEffect, type ConsoleLine } from "./commands";
 import { useConsoleData } from "./data";
 import { complete, historyDown, historyUp, pushHistory } from "./parse";
 import { consoleStore } from "./store";
@@ -112,6 +115,32 @@ export function ConsoleSession({ greeting, inline = false, autoFocus = false, on
         return;
       case "reading":
         readingStore.set(effect.on ? "on" : "off");
+        return;
+      case "platinum":
+        if (onNavigate) {
+          // Dois <dialog> modais + um único resumeLenis: o console sai primeiro e a tela abre depois.
+          onNavigate();
+          window.setTimeout(() => platinumStore.open(), CLOSE_MS);
+        } else {
+          platinumStore.open();
+        }
+        return;
+      case "ranking":
+        void fetchBook().then((entries) => {
+          if (entries === null) {
+            append([{ kind: "err", text: copy.rankingFailed }]);
+          } else if (entries.length === 0) {
+            append([{ kind: "res", text: copy.rankingEmpty }]);
+          } else {
+            // O apelido entra como texto React (nunca HTML).
+            append(
+              entries.slice(0, RANKING_PREVIEW).map((entry) => ({
+                kind: "res" as const,
+                text: copy.rankingLine(entry.position, entry.nickname, formatElapsed(entry.elapsedMs)),
+              })),
+            );
+          }
+        });
         return;
       case "clear":
         setLines([]);

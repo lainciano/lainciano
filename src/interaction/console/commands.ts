@@ -16,10 +16,15 @@ export type ConsoleEffect =
   | { type: "unlock"; id: RelicId }
   | { type: "sound"; on: boolean }
   | { type: "reading"; on: boolean }
+  | { type: "platinum" }
+  | { type: "ranking" }
   | { type: "clear" };
 
 export type CommandStatus = "ok" | "error" | "denied";
 export type CommandResult = { status: CommandStatus; lines: ConsoleLine[]; effects: ConsoleEffect[] };
+
+/** Quantas linhas do livro o `ranking` mostra (spec 8.6: top 5). */
+export const RANKING_PREVIEW = 5;
 
 /** Salas do `ir` (spec 8.6), na ordem da ajuda. */
 export const DESTINATIONS = {
@@ -199,10 +204,12 @@ export function runCommand(raw: string, data: ConsoleData, state: ConsoleState):
     }
 
     case "cripta":
-      return ok([state.platinum ? copy.cryptOpen : copy.cryptLocked(state.won.length, RELICS.length)]);
+      return state.platinum
+        ? ok([copy.cryptOpen], [{ type: "platinum" }])
+        : ok([copy.cryptLocked(state.won.length, RELICS.length)]);
 
     case "ranking":
-      return ok([copy.rankingLoading]);
+      return ok([copy.rankingLoading], [{ type: "ranking" }]);
 
     case "limpar":
       return ok([], [{ type: "clear" }]);
