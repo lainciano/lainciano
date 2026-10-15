@@ -309,6 +309,7 @@ export const book = {
   loading: "abrindo o livro…",
   empty: "Ninguém platinou ainda. As 10 relíquias estão espalhadas pelo site.",
   failed: "O livro não respondeu. Tente de novo em instantes.",
+  rows: "Linhas no livro: {n}.",
   retry: "tentar de novo",
   noscript: "O livro precisa de JavaScript para abrir.",
   rail: "Livro",

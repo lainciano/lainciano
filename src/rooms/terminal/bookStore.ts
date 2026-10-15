@@ -1,9 +1,14 @@
 import { fetchBook, type BookEntry } from "@/interaction/platinum/api";
 
-export type BookState = { status: "loading" } | { status: "ready"; entries: BookEntry[] } | { status: "failed" };
+// Recarregando, as linhas antigas continuam (sem piscar a tabela).
+export type BookState =
+  | { status: "loading"; entries?: BookEntry[] }
+  | { status: "ready"; entries: BookEntry[] }
+  | { status: "failed" };
 
 let state: BookState = { status: "loading" };
 let loading = false;
+let again = false;
 const listeners = new Set<() => void>();
 const set = (next: BookState) => {
   state = next;
@@ -13,11 +18,21 @@ const set = (next: BookState) => {
 /** Estado do livro fora do React (lição 3): o componente só assina; carregar não faz setState em efeito. */
 export const bookStore = {
   load() {
-    if (loading) return;
+    // Pedido durante uma carga em voo (ex.: gravou agora): repete ao terminar, para não mostrar tabela velha.
+    if (loading) {
+      again = true;
+      return;
+    }
     loading = true;
-    set({ status: "loading" });
+    const previous = state.status === "failed" ? undefined : state.entries;
+    set({ status: "loading", entries: previous });
     void fetchBook().then((entries) => {
       loading = false;
+      if (again) {
+        again = false;
+        bookStore.load();
+        return;
+      }
       set(entries ? { status: "ready", entries } : { status: "failed" });
     });
   },

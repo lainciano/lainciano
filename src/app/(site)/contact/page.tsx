@@ -13,6 +13,7 @@ import { getSiteSettings } from "@/lib/content/site";
 import { buildMailtoUrl } from "@/lib/mailto";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import { AsciiRelic } from "@/rooms/terminal/AsciiRelic";
+import { LivroHashFocus } from "@/rooms/terminal/LivroHashFocus";
 import { PlatinumBook } from "@/rooms/terminal/PlatinumBook";
 import { ALTAR_STILL } from "@/rooms/terminal/still";
 
@@ -80,7 +81,7 @@ export default function ContactPage() {
 
       <section data-rail={book.rail} id="livro" aria-labelledby="livro-titulo" className="content-container pb-section">
         <div className="mb-[var(--space-lg)] flex flex-wrap items-baseline justify-between gap-[var(--space-sm)]">
-          <h2 id="livro-titulo" className="text-room-subtitle">
+          <h2 id="livro-titulo" tabIndex={-1} className="text-room-subtitle focus-ring">
             {book.heading}
           </h2>
           <p className="text-room-role">{book.role}</p>
@@ -88,6 +89,7 @@ export default function ContactPage() {
         <noscript>
           <p className="livro__estado">{book.noscript}</p>
         </noscript>
+        <LivroHashFocus />
         <PlatinumBook labels={book} />
       </section>
 
