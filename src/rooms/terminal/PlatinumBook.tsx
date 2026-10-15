@@ -6,16 +6,18 @@ import { formatElapsed } from "@/interaction/relics/state";
 import { formatDate } from "@/lib/format";
 import { bookStore, type BookState } from "./bookStore";
 
-const LOADING: BookState = { status: "loading" };
+// Snapshot do servidor: "idle" não renderiza nada, assim sem JS só a frase do <noscript> aparece.
+const SERVER: BookState | { status: "idle" } = { status: "idle" };
 
 // Livro dos que platinaram (spec 7.8): até 20 linhas, lido da API a cada visita ao Contato.
 export function PlatinumBook({ labels }: { labels: BookLabels }) {
-  const book = useSyncExternalStore(bookStore.subscribe, bookStore.getSnapshot, () => LOADING);
+  const book = useSyncExternalStore(bookStore.subscribe, bookStore.getSnapshot, () => SERVER);
 
   useEffect(() => {
     bookStore.load();
   }, []);
 
+  if (book.status === "idle") return null;
   if (book.status === "loading") {
     return (
       <p className="livro__estado" role="status">
