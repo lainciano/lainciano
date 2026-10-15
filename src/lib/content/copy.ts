@@ -250,8 +250,11 @@ export const terminal = {
   revealDone: (title: string) => `a lente passou por ${title} inteiro.`,
   sudo: "permissão negada. a tentativa foi registrada no livro.",
   cryptLocked: (won: number, total: number) => `a cripta só abre para quem platinou. ${won} de ${total}.`,
-  cryptSoon: "o livro dos que platinaram ainda está sendo encadernado.",
-  rankingSoon: "o livro dos que platinaram ainda não abriu.",
+  cryptOpen: "a cripta se abre.",
+  rankingLoading: "abrindo o livro…",
+  rankingEmpty: "ninguém platinou ainda.",
+  rankingFailed: "o livro não respondeu. tente de novo em instantes.",
+  rankingLine: (position: number, nickname: string, time: string) => `${position}. ${nickname}  ${time}`,
 };
 
 /** Contato — Terminal (spec 7.8). */
@@ -267,6 +270,48 @@ export const contact = {
   write: "escrever ↗",
   relicsHeading: "Relíquias",
   relicsRole: "Cada interação escondida desbloqueia um sigilo. O progresso fica salvo neste navegador.",
+};
+
+/** Tela de platina (spec 8.5). Modelos com {marcador}: preenchidos no cliente com fillTemplate. */
+export const platinum = {
+  title: "Platina.",
+  summary: "10 de 10 em {tempo}.",
+  nicknameLabel: "Apelido",
+  nicknameHint: "3 a 16 letras, números, _ ou -.",
+  submit: "Gravar no livro",
+  sending: "Gravando…",
+  later: "Agora não",
+  privacy: "Só o apelido e o tempo ficam públicos. Nada mais é guardado.",
+  success: "Gravado. Você é o nº {posicao} no livro.",
+  bookLink: "Ver o livro",
+  close: "fechar",
+  errors: {
+    invalid_nickname: "Use de 3 a 16 letras, números, _ ou -.",
+    blocked_nickname: "Esse apelido não pode ser usado. Escolha outro.",
+    rate_limited: "Muitas tentativas. Tente de novo em uma hora.",
+    unavailable: "O livro não respondeu. Tente de novo em instantes.",
+    duplicate: "Esta run já está no livro.",
+    invalid_run: "Esta run não pode ser gravada no livro.",
+    too_fast: "Rápido demais para o livro: a run precisa de pelo menos 2 minutos.",
+    incomplete: "Esta run não pode ser gravada no livro.",
+  },
+};
+
+/** Livro dos que platinaram, no Contato (spec 7.8). */
+export const book = {
+  heading: "Livro dos que platinaram",
+  role: "Ranking de honra: as relíquias são conferidas no seu navegador.",
+  caption: "Os 20 menores tempos até a platina",
+  position: "nº",
+  nickname: "apelido",
+  time: "tempo",
+  date: "data",
+  loading: "abrindo o livro…",
+  empty: "Ninguém platinou ainda. As 10 relíquias estão espalhadas pelo site.",
+  failed: "O livro não respondeu. Tente de novo em instantes.",
+  retry: "tentar de novo",
+  noscript: "O livro precisa de JavaScript para abrir.",
+  rail: "Livro",
 };
 
 /** 404 — Cripta vazia (spec 7.9). */

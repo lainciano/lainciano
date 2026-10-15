@@ -161,10 +161,10 @@ describe("alternativas acessíveis de relíquia (D7)", () => {
 describe("cripta, ranking, limpar, sudo", () => {
   it("cripta sem platina conta o que falta; com platina, livro em encadernação (D6)", () => {
     expect(texts("cripta", { ...state, won: ["sangue", "case"] })).toEqual([terminal.cryptLocked(2, 10)]);
-    expect(texts("cripta", { ...state, platinum: true })).toEqual([terminal.cryptSoon]);
+    expect(texts("cripta", { ...state, platinum: true })).toEqual([terminal.cryptOpen]);
   });
   it("ranking responde que o livro ainda não abriu", () => {
-    expect(texts("ranking")).toEqual([terminal.rankingSoon]);
+    expect(texts("ranking")).toEqual([terminal.rankingLoading]);
   });
   it("limpar e clear limpam", () => {
     expect(run("limpar")).toEqual({ status: "ok", lines: [], effects: [{ type: "clear" }] });

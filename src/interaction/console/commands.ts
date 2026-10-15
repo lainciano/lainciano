@@ -199,10 +199,10 @@ export function runCommand(raw: string, data: ConsoleData, state: ConsoleState):
     }
 
     case "cripta":
-      return ok([state.platinum ? copy.cryptSoon : copy.cryptLocked(state.won.length, RELICS.length)]);
+      return ok([state.platinum ? copy.cryptOpen : copy.cryptLocked(state.won.length, RELICS.length)]);
 
     case "ranking":
-      return ok([copy.rankingSoon]);
+      return ok([copy.rankingLoading]);
 
     case "limpar":
       return ok([], [{ type: "clear" }]);
