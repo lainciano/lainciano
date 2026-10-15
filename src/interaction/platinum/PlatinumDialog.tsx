@@ -22,6 +22,7 @@ type PlatinumDialogProps = { labels: PlatinumLabels; open: boolean; onClose: () 
 export function PlatinumDialog({ labels, open, onClose }: PlatinumDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const bookLinkRef = useRef<HTMLAnchorElement>(null);
   const reading = useReadingMode();
   const relics = useRelics();
   const [nickname, setNickname] = useState("");
@@ -43,6 +44,11 @@ export function PlatinumDialog({ labels, open, onClose }: PlatinumDialogProps) {
     }
   }, [open]);
 
+  // Gravado (ou reaberto já gravado): o formulário some, então o foco vai para o link do livro, nunca para o body.
+  useEffect(() => {
+    if (open && recorded !== null) bookLinkRef.current?.focus();
+  }, [open, recorded]);
+
   // Selo: os sigilos convergem e o selo pulsa uma vez (modo leitura: estado final).
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -57,11 +63,12 @@ export function PlatinumDialog({ labels, open, onClose }: PlatinumDialogProps) {
           x: () => gsap.utils.random(-window.innerWidth / 2, window.innerWidth / 2),
           y: () => gsap.utils.random(-window.innerHeight / 2, window.innerHeight / 2),
           opacity: 0,
-          duration: 0.8,
+          duration: 0.7,
           ease: "expo.out",
           stagger: 0.04,
         })
-        .fromTo(seal, { scale: 0.9 }, { scale: 1, duration: 0.4, ease: "back.out(2)" });
+        // Pulso sobrepõe o fim dos sigilos: total 0,7 + 9 x 0,04 = 1,06 s; o pulso termina em 1,16 s (≤ 1,2 s).
+        .fromTo(seal, { scale: 0.9 }, { scale: 1, duration: 0.4, ease: "back.out(2)" }, "-=0.3");
     }, dialog);
     return () => context.revert();
   }, [open, reading]);
@@ -136,10 +143,13 @@ export function PlatinumDialog({ labels, open, onClose }: PlatinumDialogProps) {
         </h2>
         {elapsed !== null && <p className="platina__resumo">{fillTemplate(labels.summary, { tempo: formatElapsed(elapsed) })}</p>}
 
+        {/* Região viva sempre montada: o texto entra depois, então o leitor de tela anuncia. */}
+        <p role="status" className="platina__status">
+          {recorded !== null ? fillTemplate(labels.success, { posicao: recorded }) : ""}
+        </p>
         {recorded !== null ? (
           <div className="platina__gravado">
-            <p role="status">{fillTemplate(labels.success, { posicao: recorded })}</p>
-            <TransitionLink href="/contact#livro" className="hud-btn focus-ring" onClick={onClose}>
+            <TransitionLink ref={bookLinkRef} href="/contact#livro" className="hud-btn focus-ring" onClick={onClose}>
               {labels.bookLink}
             </TransitionLink>
           </div>

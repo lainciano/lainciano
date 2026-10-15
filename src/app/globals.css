@@ -2984,6 +2984,15 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.platina__status {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Vazia, a região viva continua montada mas não ocupa o vão do grid. */
+.platina__status:empty {
+  position: absolute;
+}
+
 .platina__rotulo {
   font-family: var(--font-jetbrains), ui-monospace, monospace;
   font-size: 0.8125rem;
