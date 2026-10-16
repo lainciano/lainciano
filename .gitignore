@@ -52,3 +52,8 @@ next-env.d.ts
 # artefatos locais de agentes (companion de brainstorming, capturas do Playwright)
 .superpowers/
 .playwright-mcp/
+
+# skills de agente instaladas pela integração Upstash (docs, não código do site)
+.agents/
+.claude/
+skills-lock.json
