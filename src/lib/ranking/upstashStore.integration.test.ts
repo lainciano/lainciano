@@ -30,7 +30,9 @@ describe.skipIf(!url || !token)("loja Upstash de verdade", () => {
     expect((await store.top(20)).map((e) => e.nickname)).toEqual(["bia", "ana", "1234"]);
     expect((await store.top(2)).map((e) => e.nickname)).toEqual(["bia", "ana"]);
     expect(await store.top(20)).toContainEqual(a);
+    expect(await redis.zcard(prefix)).toBe(3);
     expect(await store.remove(b.runId)).toBe(true);
+    expect(await redis.zcard(prefix)).toBe(2); // o membro foi mesmo removido (sem órfão)
     expect(await store.remove(b.runId)).toBe(false);
     expect((await store.top(20)).map((e) => e.nickname)).toEqual(["bia", "1234"]);
     expect(await store.record({ ...b, createdAt: 1_700_000_000_999 })).toEqual({ ok: false, error: "duplicate" });
