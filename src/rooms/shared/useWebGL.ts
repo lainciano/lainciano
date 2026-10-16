@@ -1,7 +1,7 @@
 "use client";
 
-import gsap from "gsap";
 import { useCallback, useEffect, useEffectEvent, useRef, useState, type RefObject } from "react";
+import { getGsap, loadGsap } from "@/lib/motion";
 import { useInView } from "./useInView";
 import { capDpr, createFpsGuard, webglBudget, type WebGLScene, type WebGLSceneContext } from "./webgl";
 
@@ -32,19 +32,26 @@ export function useWebGL(layerRef: RefObject<HTMLElement | null>, { enabled, cre
   const [status, setStatus] = useState<WebGLStatus>("idle");
   const tickRef = useRef<Tick | null>(null);
   const runningRef = useRef(false);
+  const addedRef = useRef(false);
   const visibleRef = useRef(false);
   const createScene = useEffectEvent((context: WebGLSceneContext) => create(context));
 
   const sleep = useCallback(() => {
-    if (tickRef.current) gsap.ticker.remove(tickRef.current);
+    if (tickRef.current) getGsap()?.gsap.ticker.remove(tickRef.current);
     runningRef.current = false;
+    addedRef.current = false;
   }, []);
 
   const wake = useCallback(() => {
     const tick = tickRef.current;
     if (!tick || runningRef.current || !visibleRef.current) return;
     runningRef.current = true;
-    gsap.ticker.add(tick);
+    // O ticker é do GSAP, que chega depois do primeiro paint; `sleep` antes disso cancela a entrada.
+    void loadGsap().then(({ gsap }) => {
+      if (!runningRef.current || addedRef.current) return;
+      addedRef.current = true;
+      gsap.ticker.add(tick);
+    });
   }, []);
 
   useEffect(() => {

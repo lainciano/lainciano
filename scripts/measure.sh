@@ -12,13 +12,16 @@ pnpm exec next start -p $PORT >"$OUT/server.log" 2>&1 & SERVER=$!
 trap 'kill $SERVER 2>/dev/null || true' EXIT
 for _ in $(seq 40); do curl -sf "http://localhost:$PORT/" >/dev/null && break; sleep 0.5; done
 
-echo "## JS inicial (KB gzip -9)"
+echo "## JS inicial (KB gzip -9 | brotli 11, o que a Vercel serve)"
 for r in "${ROUTES[@]}"; do
-  total=0
+  total=0; btotal=0
   for p in $(curl -s "http://localhost:$PORT$r" | grep -o '/_next/static/[^"]*\.js' | sort -u); do
-    total=$((total + $(curl -s "http://localhost:$PORT$p" | gzip -9 | wc -c)))
+    body=$(mktemp); curl -s "http://localhost:$PORT$p" >"$body"
+    total=$((total + $(gzip -9 -c "$body" | wc -c)))
+    btotal=$((btotal + $(node -e 'const z=require("zlib");process.stdout.write(String(z.brotliCompressSync(require("fs").readFileSync(process.argv[1])).length))' "$body")))
+    rm -f "$body"
   done
-  printf "%-28s %4d KB\n" "$r" $((total / 1024))
+  printf "%-28s %4d | %4d KB\n" "$r" $((total / 1024)) $((btotal / 1024))
 done
 
 echo "## Lighthouse mobile (mediana de $RUNS) — perf | LCP s | TBT ms | CLS"

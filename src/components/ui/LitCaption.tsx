@@ -1,14 +1,11 @@
 "use client";
 
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Fragment, useEffect, useRef } from "react";
 import { useReadingMode } from "@/interaction/reading-mode/store";
 import type { RelicId } from "@/interaction/relics/catalog";
 import { relicStore } from "@/interaction/relics/store";
+import { whenGsap } from "@/lib/motion";
 import { isCaptionComplete, litCount, splitCaption } from "./lit-caption";
-
-gsap.registerPlugin(ScrollTrigger);
 
 type LitCaptionProps = {
   paragraphs: readonly string[];
@@ -52,20 +49,23 @@ export function LitCaption({ paragraphs, keywords = [], relic, className = "" }:
       words.forEach((word, index) => word.toggleAttribute("data-on", index < lit));
       if (isCaptionComplete(progress)) complete();
     };
-    root.dataset.lit = "armed";
-    const trigger = ScrollTrigger.create({
-      trigger: root,
-      start: "top 80%",
-      end: "bottom 45%",
-      scrub: true,
-      onUpdate: (self) => apply(self.progress),
+    // Sem GSAP a legenda fica inteira acesa (o HTML do servidor já vem assim); ele arma o scrub quando chega.
+    return whenGsap(({ ScrollTrigger }) => {
+      root.dataset.lit = "armed";
+      const trigger = ScrollTrigger.create({
+        trigger: root,
+        start: "top 80%",
+        end: "bottom 45%",
+        scrub: true,
+        onUpdate: (self) => apply(self.progress),
+      });
+      apply(trigger.progress);
+      return () => {
+        trigger.kill();
+        delete root.dataset.lit;
+        words.forEach((word) => word.removeAttribute("data-on"));
+      };
     });
-    apply(trigger.progress);
-    return () => {
-      trigger.kill();
-      delete root.dataset.lit;
-      words.forEach((word) => word.removeAttribute("data-on"));
-    };
   }, [reading, relic]);
 
   return (

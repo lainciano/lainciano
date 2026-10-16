@@ -1,11 +1,11 @@
 "use client";
 
-import gsap from "gsap";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { readingStore } from "@/interaction/reading-mode/store";
 import { terminal as copy } from "@/lib/content/copy";
 import { pauseLenis, resumeLenis } from "@/lib/lenis-bridge";
+import { getGsap } from "@/lib/motion";
 import { LazyConsoleSession } from "./LazyConsoleSession";
 import { shouldOpenConsole } from "./shortcut";
 import { consoleStore, useConsoleOpen } from "./store";
@@ -21,7 +21,7 @@ export function ConsoleOverlay() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  const closeTween = useRef<gsap.core.Tween | null>(null);
+  const closeTween = useRef<{ kill: () => void } | null>(null);
   const [everOpened, setEverOpened] = useState(false);
   if (open && !everOpened) setEverOpened(true);
 
@@ -60,7 +60,9 @@ export function ConsoleOverlay() {
       // Reabriu durante a animação de fechar: mata o tween (o onComplete fecharia o diálogo recém-aberto).
       closeTween.current.kill();
       closeTween.current = null;
-      gsap.set(panel, { clearProps: "transform,opacity" });
+      panel.style.transform = "";
+      panel.style.opacity = "";
+      getGsap()?.gsap.set(panel, { clearProps: "transform,opacity" });
       dialog.querySelector<HTMLInputElement>(".console__input")?.focus();
       return;
     }
@@ -68,17 +70,19 @@ export function ConsoleOverlay() {
       dialog.showModal();
       pauseLenis();
       dialog.querySelector<HTMLInputElement>(".console__input")?.focus();
-      if (!readingStore.getSnapshot()) {
-        gsap.fromTo(panel, { yPercent: 12, opacity: 0 }, { yPercent: 0, opacity: 1, duration: IN_S, ease: "power3.out" });
+      const lib = getGsap();
+      if (lib && !readingStore.getSnapshot()) {
+        lib.gsap.fromTo(panel, { yPercent: 12, opacity: 0 }, { yPercent: 0, opacity: 1, duration: IN_S, ease: "power3.out" });
       }
       return;
     }
     if (!open && dialog.open) {
-      if (readingStore.getSnapshot()) {
+      const lib = getGsap();
+      if (!lib || readingStore.getSnapshot()) {
         dialog.close();
         return;
       }
-      closeTween.current = gsap.to(panel, {
+      closeTween.current = lib.gsap.to(panel, {
         yPercent: 8,
         opacity: 0,
         duration: OUT_S,
@@ -86,7 +90,7 @@ export function ConsoleOverlay() {
         onComplete: () => {
           closeTween.current = null;
           dialog.close();
-          gsap.set(panel, { clearProps: "transform,opacity" });
+          lib.gsap.set(panel, { clearProps: "transform,opacity" });
         },
       });
     }

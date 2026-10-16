@@ -1,16 +1,18 @@
-import gsap from "gsap";
-import { prefersReducedMotion } from "@/lib/motion";
+import { getGsap, prefersReducedMotion } from "@/lib/motion";
 
 const OVERLAY_CLASS = "page-transition-fallback-overlay";
 const DURATION = 0.28;
 
 // Crossfade via overlay para browsers sem View Transitions API.
 export function runPageTransitionFallback(navigate: () => void): Promise<void> {
-  if (prefersReducedMotion()) {
+  // GSAP ainda não chegou (1ª interação logo após o load): navega sem o crossfade.
+  const lib = getGsap();
+  if (prefersReducedMotion() || !lib) {
     navigate();
     return Promise.resolve();
   }
 
+  const { gsap } = lib;
   let overlay = document.querySelector<HTMLElement>(`.${OVERLAY_CLASS}`);
   if (!overlay) {
     overlay = document.createElement("div");

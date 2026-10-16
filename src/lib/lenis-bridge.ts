@@ -1,9 +1,17 @@
+import type Lenis from "lenis";
+
 type LenisControls = {
   stop: () => void;
   start: () => void;
 };
 
 let controls: LenisControls | null = null;
+// A instância do Lenis nasce depois do primeiro paint (Fase 8): quem precisa dela lê na hora do uso.
+let instance: Lenis | null = null;
+export const setLenis = (next: Lenis | null) => {
+  instance = next;
+};
+export const getLenis = (): Lenis | null => instance;
 // Pausas de diálogos contam (aninham); pausas com dono (ex.: "navigation") são idempotentes por dono.
 let pauses = 0;
 const owners = new Set<string>();

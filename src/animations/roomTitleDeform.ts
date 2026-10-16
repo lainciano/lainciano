@@ -1,11 +1,8 @@
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-gsap.registerPlugin(ScrollTrigger);
+import type { GsapLib } from "@/lib/motion";
 
 // Título de sala no scroll (spec 7.0): letter-spacing 0.08em → -0.01em e skewX -8° → 0, em scrub.
 // O estado final é o do CSS (.text-room-title), então o título é legível em qualquer ponto.
-export function createRoomTitleDeform(title: HTMLElement): () => void {
+export function createRoomTitleDeform(title: HTMLElement, { gsap }: GsapLib): () => void {
   const tween = gsap.fromTo(
     title,
     { letterSpacing: "0.08em", skewX: -8 },

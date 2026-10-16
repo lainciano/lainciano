@@ -1,9 +1,9 @@
 "use client";
 
-import gsap from "gsap";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useReadingMode } from "@/interaction/reading-mode/store";
 import { soundEngine } from "@/interaction/sound/engine";
+import { whenGsap } from "@/lib/motion";
 import { magnetOffset } from "./magnet";
 import { cursorStore } from "./store";
 
@@ -33,54 +33,56 @@ export function Cursor() {
     const root = rootRef.current;
     const mover = moverRef.current;
     if (!active || !root || !mover) return;
-    document.documentElement.dataset.cursor = "on";
+    // O cursor do sistema só some quando o anel está pronto (GSAP chega depois do primeiro paint).
+    return whenGsap(({ gsap }) => {
+      document.documentElement.dataset.cursor = "on";
 
-    // Camada superior (Popover API): o Portal e a gaveta de relíquias são <dialog> modais, que ficam
-    // acima de qualquer z-index. Sem isto, com o cursor do sistema oculto, não haveria cursor neles.
-    const raise = () => {
-      if (typeof root.showPopover !== "function") return;
-      try {
-        if (root.matches(":popover-open")) root.hidePopover();
-        root.showPopover();
-      } catch {
-        // popover indisponível: o anel fica com o z-index normal
-      }
-    };
-    raise();
-    const dialogWatcher = new MutationObserver(() => raise());
-    dialogWatcher.observe(document.body, { attributes: true, attributeFilter: ["open"], subtree: true });
-    const moveX = gsap.quickTo(mover, "x", { duration: 0.18, ease: "power3" });
-    const moveY = gsap.quickTo(mover, "y", { duration: 0.18, ease: "power3" });
-    let magnet: Element | null = null;
-    let zone: HTMLElement | null = null;
+      // Camada superior (Popover API): o Portal e a gaveta de relíquias são <dialog> modais, que ficam
+      // acima de qualquer z-index. Sem isto, com o cursor do sistema oculto, não haveria cursor neles.
+      const raise = () => {
+        if (typeof root.showPopover !== "function") return;
+        try {
+          if (root.matches(":popover-open")) root.hidePopover();
+          root.showPopover();
+        } catch {
+          // popover indisponível: o anel fica com o z-index normal
+        }
+      };
+      raise();
+      const dialogWatcher = new MutationObserver(() => raise());
+      dialogWatcher.observe(document.body, { attributes: true, attributeFilter: ["open"], subtree: true });
+      const moveX = gsap.quickTo(mover, "x", { duration: 0.18, ease: "power3" });
+      const moveY = gsap.quickTo(mover, "y", { duration: 0.18, ease: "power3" });
+      let magnet: Element | null = null;
+      let zone: HTMLElement | null = null;
 
-    const onMove = (event: PointerEvent) => {
-      root.dataset.hidden = "off";
-      if (magnet) {
-        const pull = magnetOffset(event.clientX, event.clientY, magnet.getBoundingClientRect());
-        moveX(event.clientX + pull.x);
-        moveY(event.clientY + pull.y);
-      } else {
-        moveX(event.clientX);
-        moveY(event.clientY);
-      }
-    };
-    const onOver = (event: PointerEvent) => {
-      const target = event.target as Element | null;
-      const nextZone = target?.closest<HTMLElement>("[data-verbo]") ?? null;
-      if (nextZone !== zone && nextZone) soundEngine.play("tick");
-      zone = nextZone;
-      root.dataset.zone = zone ? "on" : "off";
-      if (zone && labelRef.current) labelRef.current.textContent = zone.dataset.verbo ?? "";
-      magnet = zone ? null : (target?.closest("a, button, [role='button'], summary, label") ?? null);
-      root.dataset.link = magnet ? "on" : "off";
-    };
-    const onLeave = () => {
-      root.dataset.hidden = "on";
-    };
-    const offCharge = cursorStore.onCharge((value) => {
-      root.dataset.charging = value > 0 ? "on" : "off";
-      chargeRef.current?.setAttribute("stroke-dashoffset", String(1 - value));
+      const onMove = (event: PointerEvent) => {
+        root.dataset.hidden = "off";
+        if (magnet) {
+          const pull = magnetOffset(event.clientX, event.clientY, magnet.getBoundingClientRect());
+          moveX(event.clientX + pull.x);
+          moveY(event.clientY + pull.y);
+        } else {
+          moveX(event.clientX);
+          moveY(event.clientY);
+        }
+      };
+      const onOver = (event: PointerEvent) => {
+        const target = event.target as Element | null;
+        const nextZone = target?.closest<HTMLElement>("[data-verbo]") ?? null;
+        if (nextZone !== zone && nextZone) soundEngine.play("tick");
+        zone = nextZone;
+        root.dataset.zone = zone ? "on" : "off";
+        if (zone && labelRef.current) labelRef.current.textContent = zone.dataset.verbo ?? "";
+        magnet = zone ? null : (target?.closest("a, button, [role='button'], summary, label") ?? null);
+        root.dataset.link = magnet ? "on" : "off";
+      };
+      const onLeave = () => {
+        root.dataset.hidden = "on";
+      };
+      const offCharge = cursorStore.onCharge((value) => {
+        root.dataset.charging = value > 0 ? "on" : "off";
+        chargeRef.current?.setAttribute("stroke-dashoffset", String(1 - value));
     });
 
     const press = () => {
@@ -109,6 +111,7 @@ export function Cursor() {
       } catch {}
       delete document.documentElement.dataset.cursor;
     };
+    });
   }, [active]);
 
   if (!active) return null;

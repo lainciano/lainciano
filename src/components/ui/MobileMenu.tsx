@@ -1,6 +1,5 @@
 "use client";
 
-import { useLenis } from "lenis/react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -10,6 +9,7 @@ import { consoleStore } from "@/interaction/console/store";
 import { readingStore, useReadingMode } from "@/interaction/reading-mode/store";
 import { VolumeControl } from "@/interaction/sound/VolumeControl";
 import { hud } from "@/lib/content/copy";
+import { pauseLenis, resumeLenis } from "@/lib/lenis-bridge";
 import { SOCIAL_LABELS } from "@/lib/social";
 import type { NavLink } from "@/lib/nav";
 import type { SocialLinks } from "@/types/content";
@@ -47,32 +47,27 @@ const subscribe = () => () => {};
 const getSnapshot = () => true;
 const getServerSnapshot = () => false;
 
+const MENU_HOLD = "menu";
+
 export function MobileMenu({ siteName, email, availability, navLinks, socialLinks }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const skipPathnameCloseRef = useRef(true);
   const pathname = usePathname();
   const reading = useReadingMode();
-  const lenis = useLenis();
-  const lenisRef = useRef(lenis);
-
-  useEffect(() => {
-    lenisRef.current = lenis;
-  }, [lenis]);
-
   const activeSocials = (
     Object.entries(socialLinks) as [keyof SocialLinks, string | null | undefined][]
   ).filter(([, url]) => Boolean(url));
 
   const openMenu = useCallback(() => {
     setIsOpen(true);
-    lenisRef.current?.stop();
+    pauseLenis(MENU_HOLD);
     document.body.style.overflow = "hidden";
   }, []);
 
   const closeMenu = useCallback(() => {
     setIsOpen(false);
-    lenisRef.current?.start();
+    resumeLenis(MENU_HOLD);
     document.body.style.overflow = "";
   }, []);
 

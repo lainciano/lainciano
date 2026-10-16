@@ -1,8 +1,8 @@
 "use client";
 
-import gsap from "gsap";
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { useReadingMode } from "@/interaction/reading-mode/store";
+import { getGsap } from "@/lib/motion";
 import { TOAST_HOLD_MS, toastStore } from "./store";
 
 export function Toast() {
@@ -14,11 +14,12 @@ export function Toast() {
     const box = boxRef.current;
     if (!message || !box) return;
     const hide = () => toastStore.clear(message.id);
-    if (reading) {
+    const lib = getGsap();
+    if (reading || !lib) {
       const timer = window.setTimeout(hide, TOAST_HOLD_MS);
       return () => window.clearTimeout(timer);
     }
-    const tl = gsap.timeline({ onComplete: hide });
+    const tl = lib.gsap.timeline({ onComplete: hide });
     tl.fromTo(box, { yPercent: 140, rotate: -3 }, { yPercent: 0, rotate: 0, duration: 0.5, ease: "back.out(2)" }).to(
       box,
       { yPercent: 140, duration: 0.4, ease: "power2.in" },
