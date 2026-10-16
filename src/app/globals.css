@@ -3028,8 +3028,6 @@ body {
 }
 
 .platina__erro {
-  font-size: clamp(0.875rem, 1vw, 1rem); /* igual a .text-small-body */
-  line-height: 1.6;
   color: var(--sangue-texto);
 }
 

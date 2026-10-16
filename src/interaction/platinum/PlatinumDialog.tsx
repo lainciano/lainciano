@@ -17,6 +17,18 @@ import { ensureRunTicket } from "./ticket";
 
 type Phase = { kind: "form" } | { kind: "sending" } | { kind: "error"; error: SubmitError; seq: number };
 
+// Pausa/retomada do Lenis uma vez só por abertura (a ref evita contar duas vezes).
+function holdLenis(held: { current: boolean }) {
+  if (held.current) return;
+  held.current = true;
+  pauseLenis();
+}
+function releaseLenis(held: { current: boolean }) {
+  if (!held.current) return;
+  held.current = false;
+  resumeLenis();
+}
+
 type PlatinumDialogProps = { labels: PlatinumLabels; open: boolean; onClose: () => void };
 
 // Tela de platina (spec 8.5): selo de sigilos, tempo, apelido. GSAP só nos filhos (o <dialog> é top layer).
@@ -43,26 +55,16 @@ export function PlatinumDialog({ labels, open, onClose }: PlatinumDialogProps) {
     if (!dialog) return;
     if (open && !dialog.open) {
       dialog.showModal();
-      if (!pausedRef.current) {
-        pausedRef.current = true;
-        pauseLenis();
-      }
       inputRef.current?.focus();
     } else if (!open && dialog.open) {
       dialog.close();
     }
+    // Fora do guard do showModal: no StrictMode o cleanup solta e a 2ª montagem precisa pausar de novo.
+    if (open) holdLenis(pausedRef);
   }, [open]);
 
   // Desmontou aberto (ou o evento close não veio): devolve o Lenis uma única vez.
-  useEffect(
-    () => () => {
-      if (pausedRef.current) {
-        pausedRef.current = false;
-        resumeLenis();
-      }
-    },
-    [],
-  );
+  useEffect(() => () => releaseLenis(pausedRef), []);
 
   // Gravado (ou reaberto já gravado): o formulário some, então o foco vai para o link do livro, nunca para o body.
   useEffect(() => {
@@ -102,9 +104,9 @@ export function PlatinumDialog({ labels, open, onClose }: PlatinumDialogProps) {
       onClose();
     };
     const onCloseEvent = () => {
-      if (!pausedRef.current) return;
-      pausedRef.current = false;
-      resumeLenis();
+      // Reaberta depois de "Agora não" ou Esc, a tela não traz o erro velho de volta.
+      setPhase((current) => (current.kind === "error" ? { kind: "form" } : current));
+      releaseLenis(pausedRef);
     };
     dialog.addEventListener("cancel", onCancel);
     dialog.addEventListener("close", onCloseEvent);
@@ -239,7 +241,7 @@ export function PlatinumDialog({ labels, open, onClose }: PlatinumDialogProps) {
               {labels.nicknameHint}
             </p>
             {error && (
-              <p key={phase.kind === "error" ? phase.seq : 0} id={errorId} role="alert" className="platina__erro">
+              <p key={phase.kind === "error" ? phase.seq : 0} id={errorId} role="alert" className="platina__erro text-small-body">
                 {error}
               </p>
             )}

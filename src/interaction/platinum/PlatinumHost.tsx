@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useState, type ComponentType } from "react";
+import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
 import type { PlatinumLabels } from "./labels";
 import { platinumStore, usePlatinumOpen } from "./store";
 
@@ -10,8 +10,16 @@ type DialogProps = { labels: PlatinumLabels; open: boolean; onClose: () => void 
 const PlatinumDialog = lazy(() =>
   import("./PlatinumDialog")
     .then((module): { default: ComponentType<DialogProps> } => ({ default: module.PlatinumDialog }))
-    .catch((): { default: ComponentType<DialogProps> } => ({ default: () => null })), // sem o chunk, nada abre: a platina continua guardada no estado
+    .catch((): { default: ComponentType<DialogProps> } => ({ default: ChunkFailed })),
 );
+
+// Sem o chunk nada abre: solta a loja para que o `cripta` possa tentar de novo (a platina segue guardada no estado).
+function ChunkFailed() {
+  useEffect(() => {
+    platinumStore.close();
+  }, []);
+  return null;
+}
 
 export function PlatinumHost({ labels }: { labels: PlatinumLabels }) {
   const open = usePlatinumOpen();
@@ -20,7 +28,7 @@ export function PlatinumHost({ labels }: { labels: PlatinumLabels }) {
   if (!loaded) return null;
   return (
     <Suspense fallback={null}>
-      <PlatinumDialog labels={labels} open={open} onClose={() => platinumStore.close()} />
+      <PlatinumDialog labels={labels} open={open} onClose={platinumStore.close} />
     </Suspense>
   );
 }
