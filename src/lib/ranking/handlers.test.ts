@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RELIC_IDS } from "@/interaction/relics/catalog";
-import { BOOK_SIZE, MAX_BODY_BYTES, createRankingApi, type RankingApi } from "@/lib/ranking/handlers";
+import { BOOK_SIZE, BOOK_MEMO_MS, MAX_BODY_BYTES, clientKey, createRankingApi, type RankingApi } from "@/lib/ranking/handlers";
 import { createMemoryLimiter } from "@/lib/ranking/limiter";
 import { createMemoryStore } from "@/lib/ranking/store";
 
@@ -400,5 +400,78 @@ describe("log de falha (Fase 7)", () => {
     expect(logged).toContain("TypeError");
     expect(logged).not.toMatch(/hunter2|203\.0\.113\.7|stack/);
     spy.mockRestore();
+  });
+});
+
+describe("memo do top 20 (custo no Redis)", () => {
+  const countingStore = () => {
+    const store = createMemoryStore();
+    let reads = 0;
+    const top = store.top.bind(store);
+    store.top = async (limit) => ((reads += 1), top(limit));
+    return { store, reads: () => reads };
+  };
+
+  it("GETs seguidos dentro da janela leem a loja uma vez; depois da janela, de novo", async () => {
+    const { store, reads } = countingStore();
+    const api = makeApi({ store });
+    await api.listTop();
+    await api.listTop();
+    expect(reads()).toBe(1);
+    clock += BOOK_MEMO_MS + 1;
+    await api.listTop();
+    expect(reads()).toBe(2);
+  });
+
+  it("gravar e remover pela própria instância invalidam o memo (a linha aparece na hora)", async () => {
+    const { store } = countingStore();
+    const api = makeApi({ store });
+    expect((await (await api.listTop()).json()).entries).toEqual([]);
+    const body = await submission(api, { nickname: "lain" });
+    await api.submit(post("/api/ranking", body));
+    expect((await (await api.listTop()).json()).entries).toHaveLength(1);
+    await api.remove(new Request("http://localhost/x", { method: "DELETE", headers: { authorization: `Bearer ${ADMIN}` } }), body.runId);
+    expect((await (await api.listTop()).json()).entries).toEqual([]);
+  });
+
+  it("erro da loja não é guardado no memo", async () => {
+    const store = createMemoryStore();
+    let fail = true;
+    const top = store.top.bind(store);
+    store.top = async (limit) => {
+      if (fail) throw new Error("fora");
+      return top(limit);
+    };
+    const api = makeApi({ store });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect((await api.listTop()).status).toBe(500);
+    fail = false;
+    expect((await api.listTop()).status).toBe(200);
+  });
+
+  it("o memo é separado por resposta: a moderação sempre lê a loja", async () => {
+    const { store, reads } = countingStore();
+    const api = makeApi({ store });
+    await api.listTop();
+    await api.listForModeration(new Request("http://localhost/m", { headers: { authorization: `Bearer ${ADMIN}` } }));
+    expect(reads()).toBe(2);
+  });
+});
+
+describe("clientKey (IPv6 reduzido a /64)", () => {
+  const key = (ip: string) => clientKey(SECRET, new Request("http://localhost/", { headers: { "x-forwarded-for": ip } }));
+  it("endereços do mesmo /64 dão a mesma chave; /64 diferentes, chaves diferentes", () => {
+    expect(key("2001:db8:1:2:aaaa::1")).toBe(key("2001:db8:1:2:bbbb:cccc:dddd:eeee"));
+    expect(key("2001:db8:1:2::1")).not.toBe(key("2001:db8:1:3::1"));
+  });
+  it("forma abreviada e expandida são o mesmo endereço", () => {
+    expect(key("2001:db8::1")).toBe(key("2001:0db8:0000:0000:0000:0000:0000:0001"));
+  });
+  it("IPv4 e IPv4 mapeado em IPv6 dão a mesma chave; IPv4 distintos, chaves distintas", () => {
+    expect(key("203.0.113.7")).toBe(key("::ffff:203.0.113.7"));
+    expect(key("203.0.113.7")).not.toBe(key("203.0.113.8"));
+  });
+  it("lixo no cabeçalho não quebra (vira a chave do texto)", () => {
+    expect(() => key("não-é-ip")).not.toThrow();
   });
 });

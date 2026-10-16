@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { isIPv4, isIPv6 } from "node:net";
 import { z } from "zod";
 import { GLOBAL_KEY, type KeyedLimiter } from "./limiter";
 import { checkSubmission } from "./rules";
@@ -8,6 +9,8 @@ import { validateNickname } from "./validate";
 
 export const BOOK_SIZE = 20;
 export const MAX_BODY_BYTES = 2048;
+/** Janela do memo do top 20 por instância: protege o Redis de GETs em laço (custo por comando). */
+export const BOOK_MEMO_MS = 3000;
 export const SECRET_MIN = 32;
 export const ADMIN_MIN = 24;
 const DAY_MS = 86_400_000;
@@ -49,11 +52,25 @@ const submissionSchema = z.object({
   elapsedMs: z.number(),
 });
 
+/** IPv6 → os 4 primeiros grupos (/64, o que um único host/assinante controla); IPv4 mapeado vira IPv4. */
+function normalizeIp(raw: string): string {
+  const ip = raw.split("%")[0];
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
+  if (mapped) return mapped[1];
+  if (isIPv4(ip) || !isIPv6(ip)) return ip;
+  const tail = ip.replace(/(\d+)\.(\d+)\.(\d+)\.(\d+)$/, "0:0"); // cauda IPv4 conta como 2 grupos
+  const [head, rest] = tail.split("::");
+  const left = head ? head.split(":") : [];
+  const right = rest ? rest.split(":") : [];
+  const groups = rest === undefined ? left : [...left, ...Array<string>(Math.max(0, 8 - left.length - right.length)).fill("0"), ...right];
+  return `v6:${groups.slice(0, 4).map((group) => group.toLowerCase().padStart(4, "0")).join(":")}`;
+}
+
 /** Chave do limitador: HMAC do IP, nunca o IP em claro (D8). */
 // x-forwarded-for só é confiável atrás da Vercel (ela sobrescreve o cabeçalho); fora dela o cliente escolhe o IP.
 export function clientKey(secret: string, request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const ip = forwarded || request.headers.get("x-real-ip")?.trim() || "local";
+  const ip = normalizeIp(forwarded || request.headers.get("x-real-ip")?.trim() || "local");
   return createHmac("sha256", secret).update(`ip:${ip}`).digest("base64url");
 }
 
@@ -112,6 +129,17 @@ export function createRankingApi(deps: RankingDeps): RankingApi {
     return adminToken !== null && safeEqual(given, adminToken);
   };
 
+  // Memo do top 20 por instância: invalidado pelas gravações/remoções desta instância; em outras instâncias a linha
+  // nova pode levar até BOOK_MEMO_MS para aparecer. Erro da loja nunca é guardado.
+  let memo: { at: number; entries: Awaited<ReturnType<RankingStore["top"]>> } | null = null;
+  const topCached = async () => {
+    const now = deps.now();
+    if (memo && now >= memo.at && now - memo.at < BOOK_MEMO_MS) return memo.entries;
+    const entries = await deps.store.top(BOOK_SIZE);
+    memo = { at: now, entries };
+    return entries;
+  };
+
   const api: RankingApi = {
     async createRun(request) {
       if (!secret) return fail(503, "unavailable");
@@ -125,7 +153,7 @@ export function createRankingApi(deps: RankingDeps): RankingApi {
 
     async listTop() {
       if (!secret) return fail(503, "unavailable"); // D11: sem API de verdade, nem o GET finge um livro vazio
-      const entries = await deps.store.top(BOOK_SIZE);
+      const entries = await topCached();
       return json(
         200,
         { entries: entries.map(({ nickname, elapsedMs, createdAt }, index) => ({
@@ -176,13 +204,16 @@ export function createRankingApi(deps: RankingDeps): RankingApi {
         createdAt: now,
       });
       if (!result.ok) return fail(409, "duplicate");
+      memo = null;
       return json(201, { position: result.position });
     },
 
     async remove(request, runId) {
       if (!adminToken) return fail(404, "not_found");
       if (!isAdmin(request)) return fail(401, "unauthorized");
-      return (await deps.store.remove(runId)) ? json(200, { removed: true }) : fail(404, "not_found");
+      const removed = await deps.store.remove(runId);
+      memo = null;
+      return removed ? json(200, { removed: true }) : fail(404, "not_found");
     },
   };
 
