@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildRankingApi, keyPrefix, memoryStoreAllowed, upstashEnv, type Backend } from "@/lib/ranking/server";
 import { createMemoryLimiter } from "@/lib/ranking/limiter";
 import { createMemoryStore } from "@/lib/ranking/store";
@@ -55,7 +55,7 @@ describe("Upstash (Fase 7)", () => {
   });
 
   it("VERCEL=1 + Upstash → funciona (a persistente vence a regra da memória)", async () => {
-    const api = buildRankingApi({ VERCEL: "1", NODE_ENV: "production", RANKING_SECRET: SECRET, ...CREDS }, fakeBackend);
+    const api = buildRankingApi({ VERCEL: "1", VERCEL_ENV: "preview", NODE_ENV: "production", RANKING_SECRET: SECRET, ...CREDS }, fakeBackend);
     expect((await api.createRun(run())).status).toBe(201);
     expect((await api.listTop()).status).toBe(200);
   });
@@ -81,5 +81,47 @@ describe("Upstash (Fase 7)", () => {
     expect(keyPrefix({ VERCEL_ENV: "development" })).toBe("ranking:v1:dev");
     expect(keyPrefix({})).toBe("ranking:v1:dev");
     expect(keyPrefix({ VERCEL_ENV: "outro" })).toBe("ranking:v1:dev");
+  });
+});
+
+describe("Upstash — robustez (Fase 7)", () => {
+  const CREDS = { KV_REST_API_URL: "https://exemplo.upstash.io", KV_REST_API_TOKEN: "token-de-teste" };
+  const ok = (): Backend => ({
+    store: createMemoryStore(),
+    submitLimiter: createMemoryLimiter(3, 3_600_000),
+    runLimiter: createMemoryLimiter(20, 3_600_000),
+    globalSubmitLimiter: createMemoryLimiter(60, 3_600_000),
+    globalRunLimiter: createMemoryLimiter(1000, 3_600_000),
+  });
+
+  it("variável vazia não impede o fallback (KV_REST_API_URL= com UPSTASH_* preenchidas)", () => {
+    expect(upstashEnv({ KV_REST_API_URL: "", KV_REST_API_TOKEN: "", UPSTASH_REDIS_REST_URL: "u", UPSTASH_REDIS_REST_TOKEN: "t" })).toEqual({ url: "u", token: "t" });
+    expect(upstashEnv({ KV_REST_API_URL: "", KV_REST_API_TOKEN: "" })).toBeNull();
+  });
+
+  it("falha ao construir o cliente vira 503, sem lançar nem logar a URL do banco", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const api = buildRankingApi({ VERCEL: "1", RANKING_SECRET: SECRET, ...CREDS }, () => {
+      throw new Error("Invalid URL https://segredo.upstash.io");
+    });
+    expect((await api.createRun(run())).status).toBe(503);
+    expect(JSON.stringify(spy.mock.calls)).not.toContain("segredo.upstash.io");
+    spy.mockRestore();
+  });
+
+  it("na Vercel, só production e preview usam o Redis; development ou ambiente desconhecido → 503", async () => {
+    for (const VERCEL_ENV of ["production", "preview"]) {
+      const api = buildRankingApi({ VERCEL: "1", VERCEL_ENV, RANKING_SECRET: SECRET, ...CREDS }, ok);
+      expect((await api.createRun(run())).status).toBe(201);
+    }
+    for (const VERCEL_ENV of ["development", "staging", undefined]) {
+      const api = buildRankingApi({ VERCEL: "1", VERCEL_ENV, RANKING_SECRET: SECRET, ...CREDS }, ok);
+      expect((await api.createRun(run())).status).toBe(503);
+    }
+  });
+
+  it("fora da Vercel (dev local com credenciais) continua usando o Redis", async () => {
+    const api = buildRankingApi({ NODE_ENV: "development", RANKING_SECRET: SECRET, ...CREDS }, ok);
+    expect((await api.createRun(run())).status).toBe(201);
   });
 });
