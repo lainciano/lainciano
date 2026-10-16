@@ -28,6 +28,13 @@ const CONTAINS_FOLDED = CONTAINS.map(foldNickname);
 const EXACT_FOLDED = new Set([...EXACT, ...RESERVED].map(foldNickname));
 const RESERVED_SET = new Set(RESERVED);
 
+/** Letras que a fonte do site confunde (I/l/1, 0/O, rn/m, 3/e, 4/a): comparação por "aparência" dos reservados. */
+const lookalike = (nickname: string) =>
+  nickname.toLowerCase().replace(/[_-]/g, "").replace(/[il1]/g, "l").replace(/0/g, "o").replace(/rn/g, "m").replace(/3/g, "e").replace(/4/g, "a");
+const RESERVED_LOOK = new Set(RESERVED.map(lookalike));
+// A marca do dono vale em qualquer posição ("xlaincianox", "lainciano_real", "Iainciano"): fingir ser o dono é o abuso a evitar.
+const BRAND_LOOK = lookalike("lainciano");
+
 /** "admin2", "root_1", "cripta9": sem dígitos, _ e - sobra um reservado (o fold acima só desfaz leetspeak). */
 const isReservedWithDigits = (nickname: string) => RESERVED_SET.has(nickname.toLowerCase().replace(/[0-9_-]/g, ""));
 
@@ -58,6 +65,9 @@ export function validateNickname(raw: string): NicknameVerdict {
   const nickname = raw.trim();
   if (!NICKNAME.pattern.test(nickname) || !/[A-Za-z0-9]/.test(nickname)) return "invalid";
   const folded = foldNickname(nickname);
-  if (EXACT_FOLDED.has(folded) || isReservedWithDigits(nickname) || containsBlocked(folded)) return "blocked";
+  const look = lookalike(nickname);
+  if (EXACT_FOLDED.has(folded) || isReservedWithDigits(nickname) || RESERVED_LOOK.has(look) || look.includes(BRAND_LOOK) || containsBlocked(folded)) {
+    return "blocked";
+  }
   return "ok";
 }

@@ -74,3 +74,14 @@ describe("reservados com dígitos (Fase 7)", () => {
     for (const ok of ["rootbeer", "administrado", "criptas", "sistemas"]) expect(validateNickname(ok)).toBe("ok");
   });
 });
+
+describe("falsificação do apelido do dono (Fase 7)", () => {
+  it("Iainciano, 1ainciano, lainciano_real, xlaincianox, Lainciano-BR → blocked", () => {
+    for (const bad of ["Iainciano", "1ainciano", "lainciano_real", "xlaincianox", "Lainciano-BR", "IAINCIANO", "l4inciano"]) {
+      expect(validateNickname(bad)).toBe("blocked");
+    }
+  });
+  it("letras parecidas não bloqueiam apelidos comuns", () => {
+    for (const ok of ["plain", "lain", "ciano", "alaina", "ana_lima"]) expect(validateNickname(ok)).toBe("ok");
+  });
+});
