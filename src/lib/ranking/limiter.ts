@@ -51,14 +51,21 @@ export function createMemoryLimiter(max: number, windowMs: number, maxKeys: numb
 }
 
 /** O que o adaptador usa do `Ratelimit` do Upstash. */
-export type RatelimitLike = { limit(identifier: string): Promise<{ success: boolean }> };
+export type RatelimitLike = { limit(identifier: string): Promise<{ success: boolean; reason?: string }> };
 
+/** Fecha em falha: o @upstash/ratelimit libera o pedido quando estoura o próprio timeout; aqui isso conta como recusa. */
 export function fromRatelimit(ratelimit: RatelimitLike): KeyedLimiter {
-  return { hit: async (key) => (await ratelimit.limit(key)).success };
+  return {
+    hit: async (key) => {
+      const result = await ratelimit.limit(key);
+      return result.success && result.reason !== "timeout";
+    },
+  };
 }
 
 /** Janela deslizante no Redis; `prefix` separa os limitadores entre si (envio, bilhete, tetos). */
 export function createUpstashLimiter(redis: Redis, max: number, windowMs: number, prefix: string): KeyedLimiter {
   const seconds = Math.round(windowMs / 1000);
-  return fromRatelimit(new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(max, `${seconds} s`), prefix }));
+  // timeout: 0 desliga o "libera se o Redis demorar" (padrão 5 s): sem resposta do Redis, erro → 500, nunca passagem livre.
+  return fromRatelimit(new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(max, `${seconds} s`), prefix, timeout: 0 }));
 }

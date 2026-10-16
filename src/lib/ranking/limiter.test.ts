@@ -20,6 +20,14 @@ describe("fromRatelimit (adaptador do @upstash/ratelimit)", () => {
     expect(await limiter.hit("k", 0)).toBe(false);
     expect(seen).toEqual(["k", "k"]);
   });
+  it("fecha em falha: timeout do ratelimit (success:true, reason:timeout) vira recusa", async () => {
+    const limiter = fromRatelimit({ limit: async () => ({ success: true, reason: "timeout" }) });
+    expect(await limiter.hit("k", 0)).toBe(false);
+  });
+  it("erro do Redis propaga (o handler responde 500, não libera)", async () => {
+    const limiter = fromRatelimit({ limit: async () => { throw new Error("redis fora"); } });
+    await expect(limiter.hit("k", 0)).rejects.toThrow();
+  });
 });
 
 describe("createMemoryLimiter (janela deslizante por chave)", () => {
