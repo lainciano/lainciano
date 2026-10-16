@@ -11,7 +11,8 @@ export interface RankingRedis {
   zrange(key: string, start: number, stop: number, options: { withScores: true }): Promise<unknown[]>;
 }
 
-export const KEY_PREFIX = "ranking:v1";
+// v2: o formato do membro mudou (apelido dentro do membro, holder em string). Chaves v1 de dev/preview ficam órfãs.
+export const KEY_PREFIX = "ranking:v2";
 
 const uuid = z.uuid();
 
@@ -31,7 +32,14 @@ const MEMBER = /^(\d{13}):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
 export const SCRIPTS = {
   // KEYS: zset, gate, holder · ARGV: membro, elapsedMs → posição, ou -1 se o runId já foi gravado
   record: `
-if redis.call('EXISTS', KEYS[2]) == 1 then return -1 end
+if redis.call('EXISTS', KEYS[2]) == 1 then
+  -- idempotente: a repetição do MESMO membro (retentativa após resposta perdida) reconhece a própria gravação
+  if redis.call('GET', KEYS[3]) == ARGV[1] then
+    local rank = redis.call('ZRANK', KEYS[1], ARGV[1])
+    if rank then return rank + 1 end
+  end
+  return -1
+end
 redis.call('ZADD', KEYS[1], ARGV[2], ARGV[1])
 redis.call('SET', KEYS[3], ARGV[1])
 redis.call('SET', KEYS[2], '1')

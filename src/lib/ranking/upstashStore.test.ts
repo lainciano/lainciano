@@ -22,7 +22,10 @@ function fakeRedis() {
       if (script === SCRIPTS.record) {
         const [, gate, holder] = keys;
         const [member, elapsed] = args.map(String);
-        if (strings.has(gate)) return -1;
+        if (strings.has(gate)) {
+          // idempotente: a repetição do MESMO membro (retentativa após resposta perdida) reconhece a própria gravação
+          return strings.get(holder) === member && zset.has(member) ? ordered().findIndex(([m]) => m === member) + 1 : -1;
+        }
         zset.set(member, Number(elapsed));
         strings.set(holder, member);
         strings.set(gate, "1");
@@ -81,7 +84,7 @@ describe("createUpstashStore", () => {
       { runId: id(2), nickname: "ana", elapsedMs: 300, createdAt: 20 },
       { runId: id(1), nickname: "1234", elapsedMs: 500, createdAt: 10 },
     ]);
-    expect(fake.calls).toEqual([{ op: "zrange", args: ["ranking:v1", 0, 19, { withScores: true }] }]);
+    expect(fake.calls).toEqual([{ op: "zrange", args: ["ranking:v2", 0, 19, { withScores: true }] }]);
   });
 
   it("top com limite inválido não consulta o Redis (ZRANGE 0 -1 devolveria tudo)", async () => {
@@ -108,14 +111,28 @@ describe("createUpstashStore", () => {
     expect(await store.remove(id(1))).toBe(false);
     expect(await store.top(20)).toEqual([]);
     expect(await store.record(entry(1, 400, 2))).toEqual({ ok: false, error: "duplicate" });
-    expect(fake.strings.has(`ranking:v1:gate:${id(1)}`)).toBe(true);
+    expect(fake.strings.has(`ranking:v2:gate:${id(1)}`)).toBe(true);
+  });
+
+  it("retentativa do mesmo envio (mesmo createdAt) devolve a mesma posição; outro createdAt é duplicado de verdade", async () => {
+    const store = createUpstashStore(fakeRedis().redis);
+    expect(await store.record(entry(1, 400, 1_700_000_000_000, "lain"))).toEqual({ ok: true, position: 1 });
+    expect(await store.record(entry(1, 400, 1_700_000_000_000, "lain"))).toEqual({ ok: true, position: 1 });
+    expect(await store.record(entry(1, 400, 1_700_000_000_500, "lain"))).toEqual({ ok: false, error: "duplicate" });
+  });
+
+  it("depois da moderação a retentativa não ressuscita a linha", async () => {
+    const store = createUpstashStore(fakeRedis().redis);
+    await store.record(entry(1, 400, 1_700_000_000_000, "lain"));
+    await store.remove(id(1));
+    expect(await store.record(entry(1, 400, 1_700_000_000_000, "lain"))).toEqual({ ok: false, error: "duplicate" });
   });
 
   it("runId que não é UUID nunca chega ao Redis", async () => {
     const fake = fakeRedis();
     const store = createUpstashStore(fake.redis);
     expect(await store.remove("a:b")).toBe(false);
-    expect(await store.record({ ...entry(1, 400, 1), runId: "ranking:v1" })).toEqual({ ok: false, error: "duplicate" });
+    expect(await store.record({ ...entry(1, 400, 1), runId: "ranking:v2" })).toEqual({ ok: false, error: "duplicate" });
     expect(fake.calls).toHaveLength(0);
   });
 

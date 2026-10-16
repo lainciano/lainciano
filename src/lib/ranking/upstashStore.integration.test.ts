@@ -38,6 +38,14 @@ describe.skipIf(!url || !token)("loja Upstash de verdade", () => {
     expect(await store.record({ ...b, createdAt: 1_700_000_000_999 })).toEqual({ ok: false, error: "duplicate" });
   });
 
+  it("record idempotente no Redis real: o mesmo envio repetido devolve a mesma posição; outro createdAt é duplicado", async () => {
+    const e = entry(310_000, 1_700_000_002_000, "idem");
+    expect(await store.record(e)).toEqual({ ok: true, position: expect.any(Number) });
+    const again = await store.record(e);
+    expect(again.ok).toBe(true);
+    expect(await store.record({ ...e, createdAt: e.createdAt + 1 })).toEqual({ ok: false, error: "duplicate" });
+  });
+
   it("duas gravações simultâneas do mesmo runId: só uma entra", async () => {
     const e = entry(300_000, 1_700_000_001_000, "dup");
     const results = await Promise.all([store.record(e), store.record({ ...e, nickname: "dup2" })]);

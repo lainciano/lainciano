@@ -129,15 +129,19 @@ export function createRankingApi(deps: RankingDeps): RankingApi {
     return adminToken !== null && safeEqual(given, adminToken);
   };
 
-  // Memo do top 20 por instância: invalidado pelas gravações/remoções desta instância; em outras instâncias a linha
-  // nova pode levar até BOOK_MEMO_MS para aparecer. Erro da loja nunca é guardado.
-  let memo: { at: number; entries: Awaited<ReturnType<RankingStore["top"]>> } | null = null;
-  const topCached = async () => {
+  // Memo do top 20 por instância: guarda a PROMISE da leitura. Pedidos concorrentes dividem uma só leitura (sem rebanho
+  // no Redis) e uma leitura em voo nunca sobrescreve uma invalidação (`memo = null` por gravação/remoção da própria
+  // instância). Em outras instâncias a linha nova pode levar até BOOK_MEMO_MS para aparecer. Erro nunca fica guardado.
+  let memo: { at: number; promise: ReturnType<RankingStore["top"]> } | null = null;
+  const topCached = () => {
     const now = deps.now();
-    if (memo && now >= memo.at && now - memo.at < BOOK_MEMO_MS) return memo.entries;
-    const entries = await deps.store.top(BOOK_SIZE);
-    memo = { at: now, entries };
-    return entries;
+    if (memo && now >= memo.at && now - memo.at < BOOK_MEMO_MS) return memo.promise;
+    const entry = { at: now, promise: deps.store.top(BOOK_SIZE) };
+    memo = entry;
+    entry.promise.catch(() => {
+      if (memo === entry) memo = null;
+    });
+    return entry.promise;
   };
 
   const api: RankingApi = {

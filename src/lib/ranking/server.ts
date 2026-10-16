@@ -45,8 +45,8 @@ function memoryBackend(): Backend {
 
 /** automaticDeserialization desligado: o apelido "1234" volta como texto, não como número. */
 function upstashBackend(env: Env, creds: { url: string; token: string }): Backend {
-  // retry 1 (o padrão é 5: uma repetição do `record` após resposta perdida viraria 409 na própria gravação) e prazo de
-  // 2,5 s por chamada. `signal` TEM que ser função: um signal fixo faz a lib devolver 200 com "Aborted".
+  // retry 1 (o padrão é 5; o `record` é idempotente, então a repetição após resposta perdida reconhece a própria
+  // gravação) e prazo de 2,5 s por chamada. `signal` TEM que ser função: um signal fixo faz a lib devolver 200 com "Aborted".
   const redis = new Redis({
     url: creds.url,
     token: creds.token,

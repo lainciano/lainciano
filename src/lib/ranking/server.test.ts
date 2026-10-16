@@ -76,11 +76,11 @@ describe("Upstash (Fase 7)", () => {
   });
 
   it("prefixo de chaves por ambiente: produção ≠ preview ≠ dev", () => {
-    expect(keyPrefix({ VERCEL_ENV: "production" })).toBe("ranking:v1");
-    expect(keyPrefix({ VERCEL_ENV: "preview" })).toBe("ranking:v1:preview");
-    expect(keyPrefix({ VERCEL_ENV: "development" })).toBe("ranking:v1:dev");
-    expect(keyPrefix({})).toBe("ranking:v1:dev");
-    expect(keyPrefix({ VERCEL_ENV: "outro" })).toBe("ranking:v1:dev");
+    expect(keyPrefix({ VERCEL_ENV: "production" })).toBe("ranking:v2");
+    expect(keyPrefix({ VERCEL_ENV: "preview" })).toBe("ranking:v2:preview");
+    expect(keyPrefix({ VERCEL_ENV: "development" })).toBe("ranking:v2:dev");
+    expect(keyPrefix({})).toBe("ranking:v2:dev");
+    expect(keyPrefix({ VERCEL_ENV: "outro" })).toBe("ranking:v2:dev");
   });
 });
 

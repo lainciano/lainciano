@@ -458,6 +458,50 @@ describe("memo do top 20 (custo no Redis)", () => {
   });
 });
 
+describe("memo do top 20 — concorrência", () => {
+  const gated = () => {
+    const store = createMemoryStore();
+    const top = store.top.bind(store);
+    let reads = 0;
+    let release: () => void = () => undefined;
+    let gate: Promise<void> = Promise.resolve();
+    store.top = async (limit) => {
+      reads += 1;
+      const snapshot = await top(limit); // o estado é lido ANTES de esperar: leitura "em voo" com dado velho
+      await gate;
+      return snapshot;
+    };
+    return {
+      store,
+      reads: () => reads,
+      hold: () => { gate = new Promise<void>((resolve) => (release = resolve)); },
+      release: () => release(),
+    };
+  };
+
+  it("leitura em voo durante uma gravação não sobrescreve a invalidação (o GET seguinte vê a linha nova)", async () => {
+    const g = gated();
+    const api = makeApi({ store: g.store });
+    g.hold();
+    const inFlight = api.listTop(); // começa a ler o livro vazio e fica esperando
+    await Promise.resolve();
+    await api.submit(post("/api/ranking", await submission(api, { nickname: "lain" }))); // invalida o memo
+    g.release(); // só agora a leitura velha termina
+    await inFlight;
+    expect((await (await api.listTop()).json()).entries).toHaveLength(1);
+  });
+
+  it("50 GETs simultâneos com o memo frio fazem uma só leitura", async () => {
+    const g = gated();
+    const api = makeApi({ store: g.store });
+    g.hold();
+    const all = Array.from({ length: 50 }, () => api.listTop());
+    g.release();
+    await Promise.all(all);
+    expect(g.reads()).toBe(1);
+  });
+});
+
 describe("clientKey (IPv6 reduzido a /64)", () => {
   const key = (ip: string) => clientKey(SECRET, new Request("http://localhost/", { headers: { "x-forwarded-for": ip } }));
   it("endereços do mesmo /64 dão a mesma chave; /64 diferentes, chaves diferentes", () => {
