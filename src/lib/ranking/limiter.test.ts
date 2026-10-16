@@ -1,9 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { LIMITS, MAX_KEYS, createMemoryLimiter } from "@/lib/ranking/limiter";
+import { LIMITS, MAX_KEYS, createMemoryLimiter, fromRatelimit, GLOBAL_KEY } from "@/lib/ranking/limiter";
 
 describe("LIMITS (spec 8.5: 3 envios/hora/IP; D7: 20 bilhetes/hora/IP)", () => {
   it("valores", () => {
-    expect(LIMITS).toEqual({ submit: { max: 3, windowMs: 3_600_000 }, run: { max: 20, windowMs: 3_600_000 } });
+    expect(LIMITS).toMatchObject({ submit: { max: 3, windowMs: 3_600_000 }, run: { max: 20, windowMs: 3_600_000 } });
+  });
+  it("tetos globais: 60 envios e 1000 bilhetes por hora, todos os IPs", () => {
+    expect(LIMITS.submitGlobal).toEqual({ max: 60, windowMs: 3_600_000 });
+    expect(LIMITS.runGlobal).toEqual({ max: 1000, windowMs: 3_600_000 });
+    expect(GLOBAL_KEY).toBe("global");
+  });
+});
+
+describe("fromRatelimit (adaptador do @upstash/ratelimit)", () => {
+  it("repassa a chave e devolve success", async () => {
+    const seen: string[] = [];
+    const limiter = fromRatelimit({ limit: async (key: string) => (seen.push(key), { success: seen.length < 2 }) });
+    expect(await limiter.hit("k", 0)).toBe(true);
+    expect(await limiter.hit("k", 0)).toBe(false);
+    expect(seen).toEqual(["k", "k"]);
   });
 });
 

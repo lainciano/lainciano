@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Redis } from "@upstash/redis";
 import { afterAll, describe, expect, it } from "vitest";
+import { createUpstashLimiter } from "@/lib/ranking/limiter";
 import { createUpstashStore } from "@/lib/ranking/upstashStore";
 
 // Só roda com as variáveis da Upstash no ambiente (ex.: `set -a; . ./.env.local; pnpm test`). Prefixo descartável, apagado no fim.
@@ -39,5 +40,13 @@ describe.skipIf(!url || !token)("loja Upstash de verdade", () => {
     const e = entry(300_000, 1_700_000_001_000, "dup");
     const results = await Promise.all([store.record(e), store.record({ ...e, nickname: "dup2" })]);
     expect(results.filter((r) => r.ok)).toHaveLength(1);
+  });
+
+  it("limitador: 2 por janela por chave, chaves independentes, prefixos separados", async () => {
+    const limiter = createUpstashLimiter(redis, 2, 3_600_000, `${prefix}:rl:a`);
+    const other = createUpstashLimiter(redis, 2, 3_600_000, `${prefix}:rl:b`);
+    expect([await limiter.hit("k", 0), await limiter.hit("k", 0), await limiter.hit("k", 0)]).toEqual([true, true, false]);
+    expect(await limiter.hit("outra", 0)).toBe(true);
+    expect(await other.hit("k", 0)).toBe(true);
   });
 });

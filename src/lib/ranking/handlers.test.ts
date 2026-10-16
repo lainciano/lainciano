@@ -14,6 +14,8 @@ function makeApi(overrides: Partial<Parameters<typeof createRankingApi>[0]> = {}
     store: createMemoryStore(),
     submitLimiter: createMemoryLimiter(3, 3_600_000),
     runLimiter: createMemoryLimiter(20, 3_600_000),
+    globalSubmitLimiter: createMemoryLimiter(1000, 3_600_000),
+    globalRunLimiter: createMemoryLimiter(1000, 3_600_000),
     secret: SECRET,
     adminToken: ADMIN,
     now: () => clock,
@@ -318,5 +320,38 @@ describe("fix wave A (revisão de segurança)", () => {
     const bytes = new TextEncoder().encode(good);
     const response = await api.submit(streamed(stream([bytes.slice(0, 50), bytes.slice(50)])));
     expect(response.status).toBe(201);
+  });
+});
+
+describe("tetos globais (todos os IPs)", () => {
+  const from = (ip: string) => ({ "x-forwarded-for": ip });
+
+  it("bilhetes: estourou o teto global → 429 mesmo para um IP novo", async () => {
+    const api = makeApi({ globalRunLimiter: createMemoryLimiter(2, 3_600_000) });
+    expect((await api.createRun(post("/api/run", {}, from("198.51.100.1")))).status).toBe(201);
+    expect((await api.createRun(post("/api/run", {}, from("198.51.100.2")))).status).toBe(201);
+    const blocked = await api.createRun(post("/api/run", {}, from("198.51.100.3")));
+    expect(blocked.status).toBe(429);
+    expect(await blocked.json()).toEqual({ error: "rate_limited" });
+  });
+
+  it("envios: estourou o teto global → 429 mesmo para um IP novo", async () => {
+    const api = makeApi({ globalSubmitLimiter: createMemoryLimiter(1, 3_600_000) });
+    const first = await submission(api);
+    expect((await api.submit(post("/api/ranking", first, from("198.51.100.1")))).status).toBe(201);
+    const second = await submission(api, { nickname: "outra" });
+    expect((await api.submit(post("/api/ranking", second, from("198.51.100.2")))).status).toBe(429);
+  });
+
+  it("IP já bloqueado não gasta o teto global", async () => {
+    const global = createMemoryLimiter(100, 3_600_000);
+    const api = makeApi({ submitLimiter: createMemoryLimiter(1, 3_600_000), globalSubmitLimiter: global });
+    expect((await api.submit(post("/api/ranking", await submission(api)))).status).toBe(201);
+    for (let i = 0; i < 5; i += 1) {
+      expect((await api.submit(post("/api/ranking", await submission(api, { nickname: `n${i}x` })))).status).toBe(429);
+    }
+    let allowed = 0;
+    while (await global.hit("global", clock)) allowed += 1;
+    expect(allowed).toBe(99); // só o 1º envio consumiu o teto
   });
 });

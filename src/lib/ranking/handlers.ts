@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { z } from "zod";
-import type { KeyedLimiter } from "./limiter";
+import { GLOBAL_KEY, type KeyedLimiter } from "./limiter";
 import { checkSubmission } from "./rules";
 import type { RankingStore } from "./store";
 import { safeEqual, signRun, verifyRun } from "./token";
@@ -16,6 +16,9 @@ export type RankingDeps = {
   store: RankingStore;
   submitLimiter: KeyedLimiter;
   runLimiter: KeyedLimiter;
+  /** Tetos de todos os IPs juntos (chave GLOBAL_KEY). Só contam depois do limite do IP. */
+  globalSubmitLimiter: KeyedLimiter;
+  globalRunLimiter: KeyedLimiter;
   secret: string | null;
   adminToken: string | null;
   now: () => number;
@@ -103,6 +106,7 @@ export function createRankingApi(deps: RankingDeps): RankingApi {
       if (!secret) return fail(503, "unavailable");
       if (isCrossSite(request)) return fail(403, "forbidden");
       if (!(await deps.runLimiter.hit(clientKey(secret, request), deps.now()))) return fail(429, "rate_limited");
+      if (!(await deps.globalRunLimiter.hit(GLOBAL_KEY, deps.now()))) return fail(429, "rate_limited");
       const runId = deps.newRunId();
       const issuedAt = deps.now();
       return json(201, { runId, issuedAt, token: signRun(secret, runId, issuedAt) });
@@ -138,6 +142,7 @@ export function createRankingApi(deps: RankingDeps): RankingApi {
       const verdict = validateNickname(body.nickname);
       if (verdict !== "ok") return fail(400, verdict === "invalid" ? "invalid_nickname" : "blocked_nickname");
       if (!(await deps.submitLimiter.hit(clientKey(secret, request), now))) return fail(429, "rate_limited");
+      if (!(await deps.globalSubmitLimiter.hit(GLOBAL_KEY, now))) return fail(429, "rate_limited");
       const result = await deps.store.record({
         runId: body.runId,
         nickname: body.nickname.trim(),

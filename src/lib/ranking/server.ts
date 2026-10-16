@@ -23,6 +23,8 @@ export function buildRankingApi(env: Env): RankingApi {
     store: createMemoryStore(),
     submitLimiter: createMemoryLimiter(LIMITS.submit.max, LIMITS.submit.windowMs),
     runLimiter: createMemoryLimiter(LIMITS.run.max, LIMITS.run.windowMs),
+    globalSubmitLimiter: createMemoryLimiter(LIMITS.submitGlobal.max, LIMITS.submitGlobal.windowMs),
+    globalRunLimiter: createMemoryLimiter(LIMITS.runGlobal.max, LIMITS.runGlobal.windowMs),
     secret: memoryStoreAllowed(env) ? (env.RANKING_SECRET ?? null) : null,
     adminToken: env.ADMIN_TOKEN ?? null,
     now: Date.now,
