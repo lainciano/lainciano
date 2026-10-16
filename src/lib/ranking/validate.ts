@@ -26,6 +26,10 @@ const RESERVED = ["admin", "administrador", "root", "lainciano", "moderador", "m
 const ALLOWED_FOLDED = ALLOWED.map(foldNickname);
 const CONTAINS_FOLDED = CONTAINS.map(foldNickname);
 const EXACT_FOLDED = new Set([...EXACT, ...RESERVED].map(foldNickname));
+const RESERVED_SET = new Set(RESERVED);
+
+/** "admin2", "root_1", "cripta9": sem dígitos, _ e - sobra um reservado (o fold acima só desfaz leetspeak). */
+const isReservedWithDigits = (nickname: string) => RESERVED_SET.has(nickname.toLowerCase().replace(/[0-9_-]/g, ""));
 
 export type NicknameVerdict = "ok" | "invalid" | "blocked";
 
@@ -54,6 +58,6 @@ export function validateNickname(raw: string): NicknameVerdict {
   const nickname = raw.trim();
   if (!NICKNAME.pattern.test(nickname) || !/[A-Za-z0-9]/.test(nickname)) return "invalid";
   const folded = foldNickname(nickname);
-  if (EXACT_FOLDED.has(folded) || containsBlocked(folded)) return "blocked";
+  if (EXACT_FOLDED.has(folded) || isReservedWithDigits(nickname) || containsBlocked(folded)) return "blocked";
   return "ok";
 }

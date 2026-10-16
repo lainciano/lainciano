@@ -63,3 +63,14 @@ describe("validateNickname — lista de bloqueio (D9)", () => {
     for (const reserved of ["admin", "Lainciano", "root", "moderador"]) expect(validateNickname(reserved)).toBe("blocked");
   });
 });
+
+describe("reservados com dígitos (Fase 7)", () => {
+  it("admin2, root_1, cripta9, Sistema-07 → blocked", () => {
+    for (const bad of ["admin2", "root_1", "cripta9", "Sistema-07", "lainciano42", "moderator1"]) {
+      expect(validateNickname(bad)).toBe("blocked");
+    }
+  });
+  it("palavra que só contém o reservado continua livre", () => {
+    for (const ok of ["rootbeer", "administrado", "criptas", "sistemas"]) expect(validateNickname(ok)).toBe("ok");
+  });
+});

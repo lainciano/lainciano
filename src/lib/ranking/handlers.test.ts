@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RELIC_IDS } from "@/interaction/relics/catalog";
 import { BOOK_SIZE, MAX_BODY_BYTES, createRankingApi, type RankingApi } from "@/lib/ranking/handlers";
 import { createMemoryLimiter } from "@/lib/ranking/limiter";
@@ -80,7 +80,7 @@ describe("POST /api/ranking — caminho feliz e livro", () => {
 
     const list = await api.listTop();
     expect(list.status).toBe(200);
-    expect(list.headers.get("cache-control")).toBe("public, s-maxage=30, stale-while-revalidate=30");
+    expect(list.headers.get("cache-control")).toBe("no-store"); // F7: a linha recém-gravada aparece na hora
     const { entries } = await list.json();
     expect(entries.map((e: { nickname: string }) => e.nickname)).toEqual(["rapido", "lento"]);
     expect(entries[0]).toEqual({ position: 1, nickname: "rapido", elapsedMs: 200_000, createdAt: clock - (clock % 86_400_000) });
@@ -353,5 +353,52 @@ describe("tetos globais (todos os IPs)", () => {
     let allowed = 0;
     while (await global.hit("global", clock)) allowed += 1;
     expect(allowed).toBe(99); // só o 1º envio consumiu o teto
+  });
+});
+
+describe("GET /api/ranking/moderation (Fase 7)", () => {
+  const get = (token?: string) =>
+    new Request("http://localhost/api/ranking/moderation", { headers: token ? { authorization: `Bearer ${token}` } : {} });
+
+  it("sem ADMIN_TOKEN → 404; sem Bearer ou errado → 401", async () => {
+    expect((await makeApi({ adminToken: null }).listForModeration(get(ADMIN))).status).toBe(404);
+    const api = makeApi();
+    expect((await api.listForModeration(get())).status).toBe(401);
+    expect((await api.listForModeration(get("errado"))).status).toBe(401);
+  });
+
+  it("com Bearer lista o top com runId e createdAt exato, sem cache", async () => {
+    const api = makeApi();
+    const body = await submission(api, { nickname: "lain" });
+    await api.submit(post("/api/ranking", body));
+    const response = await api.listForModeration(get(ADMIN));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect((await response.json()).entries).toEqual([
+      { position: 1, runId: body.runId, nickname: "lain", elapsedMs: 300_000, createdAt: clock },
+    ]);
+  });
+
+  it("o GET público nunca expõe o runId", async () => {
+    const api = makeApi();
+    await api.submit(post("/api/ranking", await submission(api)));
+    expect(JSON.stringify(await (await api.listTop()).json())).not.toMatch(/runId|[0-9a-f]{8}-[0-9a-f]{4}/);
+  });
+});
+
+describe("log de falha (Fase 7)", () => {
+  it("registra só o nome do handler e do erro: nada de mensagem, stack, IP ou segredo", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const store = createMemoryStore();
+    store.top = async () => {
+      throw new TypeError("senha=hunter2 203.0.113.7");
+    };
+    await makeApi({ store }).listTop();
+    expect(spy).toHaveBeenCalledTimes(1);
+    const logged = JSON.stringify(spy.mock.calls);
+    expect(logged).toContain("listTop");
+    expect(logged).toContain("TypeError");
+    expect(logged).not.toMatch(/hunter2|203\.0\.113\.7|stack/);
+    spy.mockRestore();
   });
 });

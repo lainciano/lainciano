@@ -28,12 +28,12 @@ export type RankingDeps = {
 export type RankingApi = {
   createRun(request: Request): Promise<Response>;
   listTop(): Promise<Response>;
+  listForModeration(request: Request): Promise<Response>;
   submit(request: Request): Promise<Response>;
   remove(request: Request, runId: string): Promise<Response>;
 };
 
 const NO_STORE = { "cache-control": "no-store" };
-const BOOK_CACHE = { "cache-control": "public, s-maxage=30, stale-while-revalidate=30" };
 
 const json = (status: number, body: unknown, headers: Record<string, string> = NO_STORE) =>
   Response.json(body, { status, headers });
@@ -50,6 +50,7 @@ const submissionSchema = z.object({
 });
 
 /** Chave do limitador: HMAC do IP, nunca o IP em claro (D8). */
+// x-forwarded-for só é confiável atrás da Vercel (ela sobrescreve o cabeçalho); fora dela o cliente escolhe o IP.
 export function clientKey(secret: string, request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const ip = forwarded || request.headers.get("x-real-ip")?.trim() || "local";
@@ -86,12 +87,16 @@ const isCrossSite = (request: Request) => {
   return site !== null && site !== "same-origin";
 };
 
-/** Falha inesperada (loja fora do ar etc.): só o código, nunca stack nem mensagem (Review Focus 3). */
-function guarded<Args extends unknown[]>(handler: (...args: Args) => Promise<Response>) {
+/**
+ * Falha inesperada (loja fora do ar etc.): a resposta leva só o código e o log só o nome do handler e do erro —
+ * nunca mensagem, stack, IP nem segredo (Review Focus 3).
+ */
+function guarded<Args extends unknown[]>(name: string, handler: (...args: Args) => Promise<Response>) {
   return async (...args: Args): Promise<Response> => {
     try {
       return await handler(...args);
-    } catch {
+    } catch (error) {
+      console.error("[ranking] falha", { handler: name, error: error instanceof Error ? error.name : "unknown" });
       return fail(500, "server_error");
     }
   };
@@ -100,6 +105,12 @@ function guarded<Args extends unknown[]>(handler: (...args: Args) => Promise<Res
 export function createRankingApi(deps: RankingDeps): RankingApi {
   const secret = deps.secret && deps.secret.length >= SECRET_MIN ? deps.secret : null;
   const adminToken = deps.adminToken && deps.adminToken.length >= ADMIN_MIN ? deps.adminToken : null;
+
+  const isAdmin = (request: Request) => {
+    const header = request.headers.get("authorization") ?? "";
+    const given = header.startsWith("Bearer ") ? header.slice("Bearer ".length) : "";
+    return adminToken !== null && safeEqual(given, adminToken);
+  };
 
   const api: RankingApi = {
     async createRun(request) {
@@ -123,8 +134,23 @@ export function createRankingApi(deps: RankingDeps): RankingApi {
           elapsedMs,
           createdAt: createdAt - (createdAt % DAY_MS), // só o dia (UTC), sem ms: menos rastreável
         })) },
-        BOOK_CACHE,
       );
+    },
+
+    // Moderação: mesmo Bearer do DELETE; é o único lugar que mostra o runId (para quem precisa remover uma linha).
+    async listForModeration(request) {
+      if (!adminToken) return fail(404, "not_found");
+      if (!isAdmin(request)) return fail(401, "unauthorized");
+      const entries = await deps.store.top(BOOK_SIZE);
+      return json(200, {
+        entries: entries.map(({ runId, nickname, elapsedMs, createdAt }, index) => ({
+          position: index + 1,
+          runId,
+          nickname,
+          elapsedMs,
+          createdAt,
+        })),
+      });
     },
 
     // Ordem das checagens (D6): o limitador só conta envios que passaram em tudo.
@@ -155,17 +181,16 @@ export function createRankingApi(deps: RankingDeps): RankingApi {
 
     async remove(request, runId) {
       if (!adminToken) return fail(404, "not_found");
-      const header = request.headers.get("authorization") ?? "";
-      const given = header.startsWith("Bearer ") ? header.slice("Bearer ".length) : "";
-      if (!safeEqual(given, adminToken)) return fail(401, "unauthorized");
+      if (!isAdmin(request)) return fail(401, "unauthorized");
       return (await deps.store.remove(runId)) ? json(200, { removed: true }) : fail(404, "not_found");
     },
   };
 
   return {
-    createRun: guarded(api.createRun),
-    listTop: guarded(api.listTop),
-    submit: guarded(api.submit),
-    remove: guarded(api.remove),
+    createRun: guarded("createRun", api.createRun),
+    listTop: guarded("listTop", api.listTop),
+    listForModeration: guarded("listForModeration", api.listForModeration),
+    submit: guarded("submit", api.submit),
+    remove: guarded("remove", api.remove),
   };
 }
