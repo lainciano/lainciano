@@ -1,0 +1,13 @@
+# O `vercel deploy` local NÃO lê o .gitignore: sem este arquivo sobem .env.local.bak, docs/ e afins.
+.env*
+!.env.example
+*.bak
+*.tmp
+docs/
+.superpowers/
+.remember/
+.agents/
+.claude/
+.cursor/
+.playwright-mcp/
+skills-lock.json
