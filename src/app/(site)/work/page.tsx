@@ -40,9 +40,9 @@ export default function WorkPage() {
         <RoomTitle title={rooms.work.title} role={rooms.work.role} className="mb-[var(--space-xl)]" />
         <Relicario previews={previews}>
           <ol className="relicario">
-            {projects.map((project) => (
+            {projects.map((project, index) => (
               <li key={project.slug}>
-                <RelicRow project={project} />
+                <RelicRow project={project} first={index === 0} />
               </li>
             ))}
           </ol>

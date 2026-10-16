@@ -6,7 +6,8 @@ import type { ProjectMeta } from "@/types/content";
 // Linha-link do Relicário (spec 7.4): ano, nome, tipo e stack. A miniatura cinza só aparece no
 // mobile/toque (CSS); no desktop a prévia em gravura segue o cursor (ilha Relicario). data-verbo
 // evita o ímã do cursor numa linha de largura total (D10).
-export function RelicRow({ project }: { project: ProjectMeta }) {
+// `first`: a miniatura da 1ª linha é o LCP no mobile, então não pode ser lazy (as demais continuam).
+export function RelicRow({ project, first = false }: { project: ProjectMeta; first?: boolean }) {
   return (
     <TransitionLink
       href={`/work/${project.slug}`}
@@ -28,7 +29,8 @@ export function RelicRow({ project }: { project: ProjectMeta }) {
           src={project.coverImage}
           alt=""
           fill
-          loading="lazy"
+          loading={first ? "eager" : "lazy"}
+          fetchPriority={first ? "high" : undefined}
           sizes="(max-width: 47.99rem) calc(100vw - 2rem), 32rem"
           className="relicario-linha__foto"
         />
