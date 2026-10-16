@@ -71,7 +71,7 @@ export function parseRelicState(raw: string | null): RelicState {
       startedAt: finite(value.startedAt),
       platinumAt: won.length === RELIC_IDS.length ? finite(value.platinumAt) : null,
       ticket:
-        value.ticket && typeof value.ticket === "object"
+        typeof value.runId === "string" && value.ticket && typeof value.ticket === "object"
           ? parseTicket(value.ticket as Record<string, unknown>)
           : null,
       recordedPosition: (() => {

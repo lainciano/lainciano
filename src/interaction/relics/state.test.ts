@@ -87,4 +87,9 @@ describe("bilhete e gravação (Fase 6, D4)", () => {
     expect(junk.ticket).toBeNull();
     expect(junk.recordedPosition).toBeNull();
   });
+  it("parseRelicState descarta bilhete guardado sem runId", () => {
+    const parsed = parseRelicState(JSON.stringify({ ticket: { issuedAt: 1, token: "tok" } }));
+    expect(parsed.runId).toBeNull();
+    expect(parsed.ticket).toBeNull();
+  });
 });

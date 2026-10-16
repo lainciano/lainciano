@@ -12,8 +12,7 @@ const holder = globalThis as typeof globalThis & { __lainRanking?: RankingApi };
  * Na Vercel sem a loja persistente da Fase 7 o livro por instância seria mentira: 503 (D11).
  */
 export function memoryStoreAllowed(env: Env): boolean {
-  const persistent = false; // Fase 7: true quando UPSTASH_REDIS_REST_URL/TOKEN existirem
-  if (persistent) return true;
+  // Fase 7: com a loja persistente (UPSTASH_REDIS_REST_URL/TOKEN) esta função passa a devolver true.
   if (env.VERCEL === "1") return false;
   return env.NODE_ENV !== "production" || env.RANKING_MEMORY_STORE === "1";
 }
