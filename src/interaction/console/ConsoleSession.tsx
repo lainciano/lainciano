@@ -118,7 +118,7 @@ export function ConsoleSession({ greeting, inline = false, autoFocus = false, on
         return;
       case "platinum":
         if (onNavigate) {
-          // Dois <dialog> modais + um único resumeLenis: o console sai primeiro e a tela abre depois.
+          // O atraso só mantém a ordem de UX (o console sai primeiro, a tela abre depois); o Lenis já conta pausas.
           onNavigate();
           window.setTimeout(() => platinumStore.open(), CLOSE_MS);
         } else {

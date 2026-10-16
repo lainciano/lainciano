@@ -66,6 +66,18 @@ describe("lenis-bridge", () => {
     expect(start).toHaveBeenCalledTimes(1);
   });
 
+  it("instância nova registrada com pausa ativa já nasce parada", () => {
+    bridge.pauseLenis();
+    const next = { stop: vi.fn(), start: vi.fn() };
+    bridge.registerLenisControls(next); // lenis/react recriou a instância (ex.: modo leitura)
+    expect(next.stop).toHaveBeenCalledTimes(1);
+    bridge.resumeLenis();
+    expect(next.start).toHaveBeenCalledTimes(1);
+    const idle = { stop: vi.fn(), start: vi.fn() };
+    bridge.registerLenisControls(idle);
+    expect(idle.stop).not.toHaveBeenCalled();
+  });
+
   describe("pausa de navegação com prazo", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());

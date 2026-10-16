@@ -6,7 +6,6 @@ import { readingStore } from "@/interaction/reading-mode/store";
 import { soundEngine } from "@/interaction/sound/engine";
 import { VolumeControl } from "@/interaction/sound/VolumeControl";
 import { portal } from "@/lib/content/copy";
-import { resumeLenis } from "@/lib/lenis-bridge";
 
 type EntryMode = "sound" | "silent" | "reading";
 
@@ -23,7 +22,6 @@ function enterPortal(dialog: HTMLDialogElement | null, mode: EntryMode) {
   const close = () => {
     dialog.close();
     entering.delete(dialog);
-    resumeLenis();
   };
   if (readingStore.getSnapshot()) {
     close();

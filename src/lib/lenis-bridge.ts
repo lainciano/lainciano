@@ -12,6 +12,8 @@ const held = () => pauses + owners.size;
 /** Registra controles do Lenis (chamado pelo SmoothScroll). */
 export function registerLenisControls(next: LenisControls | null) {
   controls = next;
+  // Instância recriada com pausa ativa (lenis/react refaz ao mudar opções): já nasce parada.
+  if (next && held() > 0) next.stop();
 }
 
 export function pauseLenis(owner?: string) {
