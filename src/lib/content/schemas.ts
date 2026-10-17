@@ -12,6 +12,9 @@ export const projectFrontmatterSchema = z.object({
   published: z.boolean(),
   summary: z.string().min(1),
   link: z.string().url().optional(),
+  coverAlt: z.string().min(1).optional(),
+  role: z.string().min(1).optional(),
+  kind: z.string().min(1).optional(),
 });
 
 export const postFrontmatterSchema = z.object({

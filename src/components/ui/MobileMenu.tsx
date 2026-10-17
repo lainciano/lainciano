@@ -1,10 +1,15 @@
 "use client";
 
-import { useLenis } from "lenis/react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { TransitionLink } from "@/components/ui/TransitionLink";
+import { preloadConsoleSession } from "@/interaction/console/LazyConsoleSession";
+import { consoleStore } from "@/interaction/console/store";
+import { readingStore, useReadingMode } from "@/interaction/reading-mode/store";
+import { VolumeControl } from "@/interaction/sound/VolumeControl";
+import { hud } from "@/lib/content/copy";
+import { pauseLenis, resumeLenis } from "@/lib/lenis-bridge";
 import { SOCIAL_LABELS } from "@/lib/social";
 import type { NavLink } from "@/lib/nav";
 import type { SocialLinks } from "@/types/content";
@@ -42,31 +47,27 @@ const subscribe = () => () => {};
 const getSnapshot = () => true;
 const getServerSnapshot = () => false;
 
+const MENU_HOLD = "menu";
+
 export function MobileMenu({ siteName, email, availability, navLinks, socialLinks }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const skipPathnameCloseRef = useRef(true);
   const pathname = usePathname();
-  const lenis = useLenis();
-  const lenisRef = useRef(lenis);
-
-  useEffect(() => {
-    lenisRef.current = lenis;
-  }, [lenis]);
-
+  const reading = useReadingMode();
   const activeSocials = (
     Object.entries(socialLinks) as [keyof SocialLinks, string | null | undefined][]
   ).filter(([, url]) => Boolean(url));
 
   const openMenu = useCallback(() => {
     setIsOpen(true);
-    lenisRef.current?.stop();
+    pauseLenis(MENU_HOLD);
     document.body.style.overflow = "hidden";
   }, []);
 
   const closeMenu = useCallback(() => {
     setIsOpen(false);
-    lenisRef.current?.start();
+    resumeLenis(MENU_HOLD);
     document.body.style.overflow = "";
   }, []);
 
@@ -106,7 +107,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
         aria-controls="mobile-menu"
         data-lenis-prevent
         data-lenis-prevent-touch
-        className="relative z-20 touch-manipulation p-1 text-accent transition-colors hover:text-hover"
+        className="relative z-20 inline-flex min-h-11 min-w-11 touch-manipulation items-center justify-center text-accent transition-colors hover:text-hover"
       >
         <GridIcon />
       </button>
@@ -118,7 +119,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
               role="dialog"
               aria-modal="true"
               aria-label="Menu"
-              aria-hidden={!isOpen}
+              inert={!isOpen}
               data-lenis-prevent
               data-lenis-prevent-touch
               className={`fixed inset-0 z-[9999] flex flex-col bg-accent text-foreground transition-transform duration-500 ease-out ${
@@ -128,7 +129,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
               }`}
             >
               <div className="content-container flex items-center justify-between py-3">
-                <span className="text-nav-logo">{siteName}</span>
+                <span className="text-nav-logo wordmark">{siteName}</span>
                 <button
                   type="button"
                   onPointerUp={(event) => {
@@ -137,7 +138,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
                     closeMenu();
                   }}
                   aria-label="Fechar menu"
-                  className="touch-manipulation p-1 transition-opacity hover:opacity-70"
+                  className="inline-flex min-h-11 min-w-11 touch-manipulation items-center justify-center transition-opacity hover:opacity-70"
                 >
                   <CloseIcon />
                 </button>
@@ -148,7 +149,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
                   <TransitionLink
                     key={href}
                     href={href}
-                    className="text-large-heading w-fit text-foreground transition-colors hover:text-background"
+                    className="text-large-heading inline-flex min-h-11 w-fit items-center text-foreground transition-colors hover:text-background"
                     onClick={closeMenu}
                   >
                     {label}
@@ -157,16 +158,37 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
               </nav>
 
               <div className="content-container flex flex-col gap-6 border-t border-foreground/30 py-8">
+                <VolumeControl id="menu-volume" className="w-full max-w-xs" />
+                <button
+                  type="button"
+                  aria-pressed={reading}
+                  onClick={() => readingStore.toggle()}
+                  className="hud-btn focus-ring w-fit"
+                >
+                  {hud.menuReading}: {reading ? hud.on : hud.off}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeMenu();
+                    consoleStore.open();
+                  }}
+                  onPointerEnter={preloadConsoleSession}
+                  onFocus={preloadConsoleSession}
+                  className="hud-btn focus-ring w-fit"
+                >
+                  {hud.menuConsole}
+                </button>
                 {activeSocials.length > 0 && (
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                    <span className="caps text-foreground/70">Sociais:</span>
+                    <span className="caps text-foreground/90">Sociais:</span>
                     {activeSocials.map(([key, url]) => (
                       <a
                         key={key}
                         href={url!}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="link-underline caps"
+                        className="link-underline caps inline-flex min-h-11 items-center"
                       >
                         {SOCIAL_LABELS[key]}
                       </a>
@@ -175,8 +197,8 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
                 )}
 
                 <div className="flex flex-col gap-1">
-                  <span className="text-small-heading italic text-foreground/80">{availability}</span>
-                  <a href={`mailto:${email}`} className="link-underline caps w-fit">
+                  <span className="text-small-heading italic text-foreground/90">{availability}</span>
+                  <a href={`mailto:${email}`} className="link-underline caps inline-flex min-h-11 w-fit items-center">
                     {email}
                   </a>
                 </div>

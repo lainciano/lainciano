@@ -12,6 +12,8 @@ export type SiteSettings = {
   siteName: string;
   tagline: string;
   email: string;
+  /** Disponibilidade canônica — usada em HUD e Footer (fonte única). */
+  availability: string;
   defaultAccent: string;
   socialLinks: SocialLinks;
 };
@@ -27,6 +29,12 @@ export type ProjectMeta = {
   summary: string;
   /** URL externa do projeto (deploy ou repositório). */
   link?: string;
+  /** Texto alternativo da captura; fallback em coverAltFor(). */
+  coverAlt?: string;
+  /** Papel no projeto, quando confirmado. */
+  role?: string;
+  /** Tipo curto do projeto (evento, escrita…), nas lajes da Ruína e no índice (spec 7.2, 7.4). */
+  kind?: string;
 };
 
 export type PostMeta = {

@@ -1,10 +1,7 @@
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-gsap.registerPlugin(ScrollTrigger);
+import type { GsapLib } from "@/lib/motion";
 
 // Interpola --bg-progress (0→1) conforme o scroll da página.
-export function createBackgroundProgress(): () => void {
+export function createBackgroundProgress({ gsap, ScrollTrigger }: GsapLib): () => void {
   const mm = gsap.matchMedia();
 
   mm.add("(prefers-reduced-motion: no-preference)", () => {

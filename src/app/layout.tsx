@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
-import { Instrument_Serif } from "next/font/google";
-import { Loader } from "@/components/ui/Loader";
+import { Geist, Grenze_Gotisch, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { READING_BOOT_SCRIPT } from "@/interaction/boot";
 import { SmoothScroll } from "@/components/providers/SmoothScroll";
 import { getSiteSettings } from "@/lib/content/site";
 import { buildPageMetadata } from "@/lib/seo/metadata";
@@ -18,6 +17,18 @@ const instrumentSerif = Instrument_Serif({
   variable: "--font-instrument-serif",
   subsets: ["latin"],
   weight: "400",
+});
+
+const grenze = Grenze_Gotisch({
+  variable: "--font-grenze",
+  subsets: ["latin"],
+  weight: ["500", "700", "900"],
+});
+
+const jetbrains = JetBrains_Mono({
+  variable: "--font-jetbrains",
+  subsets: ["latin"],
+  weight: ["400", "700"],
 });
 
 const site = getSiteSettings();
@@ -47,10 +58,13 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${geistSans.variable} ${instrumentSerif.variable}`}
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${instrumentSerif.variable} ${grenze.variable} ${jetbrains.variable}`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: READING_BOOT_SCRIPT }} />
+      </head>
       <body className="antialiased">
-        <Loader siteName={site.siteName} />
         <SmoothScroll>{children}</SmoothScroll>
       </body>
     </html>

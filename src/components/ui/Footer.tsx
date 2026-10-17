@@ -1,16 +1,17 @@
 import { MarqueeText } from "@/components/ui/MarqueeText";
 import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
 import { TransitionLink } from "@/components/ui/TransitionLink";
+import { footer as footerCopy } from "@/lib/content/copy";
 import { NAV_LINKS } from "@/lib/nav";
 import { SOCIAL_LABELS } from "@/lib/social";
 import type { SiteSettings, SocialLinks } from "@/types/content";
 
 type FooterProps = {
   site: SiteSettings;
-  availability?: string;
 };
 
-export function Footer({ site, availability = "Disponível a partir de Julho 2026" }: FooterProps) {
+export function Footer({ site }: FooterProps) {
+  const availability = site.availability;
   const activeSocials = (
     Object.entries(site.socialLinks) as [keyof SocialLinks, string | null | undefined][]
   ).filter(([, url]) => Boolean(url));
@@ -20,19 +21,19 @@ export function Footer({ site, availability = "Disponível a partir de Julho 202
       <div className="bg-accent text-foreground">
         <div className="content-container grid grid-cols-1 gap-12 py-16 lg:grid-cols-2 lg:py-20">
           <div className="flex flex-col gap-6">
-            <span className="text-large-heading">{site.siteName}</span>
+            <span className="wordmark text-large-heading">{site.siteName}</span>
             <div className="flex flex-col">
-              <span className="text-small-heading italic text-foreground/80">
-                Dias de trabalho
+              <span className="text-small-heading italic text-foreground/90">
+                {footerCopy.workDaysLabel}
               </span>
-              <span className="text-small-heading">Segunda – Sexta</span>
+              <span className="text-small-heading">{footerCopy.workDays}</span>
             </div>
           </div>
 
           <div className="flex flex-col gap-3 lg:items-end lg:text-right">
             <span className="text-large-heading">{availability}</span>
-            <span className="text-small-heading text-foreground/80">
-              Tem um projeto em mente?
+            <span className="text-small-heading text-foreground/90">
+              {footerCopy.projectPrompt}
             </span>
             <CopyEmailButton
               email={site.email}
@@ -48,7 +49,7 @@ export function Footer({ site, availability = "Disponível a partir de Julho 202
                 <TransitionLink
                   key={href}
                   href={href}
-                  className="link-underline text-small-heading"
+                  className="link-underline inline-flex min-h-11 items-center text-small-heading"
                 >
                   {label}
                 </TransitionLink>
@@ -63,7 +64,7 @@ export function Footer({ site, availability = "Disponível a partir de Julho 202
                       href={url!}
                       target={url!.startsWith("http") ? "_blank" : undefined}
                       rel={url!.startsWith("http") ? "noopener noreferrer" : undefined}
-                      className="link-underline caps"
+                      className="link-underline caps inline-flex min-h-11 items-center"
                     >
                       {SOCIAL_LABELS[key]}
                     </a>
@@ -80,6 +81,7 @@ export function Footer({ site, availability = "Disponível a partir de Julho 202
           text={site.siteName}
           direction="rtl"
           repeat={4}
+          wordmark
           className="px-[var(--edge-padding)] text-accent"
         />
       </div>
