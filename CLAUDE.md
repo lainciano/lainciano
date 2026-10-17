@@ -96,7 +96,7 @@ No backend/form submission (the only API is the platina book, `src/app/api/{run,
 
 ## Explicitly out of scope for this project
 
-- No database or ORM (Prisma, Supabase, Neon, etc.). Exceção aprovada: Upstash Redis apenas para o ranking da platina (spec Cripta 8.5); provisionado na Fase 7 (Preview/Development no projeto Vercel `lainfork`, integração `lainciano-ranking`).
+- No database or ORM (Prisma, Supabase, Neon, etc.). Exceção aprovada: Upstash Redis apenas para o ranking da platina (spec Cripta 8.5); provisionado na Fase 7 (Preview/Development no projeto Vercel `lainciano` (domínio `lainciano.vercel.app`), integração `lainciano-ranking`).
 - No headless CMS (Sanity, Contentful)
 - No Framer Motion as the primary animation library (GSAP is)
 - No `@studio-freight/react-lenis` (deprecated — use `lenis` directly)
