@@ -50,9 +50,10 @@ export function Portal({ siteName }: { siteName: string }) {
       event.preventDefault();
       enterPortal(dialog, "silent");
     };
-    // Um segundo Esc rápido pode fechar sem "cancel": persiste a escolha mesmo assim.
+    // Um segundo Esc rápido pode fechar sem "cancel": persiste o silêncio mesmo assim. O evento "close" é
+    // assíncrono (chega depois de `entering.delete`), então a guarda é a escolha já gravada, não o WeakSet.
     const onClose = () => {
-      if (entering.has(dialog)) return;
+      if (soundEngine.hasChosen()) return;
       soundEngine.setEnabled(false);
     };
     dialog.addEventListener("cancel", onCancel);
