@@ -1,6 +1,4 @@
-<div align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Share+Tech+Mono&size=18&duration=2500&pause=800&color=975025&center=true&vCenter=true&multiline=true&width=700&height=60&lines=%3E+PRESENT+DAY%2C+PRESENT+TIME...;%3E+HA%20HA%20HA...;%3E+NO%20MATTER%20WHERE%20YOU%20GO%2C;%3E+EVERYONE%20IS%20CONNECTED"/>
-</div>
+
 
 <img src="docs/readme-svgs/header-system-stats.svg" width="100%"/>
 
@@ -14,13 +12,6 @@
 </p>
 
 
-<img src="docs/readme-svgs/header-activity-graph.svg" width="100%"/>
-
-<p align="center">
-  <img src="https://github-readme-activity-graph.vercel.app/graph?username=lainciano&bg_color=100A08&color=F4F4F4&line=975025&point=8F2F06&area=true&area_color=5A280D&hide_border=true"/>
-</p>
-
-
 <img src="docs/readme-svgs/header-tech-stack.svg" width="100%"/>
 
 <p align="center">
@@ -31,13 +22,13 @@
   <img src="https://img.shields.io/badge/Next.js-100A08?style=for-the-badge&logo=nextdotjs&logoColor=975025"/>
   <img src="https://img.shields.io/badge/React-100A08?style=for-the-badge&logo=react&logoColor=975025"/>
   <img src="https://img.shields.io/badge/React_Native-100A08?style=for-the-badge&logo=react&logoColor=975025"/>
+  <img src="https://img.shields.io/badge/Flutter-100A08?style=for-the-badge&logo=flutter&logoColor=975025"/>
   <img src="https://img.shields.io/badge/Supabase-100A08?style=for-the-badge&logo=supabase&logoColor=975025"/>
   <img src="https://img.shields.io/badge/PostgreSQL-100A08?style=for-the-badge&logo=postgresql&logoColor=975025"/>
   <img src="https://img.shields.io/badge/TailwindCSS-100A08?style=for-the-badge&logo=tailwindcss&logoColor=975025"/>
   <img src="https://img.shields.io/badge/Linux-100A08?style=for-the-badge&logo=linux&logoColor=975025"/>
   <img src="https://img.shields.io/badge/Git-100A08?style=for-the-badge&logo=git&logoColor=975025"/>
   <img src="https://img.shields.io/badge/Figma-100A08?style=for-the-badge&logo=figma&logoColor=975025"/>
-  <img src="https://img.shields.io/badge/Cybersecurity-100A08?style=for-the-badge&logo=kalilinux&logoColor=975025"/>
 </p>
 
 ---
