@@ -11,6 +11,7 @@ import { useRoomAmbience } from "@/interaction/sound/useRoomAmbience";
 import { ruina as copy } from "@/lib/content/copy";
 import { getGsap, whenGsap } from "@/lib/motion";
 import { useInView } from "@/rooms/shared/useInView";
+import { useIntentReady } from "@/rooms/shared/useIntentReady";
 import { NAME_HOVER, nameReaction } from "./nameHover";
 import { CASE_NAV_DELAY_MS } from "./physics";
 import type { Slab } from "./slabs";
@@ -27,7 +28,10 @@ export function Ruina({ siteName, slabs }: RuinaProps) {
   const timersRef = useRef<number[]>([]);
   const [ready, setReady] = useState(false);
   const reading = useReadingMode();
-  const near = useInView(arenaRef, { rootMargin: "400px", once: true });
+  const inView = useInView(arenaRef, { rootMargin: "400px", once: true });
+  // matter-js e o mundo só nascem no 1º gesto (ou 8 s após o load): no `load` custavam TBT (Fase 8).
+  const intent = useIntentReady(arenaRef);
+  const near = inView && intent;
   const { push } = useViewTransition();
   const effects = !reading;
   useRoomAmbience("ruina", arenaRef);

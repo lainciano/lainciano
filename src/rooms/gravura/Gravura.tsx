@@ -5,6 +5,7 @@ import { useRef } from "react";
 import { useReadingMode } from "@/interaction/reading-mode/store";
 import { useRoomAmbience } from "@/interaction/sound/useRoomAmbience";
 import { gravura as copy } from "@/lib/content/copy";
+import { useIntentReady } from "@/rooms/shared/useIntentReady";
 import { useWebGL } from "@/rooms/shared/useWebGL";
 import type { WebGLSceneContext } from "@/rooms/shared/webgl";
 import { PORTRAIT, cropToCssBox } from "./crop";
@@ -20,8 +21,9 @@ const CROP_BOX = cropToCssBox(PORTRAIT.crop);
 export function Gravura() {
   const layerRef = useRef<HTMLDivElement>(null);
   const reading = useReadingMode();
+  const intent = useIntentReady(layerRef); // three + shader só no 1º gesto (ou 8 s após o load): TBT de /about
   const { status } = useWebGL(layerRef, {
-    enabled: !reading,
+    enabled: !reading && intent,
     create: createGravura,
     canvasClassName: "gravura__canvas",
   });
