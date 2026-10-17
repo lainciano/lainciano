@@ -1,6 +1,5 @@
 "use client";
 
-import gsap from "gsap";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { TransitionLink } from "@/components/ui/TransitionLink";
 import { useViewTransition } from "@/hooks/useViewTransition";
@@ -10,7 +9,9 @@ import { relicStore } from "@/interaction/relics/store";
 import { soundEngine } from "@/interaction/sound/engine";
 import { useRoomAmbience } from "@/interaction/sound/useRoomAmbience";
 import { ruina as copy } from "@/lib/content/copy";
+import { getGsap, whenGsap } from "@/lib/motion";
 import { useInView } from "@/rooms/shared/useInView";
+import { useIntentReady } from "@/rooms/shared/useIntentReady";
 import { NAME_HOVER, nameReaction } from "./nameHover";
 import { CASE_NAV_DELAY_MS } from "./physics";
 import type { Slab } from "./slabs";
@@ -27,7 +28,10 @@ export function Ruina({ siteName, slabs }: RuinaProps) {
   const timersRef = useRef<number[]>([]);
   const [ready, setReady] = useState(false);
   const reading = useReadingMode();
-  const near = useInView(arenaRef, { rootMargin: "400px", once: true });
+  const inView = useInView(arenaRef, { rootMargin: "400px", once: true });
+  // matter-js e o mundo só nascem no 1º gesto (ou 8 s após o load): no `load` custavam TBT (Fase 8).
+  const intent = useIntentReady(arenaRef);
+  const near = inView && intent;
   const { push } = useViewTransition();
   const effects = !reading;
   useRoomAmbience("ruina", arenaRef);
@@ -50,7 +54,7 @@ export function Ruina({ siteName, slabs }: RuinaProps) {
     }
     soundEngine.play("case");
     slab.classList.add("arena__laje--abrindo");
-    gsap.fromTo(
+    getGsap()?.gsap.fromTo(
       slab,
       { outlineWidth: 4 },
       { outlineWidth: 0, duration: 0.8, onComplete: () => slab.classList.remove("arena__laje--abrindo") },
@@ -76,32 +80,34 @@ export function Ruina({ siteName, slabs }: RuinaProps) {
     const name = arena.querySelector<HTMLElement>(".arena__nome");
     const glyphs = Array.from(arena.querySelectorAll<HTMLElement>('[data-piece="glyph"]'));
     if (!name || glyphs.length === 0) return;
-    const rootStyle = getComputedStyle(document.documentElement);
-    const hot = rootStyle.getPropertyValue("--sangue").trim();
-    const calm = rootStyle.getPropertyValue("--osso").trim();
-    const onMove = (event: PointerEvent) => {
-      if (arena.dataset.live === "on") return;
-      for (const glyph of glyphs) {
-        const rect = glyph.getBoundingClientRect();
-        const distance = Math.hypot(event.clientX - (rect.left + rect.width / 2), event.clientY - (rect.top + rect.height / 2));
-        const { lift, hot: isHot } = nameReaction(distance);
-        gsap.to(glyph, { y: lift, color: isHot ? hot : calm, duration: NAME_HOVER.tweenS, ease: "power3", overwrite: "auto" });
-      }
-    };
-    const onLeave = () => {
-      if (arena.dataset.live === "on") return;
-      gsap.to(glyphs, { y: 0, color: calm, duration: NAME_HOVER.leaveS, ease: "elastic.out(1, .4)", clearProps: "transform,color" });
-    };
-    name.addEventListener("pointermove", onMove);
-    name.addEventListener("pointerleave", onLeave);
-    return () => {
-      name.removeEventListener("pointermove", onMove);
-      name.removeEventListener("pointerleave", onLeave);
-      if (arena.dataset.live !== "on") {
-        gsap.killTweensOf(glyphs);
-        gsap.set(glyphs, { clearProps: "transform,color" });
-      }
-    };
+    return whenGsap(({ gsap }) => {
+      const rootStyle = getComputedStyle(document.documentElement);
+      const hot = rootStyle.getPropertyValue("--sangue").trim();
+      const calm = rootStyle.getPropertyValue("--osso").trim();
+      const onMove = (event: PointerEvent) => {
+        if (arena.dataset.live === "on") return;
+        for (const glyph of glyphs) {
+          const rect = glyph.getBoundingClientRect();
+          const distance = Math.hypot(event.clientX - (rect.left + rect.width / 2), event.clientY - (rect.top + rect.height / 2));
+          const { lift, hot: isHot } = nameReaction(distance);
+          gsap.to(glyph, { y: lift, color: isHot ? hot : calm, duration: NAME_HOVER.tweenS, ease: "power3", overwrite: "auto" });
+        }
+      };
+      const onLeave = () => {
+        if (arena.dataset.live === "on") return;
+        gsap.to(glyphs, { y: 0, color: calm, duration: NAME_HOVER.leaveS, ease: "elastic.out(1, .4)", clearProps: "transform,color" });
+      };
+      name.addEventListener("pointermove", onMove);
+      name.addEventListener("pointerleave", onLeave);
+      return () => {
+        name.removeEventListener("pointermove", onMove);
+        name.removeEventListener("pointerleave", onLeave);
+        if (arena.dataset.live !== "on") {
+          gsap.killTweensOf(glyphs);
+          gsap.set(glyphs, { clearProps: "transform,color" });
+        }
+      };
+    });
   }, [effects]);
 
   useEffect(() => {

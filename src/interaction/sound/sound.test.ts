@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseSoundPref, shouldPlay } from "@/interaction/sound/policy";
-import { BELL, NOISE, SFX } from "@/interaction/sound/sfx";
+import { BELL, KEY_PITCH, NOISE, SFX, keyPitch } from "@/interaction/sound/sfx";
 
 describe("shouldPlay", () => {
   it("só toca com som on, fora do modo leitura e depois de um gesto", () => {
@@ -54,6 +54,9 @@ describe("NOISE", () => {
   it("risco de troca de linha do Relicário: curto e agudo (spec 7.4)", () => {
     expect(NOISE.scratch).toEqual([{ dur: 0.04, gain: 0.03, filter: "highpass", freq: 3200 }]);
   });
+  it("folha do Blog: curta e abafada, abaixo do risco (D16)", () => {
+    expect(NOISE.page).toEqual([{ dur: 0.09, gain: 0.02, filter: "bandpass", freq: 1800, q: 0.7 }]);
+  });
 });
 
 describe("SFX das salas (Fase 2)", () => {
@@ -80,5 +83,19 @@ describe("BELL (sino do Portal)", () => {
   });
   it("razão FM 1:3.5 (spec 8.3)", () => {
     expect(BELL.modRatio).toBe(3.5);
+  });
+});
+
+describe("sons do console (spec 7.8, 8.1)", () => {
+  it("tem bip duplo de sucesso e zumbido de negação", () => {
+    expect(SFX.ok).toHaveLength(2);
+    expect(SFX.denied[0]?.type).toBe("sawtooth");
+    expect(SFX.denied[0]?.freq).toBe(80);
+  });
+  it("a tecla soa entre 900 e 1200 Hz", () => {
+    const base = SFX.key[0]!.freq;
+    expect(base * keyPitch(() => 0)).toBeCloseTo(900);
+    expect(base * keyPitch(() => 1)).toBeCloseTo(1200);
+    expect(KEY_PITCH[0]).toBeLessThan(KEY_PITCH[1]);
   });
 });

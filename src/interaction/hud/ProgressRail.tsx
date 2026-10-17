@@ -1,17 +1,16 @@
 "use client";
 
-import { useLenis } from "lenis/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useReadingMode } from "@/interaction/reading-mode/store";
 import { hud } from "@/lib/content/copy";
+import { getLenis } from "@/lib/lenis-bridge";
 
 type Mark = { id: string; label: string };
 
 // Trilho vertical (≥ lg) com as seções [data-rail] da página; marca a seção no centro da viewport.
 export function ProgressRail() {
   const pathname = usePathname();
-  const lenis = useLenis();
   const reading = useReadingMode();
   const [marks, setMarks] = useState<Mark[]>([]);
   const [active, setActive] = useState<string | null>(null);
@@ -55,6 +54,7 @@ export function ProgressRail() {
                 event.preventDefault();
                 const hudHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hud-h")) *
                   parseFloat(getComputedStyle(document.documentElement).fontSize);
+                const lenis = getLenis();
                 if (lenis) lenis.scrollTo(target, { offset: -hudHeight, immediate: reading });
                 else target.scrollIntoView();
               }}

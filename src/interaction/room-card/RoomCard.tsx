@@ -1,8 +1,8 @@
 "use client";
 
-import gsap from "gsap";
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { chapters as copy } from "@/lib/content/copy";
+import { getGsap } from "@/lib/motion";
 import { CHAPTERS } from "./chapters";
 import { roomCardStore } from "./store";
 import { CARD } from "./timing";
@@ -17,6 +17,12 @@ export function RoomCard() {
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!chapter || !root) return;
+    const lib = getGsap();
+    if (!lib) {
+      roomCardStore.clear(); // sem GSAP ainda: o cartão é decorativo, a sala abre direto
+      return;
+    }
+    const { gsap } = lib;
     const letters = root.querySelectorAll(".room-card__letra");
     const title = root.querySelector(".room-card__titulo");
     const tl = gsap.timeline({ onComplete: () => roomCardStore.clear() });

@@ -15,8 +15,6 @@ export const RUINA = {
   pushForce: 0.0009,
   throwLimitY: -60,
   doubleTapMs: 380,
-  collapseRatio: 0.6,
-  collapseDelayMs: 500,
   shakePx: 6,
   shakeDuration: 0.5,
   restoreDuration: 0.7,

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ExplorerMark } from "@/interaction/relics/ExplorerMark";
 import { notFound } from "next/navigation";
 import { MdxContent } from "@/components/content/MdxContent";
 import { LitCaption } from "@/components/ui/LitCaption";
@@ -13,6 +14,9 @@ import { buildPageMetadata } from "@/lib/seo/metadata";
 import { LensCapture } from "@/rooms/camara/LensCapture";
 
 type Params = { slug: string };
+
+// Slug fora do conteúdo é URL sem rota: cai no 404 da raiz, que sai renderizado no servidor (sem JS).
+export const dynamicParams = false;
 
 export function generateStaticParams() {
   return getProjects().map((project) => ({ slug: project.slug }));
@@ -42,6 +46,7 @@ export default async function ProjectPage({ params }: { params: Promise<Params> 
 
   return (
     <>
+      <ExplorerMark area="case" />
       <article data-rail={doors.caseRoom} id="camara" className="content-container camara py-section">
         <header className="camara__cabeca">
           <TransitionLink href="/work" transitionDirection="back" className="link-mono focus-ring">

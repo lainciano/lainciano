@@ -47,12 +47,12 @@ describe("indexStack", () => {
 
 describe("linkKind / displayUrl", () => {
   it("GitHub é repositório; o resto é site", () => {
-    expect(linkKind("https://github.com/44lain/vermolin.ux")).toBe("repo");
+    expect(linkKind("https://github.com/lainciano/vermolin.ux")).toBe("repo");
     expect(linkKind("https://brazskate.vercel.app")).toBe("site");
   });
   it("host legível, sem protocolo, www e barra final", () => {
     expect(displayUrl("https://brazskate.vercel.app")).toBe("brazskate.vercel.app");
-    expect(displayUrl("https://www.github.com/44lain/vermolin.ux/")).toBe("github.com/44lain/vermolin.ux");
+    expect(displayUrl("https://www.github.com/lainciano/vermolin.ux/")).toBe("github.com/lainciano/vermolin.ux");
   });
 });
 

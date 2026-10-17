@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { STORAGE_KEYS } from "@/interaction/boot";
 import { getRelic, type RelicId } from "./catalog";
-import { EMPTY_STATE, parseRelicState, startRun, unlockRelic, type RelicState } from "./state";
+import { EMPTY_STATE, attachTicket, dropTicket, markRecorded, parseRelicState, startRun, unlockRelic, type RelicState } from "./state";
 
 type UnlockListener = (relic: ReturnType<typeof getRelic>, state: RelicState, becamePlatinum: boolean) => void;
 
@@ -58,6 +58,28 @@ export const relicStore = {
     emit();
     const relic = getRelic(id);
     unlockListeners.forEach((listener) => listener(relic, state, result.becamePlatinum));
+  },
+  attachTicket(ticket: { runId: string; issuedAt: number; token: string }) {
+    this.hydrate();
+    const next = attachTicket(state, ticket);
+    if (next === state) return;
+    state = next;
+    persist();
+    emit();
+  },
+  dropTicket() {
+    this.hydrate();
+    const next = dropTicket(state);
+    if (next === state) return;
+    state = next;
+    persist();
+    emit();
+  },
+  markRecorded(position: number) {
+    this.hydrate();
+    state = markRecorded(state, position);
+    persist();
+    emit();
   },
   onUnlock(listener: UnlockListener) {
     unlockListeners.add(listener);

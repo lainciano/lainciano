@@ -58,10 +58,14 @@
   --cinza: #a08769;
   --linha: #3a1d0f;
   --apagado: #6f5a45; /* só texto decorativo que também existe em estado legível */
+  --poco: #0a0605; /* fundo do console (protótipo), mais fundo que o --breu */
+  /* Vermelho para texto pequeno: --sangue puro dá 3,3:1 sobre o breu; esta mistura dá ≈ 6,5:1 (spec 11). */
+  --sangue-texto: color-mix(in srgb, var(--sangue) 55%, var(--osso));
 
   /* ---------- Cripta v2: layout / motion / camadas ---------- */
   --hud-h: 4.25rem;
   --frame-w: 2px;
+  --sombra-dura: 6px 6px 0 var(--sangue); /* sombra dura da spec 4.3 */
   --motion-cursor: 180ms;
   --motion-door: 700ms;
   --z-rail: 25;
@@ -89,11 +93,30 @@
   --row-min: 4.5rem; /* 72 px: linha do índice de projetos (spec 7.4) */
   --row-shift: 0.75rem; /* 12 px: deslize da linha no hover/foco (spec 7.4) */
   --thumb-max: 32rem; /* miniatura estática do índice no mobile/toque */
+  --platina-w: 34rem; /* painel da tela de platina */
+  --platina-selo: 9rem; /* diâmetro do selo de sigilos */
+  --platina-sigilo: 1.75rem; /* tamanho de cada sigilo no selo */
+  --platina-raio: calc(var(--platina-selo) / -2.6); /* raio do anel de sigilos (negativo: sobe do centro) */
+  --text-platina: clamp(3rem, 8vw, 5.5rem); /* título "Platina." */
+  --measure-form: 24rem; /* largura do formulário de apelido */
   --preview-w: 22.5rem; /* prévia do Relicário: 360 px (spec 7.4) */
   --preview-h: 14.0625rem; /* 225 px (16:10) */
   --z-preview: 15; /* prévia flutuante: acima do .page-shell (10), abaixo do trilho (25) e do HUD (30) */
   --focus-offset: 3px; /* afastamento do anel de foco (spec 11) */
   --measure-body: 66ch; /* coluna de leitura do corpo (spec 7.5, 7.7) */
+  --ledger-nudge: 0.5rem; /* 8 px: recuo da linha do livro-razão no hover (spec 7.6) */
+  --ledger-tags: 12.5rem; /* coluna das tags do livro-razão */
+  --ledger-date-short: 6rem; /* 96 px: coluna da data curta "25 mar" (mockup do Blog) */
+  --z-reading: 31; /* barra de leitura: acima do HUD (30), abaixo de cursor, toast e Portal */
+  --reading-bar-h: 2px; /* spec 7.7 */
+  --terminal-min: 26.25rem; /* 420 px: altar e console (protótipo) */
+  --terminal-min-mobile: 20rem; /* 320 px: altar no celular */
+  --terminal-max: 35rem; /* 560 px: console embutido (protótipo) */
+  --console-overlay-h: 55dvh; /* console sobreposto: metade de baixo da tela (spec 8.6) */
+  --altar-glyph-h: 0.0283; /* glifo do quadro estático ÷ altura útil do altar (11,76 px ÷ 416 px, capturado a 0.17): o nó vivo escala com a altura, o quadro também */
+  --altar-glyph-w: 0.0256; /* teto pela largura: 1 ÷ (65 colunas do quadro × 0,6 em de avanço da JetBrains Mono); sem corte em telas estreitas */
+  --motion-console-in: 300ms; /* abrir o console */
+  --motion-console-out: 180ms; /* fechar: mais curto que abrir */
 }
 
 @theme inline {
@@ -249,7 +272,7 @@ body {
 }
 
 .shadow-hard {
-  box-shadow: 6px 6px 0 var(--sangue);
+  box-shadow: var(--sombra-dura);
 }
 
 .text-card-title {
@@ -885,7 +908,7 @@ body {
 }
 
 .portal__btn--primario {
-  box-shadow: 6px 6px 0 var(--sangue);
+  box-shadow: var(--sombra-dura);
 }
 
 .portal__btn:active {
@@ -1286,7 +1309,7 @@ body {
 
 .ledger-row {
   display: grid;
-  grid-template-columns: 12rem minmax(0, 1fr) 12.5rem;
+  grid-template-columns: 12rem minmax(0, 1fr) var(--ledger-tags);
   align-items: baseline;
   gap: var(--space-md);
   padding-block: var(--space-wide);
@@ -1329,6 +1352,24 @@ body {
   color: var(--sangue);
 }
 
+.ledger-row {
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.ledger-row:focus-visible {
+  transform: translateX(var(--ledger-nudge));
+}
+
+@media (hover: hover) {
+  .ledger-row:hover {
+    transform: translateX(var(--ledger-nudge));
+  }
+}
+
+.ledger-row--curta {
+  grid-template-columns: var(--ledger-date-short) minmax(0, 1fr) var(--ledger-tags);
+}
+
 @media (max-width: 56.25rem) {
   .ledger-row {
     grid-template-columns: minmax(0, 1fr);
@@ -1341,8 +1382,15 @@ body {
 }
 
 :root[data-reading="on"] .selo,
-:root[data-reading="on"] .ledger-row__titulo {
+:root[data-reading="on"] .ledger-row,
+:root[data-reading="on"] .ledger-row__titulo,
+:root[data-reading="on"] .destaque__titulo {
   transition: none;
+}
+
+:root[data-reading="on"] .ledger-row:hover,
+:root[data-reading="on"] .ledger-row:focus-visible {
+  transform: none;
 }
 
 :root[data-reading="on"] .selo:hover {
@@ -2229,5 +2277,838 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .camara__visitar:active {
     transform: none;
+  }
+}
+
+/* --- Cripta: console (spec 8.6; porte do protótipo .console) --- */
+.console {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: var(--terminal-min);
+  max-height: var(--terminal-max);
+  border: var(--frame-w) solid var(--osso);
+  background: var(--poco);
+  color: var(--osso);
+  font: 400 0.875rem / 1.55 var(--font-jetbrains), ui-monospace, monospace;
+}
+
+.console__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-xs);
+  border-bottom: 1px solid var(--linha);
+  color: var(--cinza);
+  font-size: 0.75rem;
+}
+
+.console__fechar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-height: var(--tap-min);
+  padding: 0 var(--space-xs);
+  border: 1px solid currentColor;
+  background: none;
+  color: var(--osso);
+  font: inherit;
+  cursor: pointer;
+}
+
+.console__saida {
+  display: grid;
+  align-content: start;
+  gap: var(--frame-w);
+  min-width: 0;
+  padding: var(--space-xs);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-variant-numeric: tabular-nums;
+}
+
+.console__linha {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.console__linha--cmd {
+  color: var(--osso);
+}
+
+.console__linha--res {
+  color: var(--cinza);
+}
+
+.console__linha--err,
+.console__prompt,
+.console__rotulo {
+  color: var(--sangue-texto);
+}
+
+.console__form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-xs);
+  border-top: 1px solid var(--linha);
+}
+
+.console__form:focus-within {
+  box-shadow: inset 0 0 0 var(--frame-w) var(--sangue);
+}
+
+.console__rotulo {
+  white-space: nowrap;
+}
+
+.console__input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap-min);
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--osso);
+  font: inherit;
+  caret-color: var(--sangue);
+}
+
+.console__input::placeholder {
+  color: var(--apagado);
+}
+
+/* 16 px no toque: o iOS não dá zoom ao focar. */
+@media (pointer: coarse) {
+  .console__input {
+    font-size: 1rem;
+  }
+}
+
+/* --- Cripta: console sobreposto (spec 8.6, D12) --- */
+.console-overlay {
+  position: fixed;
+  inset: auto 0 0;
+  width: 100%;
+  max-width: none;
+  height: var(--console-overlay-h);
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--osso);
+  overflow: visible;
+}
+
+.console-overlay:not([open]) {
+  display: none;
+}
+
+.console-overlay::backdrop {
+  background: color-mix(in srgb, var(--breu) 70%, transparent);
+}
+
+.console-overlay__painel {
+  height: 100%;
+  padding: var(--space-sm) var(--edge-padding);
+  border-top: var(--frame-w) solid var(--osso);
+  background: var(--breu);
+}
+
+.console-overlay .console {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+}
+
+@media (max-width: 47.99rem) {
+  .console-overlay {
+    inset: 0;
+    height: 100dvh;
+  }
+
+  .console-overlay__painel {
+    padding: 0;
+    border-top: 0;
+  }
+
+  .console-overlay .console {
+    border: 0;
+  }
+}
+
+/* --- Cripta: Terminal — sala e altar ASCII (spec 7.8; porte do protótipo .terminal-sala/.altar) --- */
+.terminal__sala {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: clamp(var(--space-md), 4vw, var(--space-xl));
+  align-items: stretch;
+  margin-top: var(--space-lg);
+}
+
+@media (max-width: 53.75rem) {
+  .terminal__sala {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.altar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: var(--terminal-min); /* altura explícita: com min-height o cqh do container size vale 0 */
+  overflow: hidden;
+  border: var(--frame-w) solid var(--osso);
+  background: var(--breu);
+  touch-action: pan-y;
+  user-select: none;
+  container-type: size; /* cqh: o quadro estático acompanha a altura do altar, como a câmera */
+}
+
+.altar:focus-visible {
+  outline: var(--frame-w) solid var(--sangue);
+  outline-offset: var(--focus-offset);
+}
+
+@media (max-width: 53.75rem) {
+  .altar {
+    height: var(--terminal-min-mobile);
+  }
+}
+
+.altar__still,
+.altar__ascii,
+.altar__ascii table {
+  grid-area: 1 / 1;
+  margin: 0;
+  color: var(--osso);
+  font-family: var(--font-jetbrains), ui-monospace, monospace !important; /* o AsciiEffect escreve "courier new" inline na <table> */
+  line-height: 1 !important;
+}
+
+.altar__still {
+  font-size: min(calc(100cqh * var(--altar-glyph-h)), calc(100cqw * var(--altar-glyph-w)));
+  white-space: pre;
+}
+
+.altar[data-live="on"] .altar__still {
+  visibility: hidden;
+}
+
+.altar__camada {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+/* O AsciiEffect lê os pixels deste canvas; quem aparece é a tabela de texto. */
+.altar__gl {
+  display: none;
+}
+
+.altar__rotulo {
+  position: absolute;
+  left: var(--space-xs);
+  bottom: var(--space-xs);
+  z-index: var(--z-room-ui);
+  color: var(--cinza);
+  font: 400 0.75rem / 1.3 var(--font-jetbrains), ui-monospace, monospace;
+}
+
+:root[data-reading="on"] .altar__rotulo {
+  display: none;
+}
+
+/* --- Cripta: Contato — e-mail sempre visível (spec 7.8, D20) --- */
+.contato__email {
+  margin-top: var(--space-md);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-weight: 900;
+  font-size: clamp(1.75rem, 5vw, 3.5rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.contato__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  margin-block: var(--space-sm) var(--space-md);
+}
+
+/* --- Cripta: 404 — Cripta vazia (spec 7.9) --- */
+.cripta-vazia__console {
+  margin-top: var(--space-lg);
+  max-width: var(--measure-body);
+}
+
+.cripta-vazia__caminhos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  margin-top: var(--space-md);
+}
+
+/* --- Cripta: Biblioteca — índice (spec 7.6, mockup do Blog) --- */
+.biblioteca__abertura {
+  max-width: 20ch;
+  margin-block: var(--space-xl) var(--space-2xl);
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: clamp(2rem, 4.2vw, 3.75rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.destaque {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--space-md);
+  padding-block: var(--space-2xl) var(--space-xl);
+  border-top: 1px solid var(--osso);
+  color: var(--osso);
+  text-decoration: none;
+}
+
+.destaque__data,
+.destaque__tags {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  color: var(--cinza);
+  font-variant-numeric: tabular-nums;
+}
+
+.destaque__data {
+  grid-column: 1 / span 3;
+  padding-top: var(--space-xs);
+}
+
+.destaque__corpo {
+  grid-column: 4 / span 9;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.destaque__titulo {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: clamp(3rem, 6vw, 5.5rem);
+  line-height: 0.92;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+  transition: color var(--motion-fast);
+}
+
+.destaque__resumo {
+  max-width: 46ch;
+  font-size: 1.25rem;
+  line-height: 1.5;
+  color: var(--cinza);
+  text-wrap: pretty;
+}
+
+.destaque:hover .destaque__titulo,
+.destaque:focus-visible .destaque__titulo {
+  color: var(--sangue);
+}
+
+.biblioteca__ano {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--space-md);
+  margin-top: var(--space-xl);
+}
+
+.biblioteca__ano-titulo {
+  grid-column: 1 / span 3;
+  padding-top: var(--space-md);
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: clamp(3rem, 5vw, 4.5rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--brasa);
+  font-variant-numeric: tabular-nums;
+}
+
+.biblioteca__ano > .ledger {
+  grid-column: 4 / span 9;
+}
+
+@media (max-width: 56.25rem) {
+  .destaque,
+  .biblioteca__ano {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+}
+
+/* --- Cripta: Biblioteca — leitura do post (spec 7.7, mockup do post) --- */
+.leitura {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--space-md);
+}
+
+.leitura > * {
+  grid-column: 1 / -1;
+}
+
+.leitura__voltar {
+  justify-self: start;
+  align-self: flex-start; /* no fluxo flex do mobile */
+}
+
+.leitura__cabeca {
+  grid-column: 3 / span 8;
+  padding-block: var(--space-xl) var(--space-2xl);
+  border-bottom: 1px solid var(--linha);
+}
+
+.leitura__linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-md);
+  margin-bottom: var(--space-wide);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  color: var(--cinza);
+  font-variant-numeric: tabular-nums;
+}
+
+.leitura__linha time {
+  color: var(--osso);
+}
+
+.leitura__titulo {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: clamp(3rem, 6.4vw, 6rem);
+  font-weight: 400;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.leitura__standfirst {
+  max-width: 40ch;
+  margin-top: var(--space-lg);
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-style: italic;
+  font-size: clamp(1.375rem, 2vw, 1.75rem);
+  line-height: 1.35;
+  color: var(--cinza);
+  text-wrap: pretty;
+}
+
+.leitura__corpo {
+  grid-column: 4 / span 6;
+  max-width: var(--measure-body);
+  padding-top: var(--space-2xl);
+}
+
+.leitura__corpo .mdx-content {
+  font-size: 1.1875rem;
+  line-height: 1.75;
+}
+
+.leitura__corpo .mdx-content > * + * {
+  margin-top: var(--space-md);
+}
+
+.leitura__corpo .mdx-content h2 {
+  margin-top: var(--space-2xl);
+  font-size: clamp(1.75rem, 2.8vw, 2.375rem);
+  line-height: 1.1;
+}
+
+.leitura__corpo .mdx-content a {
+  color: var(--sangue-texto);
+  text-underline-offset: 0.18em;
+}
+
+.leitura__corpo .mdx-content a:hover,
+.leitura__corpo .mdx-content a:focus-visible {
+  color: var(--osso);
+}
+
+.leitura__corpo .mdx-content :not(pre) > code {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.86em;
+  background: color-mix(in srgb, var(--linha) 70%, transparent);
+  border-radius: 0;
+}
+
+.leitura__corpo .mdx-content blockquote {
+  padding-left: var(--space-lg);
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-style: italic;
+  font-size: 1.625rem;
+  line-height: 1.35;
+}
+
+.leitura__corpo .mdx-content blockquote > p:first-child {
+  text-indent: -0.4em;
+}
+
+.codigo {
+  position: relative;
+}
+
+.leitura__corpo .codigo pre {
+  margin: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: calc(var(--tap-min) + var(--space-2xs)) var(--space-md) var(--space-md);
+  background: var(--poco);
+  border: 1px solid var(--linha);
+  border-radius: 0;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: var(--osso);
+}
+
+.leitura__corpo .codigo pre:focus-visible {
+  outline: var(--frame-w) solid var(--sangue);
+  outline-offset: var(--focus-offset);
+}
+
+.codigo__copiar {
+  position: absolute;
+  top: var(--space-2xs);
+  right: var(--space-2xs);
+}
+
+.post-nav {
+  grid-column: 3 / span 8;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: var(--space-2xl);
+  border-top: 1px solid var(--linha);
+}
+
+.post-nav__link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-snug);
+  min-height: var(--tap-min);
+  padding-block: var(--space-xl);
+  color: var(--osso);
+  text-decoration: none;
+}
+
+.post-nav__link--anterior {
+  grid-column: 1;
+  padding-right: var(--space-md);
+}
+
+.post-nav__link--proximo {
+  grid-column: 2;
+  padding-left: var(--space-md);
+  border-left: 1px solid var(--linha);
+  text-align: right;
+}
+
+.post-nav__rotulo {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  color: var(--cinza);
+}
+
+.post-nav__titulo {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 1.75rem;
+  line-height: 1.1;
+  text-wrap: balance;
+  transition: color var(--motion-fast);
+}
+
+.post-nav__link:hover .post-nav__titulo,
+.post-nav__link:focus-visible .post-nav__titulo {
+  color: var(--sangue);
+}
+
+:root[data-reading="on"] .post-nav__titulo {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ledger-row:hover,
+  .ledger-row:focus-visible {
+    transform: none;
+  }
+
+  .ledger-row,
+  .destaque__titulo,
+  .post-nav__titulo {
+    transition: none;
+  }
+}
+
+@media (max-width: 56.25rem) {
+  .leitura {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .leitura__cabeca {
+    padding-block: var(--space-lg);
+  }
+
+  .leitura__corpo {
+    padding-top: var(--space-lg);
+  }
+
+  .leitura__corpo .mdx-content {
+    font-size: 1.0625rem;
+  }
+
+  .post-nav {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .post-nav__link--anterior,
+  .post-nav__link--proximo {
+    grid-column: 1;
+    padding-inline: 0;
+    text-align: left;
+  }
+
+  .post-nav__link--proximo {
+    border-left: 0;
+    border-top: 1px solid var(--linha);
+  }
+}
+
+.reading-bar {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: var(--z-reading);
+  height: var(--reading-bar-h);
+  background: var(--sangue);
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+/* --- Cripta: tela de platina (spec 8.5) --- */
+.platina {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: var(--edge-padding);
+  border: 0;
+  background: var(--breu);
+  color: var(--osso);
+  overflow-y: auto;
+}
+
+.platina:not([open]) {
+  display: none;
+}
+
+.platina[open] {
+  display: grid;
+  place-items: center;
+}
+
+.platina::backdrop {
+  background: transparent;
+}
+
+.platina__painel,
+.platina__form,
+.platina__gravado {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.platina__painel {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-md);
+  width: min(100%, var(--platina-w));
+  padding: var(--space-xl) var(--space-lg);
+  border: var(--frame-w) solid var(--osso);
+  background: var(--breu);
+  text-align: center;
+}
+
+.platina__fechar {
+  position: absolute;
+  top: var(--space-2xs);
+  right: var(--space-2xs);
+}
+
+.platina__selo {
+  position: relative;
+  width: var(--platina-selo);
+  aspect-ratio: 1;
+}
+
+.platina__sigilo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-family: var(--font-gothic), serif;
+  font-size: var(--platina-sigilo);
+  line-height: 1;
+  color: var(--sangue);
+  transform: translate(-50%, -50%) rotate(calc(var(--i) * 360deg / var(--n))) translateY(var(--platina-raio))
+    rotate(calc(var(--i) * -360deg / var(--n)));
+}
+
+.platina__titulo {
+  font-family: var(--font-gothic), serif;
+  font-weight: 900;
+  font-size: var(--text-platina);
+  line-height: 0.9;
+  overflow-wrap: anywhere;
+}
+
+.platina__resumo {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.platina__form,
+.platina__gravado {
+  display: grid;
+  gap: var(--space-xs);
+  width: 100%;
+  max-width: var(--measure-form);
+  text-align: left;
+}
+
+.platina__gravado {
+  justify-items: start;
+}
+
+/* Vazia, a região viva continua montada mas não ocupa o vão do grid. */
+.platina__status:empty {
+  position: absolute;
+}
+
+.platina__rotulo {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.platina__campo {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: var(--tap-min);
+  padding-inline: var(--space-xs);
+  border: var(--frame-w) solid var(--osso);
+  background: var(--poco);
+  color: var(--osso);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 1rem; /* 16 px: abaixo disso o iOS dá zoom ao focar */
+}
+
+.platina__campo[aria-invalid="true"] {
+  border-color: var(--sangue);
+}
+
+.platina__dica,
+.platina__privacidade {
+  font-size: 0.8125rem;
+  color: var(--cinza);
+}
+
+.platina__erro {
+  color: var(--sangue-texto);
+}
+
+.platina__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.platina__gravar:not([aria-disabled="true"]) {
+  box-shadow: var(--sombra-dura);
+}
+
+.platina__gravar[aria-disabled="true"] {
+  opacity: 0.6;
+}
+
+/* --- Cripta: livro dos que platinaram (spec 7.8) --- */
+.livro {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.livro th {
+  padding-block: var(--space-xs);
+  padding-inline-end: var(--space-sm);
+  border-bottom: var(--frame-w) solid var(--osso);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cinza);
+}
+
+.livro tbody th {
+  font-size: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  color: inherit;
+  border-bottom: 1px solid var(--linha);
+  padding-block: var(--space-sm);
+}
+
+.livro td {
+  padding-block: var(--space-sm);
+  padding-inline-end: var(--space-sm);
+  border-bottom: 1px solid var(--linha);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+.livro .livro__apelido {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.livro__primeiro td:first-child {
+  color: var(--sangue-texto);
+}
+
+.livro__contorno:focus {
+  outline: none;
+}
+
+#livro {
+  scroll-margin-top: calc(var(--hud-h) + var(--space-sm));
+}
+
+.livro__estado {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-sm);
+  color: var(--cinza);
+}
+
+@media (max-width: 47.99rem) {
+  .livro__data {
+    display: none;
   }
 }

@@ -1,13 +1,15 @@
 "use client";
 
-import { useLenis } from "lenis/react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { TransitionLink } from "@/components/ui/TransitionLink";
+import { preloadConsoleSession } from "@/interaction/console/LazyConsoleSession";
+import { consoleStore } from "@/interaction/console/store";
 import { readingStore, useReadingMode } from "@/interaction/reading-mode/store";
 import { VolumeControl } from "@/interaction/sound/VolumeControl";
 import { hud } from "@/lib/content/copy";
+import { pauseLenis, resumeLenis } from "@/lib/lenis-bridge";
 import { SOCIAL_LABELS } from "@/lib/social";
 import type { NavLink } from "@/lib/nav";
 import type { SocialLinks } from "@/types/content";
@@ -45,32 +47,27 @@ const subscribe = () => () => {};
 const getSnapshot = () => true;
 const getServerSnapshot = () => false;
 
+const MENU_HOLD = "menu";
+
 export function MobileMenu({ siteName, email, availability, navLinks, socialLinks }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const skipPathnameCloseRef = useRef(true);
   const pathname = usePathname();
   const reading = useReadingMode();
-  const lenis = useLenis();
-  const lenisRef = useRef(lenis);
-
-  useEffect(() => {
-    lenisRef.current = lenis;
-  }, [lenis]);
-
   const activeSocials = (
     Object.entries(socialLinks) as [keyof SocialLinks, string | null | undefined][]
   ).filter(([, url]) => Boolean(url));
 
   const openMenu = useCallback(() => {
     setIsOpen(true);
-    lenisRef.current?.stop();
+    pauseLenis(MENU_HOLD);
     document.body.style.overflow = "hidden";
   }, []);
 
   const closeMenu = useCallback(() => {
     setIsOpen(false);
-    lenisRef.current?.start();
+    resumeLenis(MENU_HOLD);
     document.body.style.overflow = "";
   }, []);
 
@@ -122,7 +119,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
               role="dialog"
               aria-modal="true"
               aria-label="Menu"
-              aria-hidden={!isOpen}
+              inert={!isOpen}
               data-lenis-prevent
               data-lenis-prevent-touch
               className={`fixed inset-0 z-[9999] flex flex-col bg-accent text-foreground transition-transform duration-500 ease-out ${
@@ -152,7 +149,7 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
                   <TransitionLink
                     key={href}
                     href={href}
-                    className="text-large-heading w-fit text-foreground transition-colors hover:text-background"
+                    className="text-large-heading inline-flex min-h-11 w-fit items-center text-foreground transition-colors hover:text-background"
                     onClick={closeMenu}
                   >
                     {label}
@@ -169,6 +166,18 @@ export function MobileMenu({ siteName, email, availability, navLinks, socialLink
                   className="hud-btn focus-ring w-fit"
                 >
                   {hud.menuReading}: {reading ? hud.on : hud.off}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeMenu();
+                    consoleStore.open();
+                  }}
+                  onPointerEnter={preloadConsoleSession}
+                  onFocus={preloadConsoleSession}
+                  className="hud-btn focus-ring w-fit"
+                >
+                  {hud.menuConsole}
                 </button>
                 {activeSocials.length > 0 && (
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2">

@@ -1,71 +1,73 @@
 "use client";
 
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { ReactLenis, useLenis } from "lenis/react";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { createBackgroundProgress } from "@/animations/backgroundProgress";
 import { useReadingMode } from "@/interaction/reading-mode/store";
-import { registerLenisControls, resumeLenis } from "@/lib/lenis-bridge";
-
-gsap.registerPlugin(useGSAP, ScrollTrigger);
+import { getLenis, registerLenisControls, releaseNavigationHold, setLenis } from "@/lib/lenis-bridge";
+import { afterLoadIdle, loadGsap, whenGsap } from "@/lib/motion";
 
 type SmoothScrollProps = {
   children: React.ReactNode;
 };
 
+// Lenis e GSAP/ScrollTrigger nascem depois do primeiro paint (Fase 8): até lá a rolagem é a nativa e o
+// conteúdo já está inteiro. O Lenis é recriado ao entrar/sair do modo leitura (smoothWheel).
+function useLenisEngine(reading: boolean) {
+  useEffect(() => {
+    let lenis: import("lenis").default | null = null;
+    let detach: (() => void) | undefined;
+    let cancelled = false;
+    const stopIdle = afterLoadIdle(() => {
+      void Promise.all([import("lenis"), loadGsap()]).then(([{ default: Lenis }, { ScrollTrigger }]) => {
+        if (cancelled) return;
+        lenis = new Lenis({ lerp: 0.1, duration: 1.2, smoothWheel: !reading, autoRaf: true });
+        lenis.on("scroll", ScrollTrigger.update);
+        setLenis(lenis);
+        registerLenisControls({ stop: () => lenis?.stop(), start: () => lenis?.start() });
+        const refresh = () => {
+          lenis?.resize();
+          ScrollTrigger.refresh();
+        };
+        refresh();
+        window.addEventListener("resize", refresh);
+        detach = () => window.removeEventListener("resize", refresh);
+      });
+    });
+    return () => {
+      cancelled = true;
+      stopIdle();
+      detach?.();
+      registerLenisControls(null);
+      setLenis(null);
+      lenis?.destroy();
+    };
+  }, [reading]);
+}
+
 function ScrollBridge() {
   const pathname = usePathname();
-  const lenis = useLenis(() => ScrollTrigger.update());
 
+  // A cada rota: volta ao topo, solta a pausa da navegação e rearma a barra de fundo.
   useEffect(() => {
-    if (!lenis) {
-      registerLenisControls(null);
-      return;
-    }
-
-    registerLenisControls({
-      stop: () => lenis.stop(),
-      start: () => lenis.start(),
+    getLenis()?.scrollTo(0, { immediate: true });
+    releaseNavigationHold();
+    return whenGsap((lib) => {
+      lib.ScrollTrigger.refresh();
+      return createBackgroundProgress(lib);
     });
-
-    return () => registerLenisControls(null);
-  }, [lenis]);
-
-  useGSAP(() => {
-    lenis?.scrollTo(0, { immediate: true });
-    resumeLenis();
-    ScrollTrigger.refresh();
-    return createBackgroundProgress();
-  }, [pathname, lenis]);
-
-  useEffect(() => {
-    const refresh = () => {
-      lenis?.resize();
-      ScrollTrigger.refresh();
-    };
-
-    refresh();
-    window.addEventListener("load", refresh);
-    window.addEventListener("resize", refresh);
-
-    return () => {
-      window.removeEventListener("load", refresh);
-      window.removeEventListener("resize", refresh);
-    };
-  }, [lenis]);
+  }, [pathname]);
 
   return null;
 }
 
 export function SmoothScroll({ children }: SmoothScrollProps) {
   const reading = useReadingMode();
+  useLenisEngine(reading);
   return (
-    <ReactLenis root options={{ lerp: 0.1, duration: 1.2, smoothWheel: !reading }}>
+    <>
       <ScrollBridge />
       {children}
-    </ReactLenis>
+    </>
   );
 }

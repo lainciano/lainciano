@@ -1,12 +1,11 @@
 "use client";
 
-import gsap from "gsap";
 import { useEffect, useRef } from "react";
 import { readingStore } from "@/interaction/reading-mode/store";
 import { soundEngine } from "@/interaction/sound/engine";
 import { VolumeControl } from "@/interaction/sound/VolumeControl";
 import { portal } from "@/lib/content/copy";
-import { resumeLenis } from "@/lib/lenis-bridge";
+import { getGsap, loadGsap } from "@/lib/motion";
 
 type EntryMode = "sound" | "silent" | "reading";
 
@@ -23,13 +22,13 @@ function enterPortal(dialog: HTMLDialogElement | null, mode: EntryMode) {
   const close = () => {
     dialog.close();
     entering.delete(dialog);
-    resumeLenis();
   };
-  if (readingStore.getSnapshot()) {
+  const lib = getGsap();
+  if (readingStore.getSnapshot() || !lib) {
     close();
     return;
   }
-  gsap
+  lib.gsap
     .timeline({ onComplete: close })
     .to(dialog.querySelector(".portal__conteudo"), { opacity: 0, duration: 0.25 })
     .to(dialog.querySelector(".portal__folha--esq"), { xPercent: -100, duration: 0.7, ease: "expo.inOut" }, "<0.1")
@@ -45,6 +44,7 @@ export function Portal({ siteName }: { siteName: string }) {
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
+    if (dialog.open) void loadGsap(); // a porta aberta vai animar a saída: não espera o idle
     // Esc dispara "cancel": em vez de só fechar, entra em silêncio.
     const onCancel = (event: Event) => {
       event.preventDefault();

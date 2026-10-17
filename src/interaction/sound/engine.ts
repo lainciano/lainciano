@@ -9,7 +9,7 @@ import { BELL, NOISE, SFX, type NoiseBurst, type NoiseName, type SfxName, type T
 const MAX_VOICES = 12;
 
 type Graph = { ctx: AudioContext; master: GainNode; sfx: GainNode; ambience: GainNode };
-type PlayOptions = { gain?: number };
+type PlayOptions = { gain?: number; pitch?: number };
 
 let graph: Graph | null = null;
 let pref: SoundPref | null = null;
@@ -65,14 +65,19 @@ function scaleOf(options?: PlayOptions): number {
   return Math.min(1, Math.max(0.05, options?.gain ?? 1));
 }
 
-function playTone(g: Graph, tone: Tone, scale: number) {
+/** Multiplicador de altura por chamada (tecla do console), preso em 0,25–4. */
+function pitchOf(options?: PlayOptions): number {
+  return Math.min(4, Math.max(0.25, options?.pitch ?? 1));
+}
+
+function playTone(g: Graph, tone: Tone, scale: number, pitch = 1) {
   if (voices >= MAX_VOICES) return;
   const start = g.ctx.currentTime + (tone.delay ?? 0);
   const osc = g.ctx.createOscillator();
   const env = g.ctx.createGain();
   osc.type = tone.type;
-  osc.frequency.setValueAtTime(tone.freq, start);
-  if (tone.glideTo) osc.frequency.exponentialRampToValueAtTime(tone.glideTo, start + tone.dur);
+  osc.frequency.setValueAtTime(tone.freq * pitch, start);
+  if (tone.glideTo) osc.frequency.exponentialRampToValueAtTime(tone.glideTo * pitch, start + tone.dur);
   env.gain.setValueAtTime(tone.gain * scale, start);
   env.gain.exponentialRampToValueAtTime(0.0001, start + tone.dur);
   osc.connect(env).connect(g.sfx);
@@ -182,7 +187,8 @@ export const soundEngine = {
     const g = ensure();
     if (!g) return;
     const scale = scaleOf(options);
-    SFX[name].forEach((tone) => playTone(g, tone, scale));
+    const pitch = pitchOf(options);
+    SFX[name].forEach((tone) => playTone(g, tone, scale, pitch));
   },
   /** Ruído filtrado curto (estrondo, rasgo). */
   noise(name: NoiseName, options?: PlayOptions) {

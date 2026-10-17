@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createRoomTitleDeform } from "@/animations/roomTitleDeform";
 import { useReadingMode } from "@/interaction/reading-mode/store";
+import { whenGsap } from "@/lib/motion";
 
 type RoomTitleTextProps = { as: "h1" | "h2" | "p"; children: string };
 
@@ -13,7 +14,7 @@ export function RoomTitleText({ as: Tag, children }: RoomTitleTextProps) {
 
   useEffect(() => {
     if (!element || reading) return;
-    return createRoomTitleDeform(element);
+    return whenGsap((lib) => createRoomTitleDeform(element, lib));
   }, [element, reading]);
 
   return (

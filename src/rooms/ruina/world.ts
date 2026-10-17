@@ -1,7 +1,6 @@
 import gsap from "gsap";
 import Matter from "matter-js";
 import { createRateLimiter } from "@/interaction/sound/limiter";
-import { AFTER_PORTAL_MS, autoCollapseAction } from "./autoCollapse";
 import {
   IMPACT,
   RUINA,
@@ -36,7 +35,7 @@ const ZERO: Point = { x: 0, y: 0 };
  * Física da Ruína — porte de salas.html → ruina(). Os corpos nascem nas posições do layout em
  * repouso e cada elemento ([data-piece]) continua no fluxo recebendo só transform; o HTML (h1 com
  * letras, lista de links) segue sendo o conteúdo. Loop no gsap.ticker, passo fixo de 1/60 s,
- * pausado fora da tela. Desaba sozinho com 60% da arena visível por 500 ms.
+ * pausado fora da tela. Nunca desaba sozinho: o primeiro toque/clique na arena (ou "desabar") derruba.
  */
 export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallbacks): RuinaWorld {
   const { Bodies, Body, Composite, Constraint, Engine, Events, Query } = Matter;
@@ -52,7 +51,6 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
   let running = false;
   let visible = false;
   let thrown = false;
-  let collapseTimer = 0;
   let lastWidth = arena.clientWidth;
 
   // Coordenadas da área interna (sem a moldura de 2 px): é onde as peças e as ondas são posicionadas.
@@ -268,41 +266,12 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
     if (event.pointerId === dragPointer) release();
   };
 
-  // A queda automática (60% visível por 500 ms) não acontece atrás do Portal: espera ele fechar e
-  // dá um respiro para ver o nome parado antes de desabar (e para o sino do Portal soar inteiro).
-  let lastRatio = 0;
-  const portal = () => document.getElementById("portal") as HTMLDialogElement | null;
-  const scheduleAutoCollapse = () => {
-    const dialog = portal();
-    const action = autoCollapseAction({ ratio: lastRatio, portalOpen: Boolean(dialog?.open) });
-    if (action === "schedule") {
-      collapseTimer = window.setTimeout(collapse, RUINA.collapseDelayMs);
-    } else if (action === "wait-portal" && dialog) {
-      dialog.addEventListener(
-        "close",
-        () => {
-          window.clearTimeout(collapseTimer);
-          collapseTimer = window.setTimeout(() => {
-            if (lastRatio >= RUINA.collapseRatio) collapse();
-          }, AFTER_PORTAL_MS);
-        },
-        { once: true },
-      );
-    }
-  };
-
-  const visibility = new IntersectionObserver(
-    ([entry]) => {
-      if (!entry) return;
-      visible = entry.isIntersecting;
-      if (visible) start();
-      else stop();
-      window.clearTimeout(collapseTimer);
-      lastRatio = entry.isIntersecting ? entry.intersectionRatio : 0;
-      scheduleAutoCollapse();
-    },
-    { threshold: [0, RUINA.collapseRatio] },
-  );
+  const visibility = new IntersectionObserver(([entry]) => {
+    if (!entry) return;
+    visible = entry.isIntersecting;
+    if (visible) start();
+    else stop();
+  });
   visibility.observe(arena);
 
   // Mudou a largura com a física viva: paredes ficariam erradas → reergue.
@@ -325,7 +294,6 @@ export function createRuinaWorld(arena: HTMLElement, callbacks: RuinaWorldCallba
     dispose() {
       visibility.disconnect();
       resize.disconnect();
-      window.clearTimeout(collapseTimer);
       arena.removeEventListener("pointerdown", onPointerDown);
       arena.removeEventListener("pointermove", onPointerMove);
       arena.removeEventListener("pointerup", onPointerUp);

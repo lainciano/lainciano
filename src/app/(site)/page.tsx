@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ExplorerMark } from "@/interaction/relics/ExplorerMark";
 import { CraftSeals } from "@/components/sections/CraftSeals";
 import { LibraryPreview } from "@/components/sections/LibraryPreview";
 import { AvailabilitySeal } from "@/components/ui/AvailabilitySeal";
@@ -28,6 +29,7 @@ export default function HomePage() {
 
   return (
     <div className="mt-8 lg:mt-12">
+      <ExplorerMark area="home" />
       <RoomTitle as="p" title={rooms.home.title} role={rooms.home.role} className="content-container mb-[var(--space-lg)]" />
       <section
         data-rail={rooms.home.title}

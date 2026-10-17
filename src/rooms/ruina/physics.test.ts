@@ -29,12 +29,15 @@ describe("RUINA", () => {
       pushForce: 0.0009,
       throwLimitY: -60,
       doubleTapMs: 380,
-      collapseRatio: 0.6,
-      collapseDelayMs: 500,
       shakePx: 6,
       restoreDuration: 0.7,
       restoreStagger: 0.02,
     });
+  });
+
+  it("não desaba sozinho: quem derruba é o visitante (decisão do dono, 2026-10-09)", () => {
+    expect(RUINA).not.toHaveProperty("collapseRatio");
+    expect(RUINA).not.toHaveProperty("collapseDelayMs");
   });
 });
 

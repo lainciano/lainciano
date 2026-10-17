@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ExplorerMark } from "@/interaction/relics/ExplorerMark";
 import { getImageProps } from "next/image";
 import { RelicRow } from "@/components/work/RelicRow";
 import { PageContent } from "@/components/ui/PageContent";
@@ -29,6 +30,7 @@ export default function WorkPage() {
 
   return (
     <PageContent>
+      <ExplorerMark area="work" />
       <section
         data-rail={rooms.work.title}
         id="relicario"
@@ -38,9 +40,9 @@ export default function WorkPage() {
         <RoomTitle title={rooms.work.title} role={rooms.work.role} className="mb-[var(--space-xl)]" />
         <Relicario previews={previews}>
           <ol className="relicario">
-            {projects.map((project) => (
+            {projects.map((project, index) => (
               <li key={project.slug}>
-                <RelicRow project={project} />
+                <RelicRow project={project} first={index === 0} />
               </li>
             ))}
           </ol>
