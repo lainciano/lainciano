@@ -8,7 +8,7 @@ Personal portfolio site for Lain (Luciano Rodrigues) — Next.js 16 (App Router)
 
 ## Work in progress — "Cripta" redesign
 
-A full redesign (gothic/brutal/hacker, gamified, GSAP + Three.js + Matter.js, WebAudio) was approved on 2026-10-08 and is being implemented in phases. **Before changing any UI, read `docs/superpowers/HANDOFF-cripta.md`** — it points to the spec (`docs/superpowers/specs/2026-10-08-portfolio-cripta-design.md`), the Phase 1 plan, the phase roadmap and the approved prototype (local copy under `docs/superpowers/specs/assets/cripta/`). Estado: Fases 1–8 implementadas; as Fases 4–8 estão no PR #1 (`feat/cripta-fase-8` → `dev`, remoto `lainciano/lainciano`). Faltam para produção: banco Upstash próprio + `RANKING_SECRET`/`ADMIN_TOKEN` no ambiente `production` (até lá a API responde 503), teste do ranking no preview e checagens em dispositivo real. Metas de performance não atingidas: JS inicial 207–216 KB gzip (meta 180) e LCP simulado ~2,4–3,3 s (meta 2,5; o piso não vem do JS). Those docs live in the gitignored `docs/` folder (local only). Where the spec conflicts with this file (e.g. the Upstash Redis exception for the ranking, the removal of the route banner/Loader), the spec wins.
+A full redesign (gothic/brutal/hacker, gamified, GSAP + Three.js + Matter.js, WebAudio) was approved on 2026-10-08 and is being implemented in phases. **Before changing any UI, read `docs/superpowers/HANDOFF-cripta.md`** — it points to the spec (`docs/superpowers/specs/2026-10-08-portfolio-cripta-design.md`), the Phase 1 plan, the phase roadmap and the approved prototype (local copy under `docs/superpowers/specs/assets/cripta/`). Estado (2026-10-17): Fases 1–8 em produção (`main`, PR #3; remoto `lainciano/lainciano`). O ranking de produção usa um banco Upstash gratuito só dele (sem cartão; no limite do plano a API fecha em 503 e o jogo segue), com `RANKING_SECRET`/`ADMIN_TOKEN`/`KV_REST_API_*` só no ambiente `production`. Faltam: gravar uma run completa no ranking (mínimo de 2 min até a platina) e checagens em dispositivo real. Próximo: redesign v2 (feedback em `docs/superpowers/feedback-redesign-v2-2026-10-17.md`). Metas de performance não atingidas: JS inicial 207–216 KB gzip (meta 180) e LCP simulado ~2,4–3,3 s (meta 2,5; o piso não vem do JS). Those docs live in the gitignored `docs/` folder (local only). Where the spec conflicts with this file (e.g. the Upstash Redis exception for the ranking, the removal of the route banner/Loader), the spec wins.
 
 ## Commands
 
@@ -96,7 +96,7 @@ No backend/form submission (the only API is the platina book, `src/app/api/{run,
 
 ## Explicitly out of scope for this project
 
-- No database or ORM (Prisma, Supabase, Neon, etc.). Exceção aprovada: Upstash Redis apenas para o ranking da platina (spec Cripta 8.5); provisionado na Fase 7 (Preview/Development no projeto Vercel `lainfork`, integração `lainciano-ranking`).
+- No database or ORM (Prisma, Supabase, Neon, etc.). Exceção aprovada: Upstash Redis apenas para o ranking da platina (spec Cripta 8.5); provisionado na Fase 7 (Preview/Development no projeto Vercel `lainciano` (domínio `lainciano.vercel.app`), integração `lainciano-ranking`).
 - No headless CMS (Sanity, Contentful)
 - No Framer Motion as the primary animation library (GSAP is)
 - No `@studio-freight/react-lenis` (deprecated — use `lenis` directly)
