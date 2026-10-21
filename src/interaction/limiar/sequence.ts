@@ -58,3 +58,12 @@ export function closeOutcome(input: {
 export function stripWon(won: readonly string[], collected: boolean): readonly string[] {
   return collected && !won.includes("limiar") ? [...won, "limiar"] : won;
 }
+
+/**
+ * O que a casca faz ao hidratar com a marca do boot (`data-limiar="open"`): diálogo ainda aberto segue
+ * aberto; fechado (Esc nativo antes da hidratação) conta como pular e nunca reabre.
+ */
+export function bootState(flagged: boolean, dialogOpen: boolean): "open" | "skipped" | "none" {
+  if (!flagged) return "none";
+  return dialogOpen ? "open" : "skipped";
+}

@@ -9,6 +9,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type RefObject,
 } from "react";
+import { STORAGE_KEYS } from "@/interaction/boot";
 import { readingStore } from "@/interaction/reading-mode/store";
 import { RELICS } from "@/interaction/relics/catalog";
 import { relicStore, useRelics } from "@/interaction/relics/store";
@@ -19,7 +20,7 @@ import type { limiar } from "@/lib/content/copy";
 import { pauseLenis, resumeLenis } from "@/lib/lenis-bridge";
 import { getGsap, loadGsap } from "@/lib/motion";
 import { fillTemplate } from "@/lib/template";
-import { closeOutcome, stripWon, type Act } from "./sequence";
+import { bootState, closeOutcome, stripWon, type Act } from "./sequence";
 import { limiarStore, type CloseReason } from "./store";
 
 /** Rótulos do Limiar (só o tipo: os valores descem do servidor por props). */
@@ -145,7 +146,15 @@ export function Limiar({ siteName, labels }: { siteName: string; labels: LimiarL
     };
     // O boot já abriu o diálogo: avisa o store antes dos efeitos das salas (o prazo do useIntentReady lê
     // isOpen() uma vez só). Efeito de layout roda antes de todo efeito passivo do mesmo commit.
-    if (root.dataset.limiar === "open") limiarStore.open("boot");
+    // Esc antes da hidratação fecha o diálogo nativo: vale como pular, sem reabrir.
+    const boot = bootState(root.dataset.limiar === "open", dialog.open);
+    if (boot === "open") limiarStore.open("boot");
+    else if (boot === "skipped") {
+      delete root.dataset.limiar;
+      try {
+        if (!localStorage.getItem(STORAGE_KEYS.sound)) soundEngine.setEnabled(false);
+      } catch {}
+    }
 
     const activate = () => {
       if (activeRef.current || !limiarStore.isOpen()) return;

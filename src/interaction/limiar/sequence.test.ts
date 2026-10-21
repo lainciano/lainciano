@@ -3,6 +3,7 @@ import {
   ACTS,
   INSCRIPTION_COUNT,
   TIMING,
+  bootState,
   closeOutcome,
   stripWon,
   nextAct,
@@ -92,5 +93,20 @@ describe("stripWon", () => {
   it("coletada acende a do Limiar uma vez só", () => {
     expect(stripWon(["sangue"], true)).toEqual(["sangue", "limiar"]);
     expect(stripWon(["limiar", "sangue"], true)).toEqual(["limiar", "sangue"]);
+  });
+});
+
+describe("bootState", () => {
+  it("sem a marca do boot, nada a fazer", () => {
+    expect(bootState(false, false)).toBe("none");
+    expect(bootState(false, true)).toBe("none");
+  });
+
+  it("marcado e aberto segue aberto", () => {
+    expect(bootState(true, true)).toBe("open");
+  });
+
+  it("marcado mas fechado antes da hidratação (Esc) conta como pular", () => {
+    expect(bootState(true, false)).toBe("skipped");
   });
 });
