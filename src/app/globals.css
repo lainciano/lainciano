@@ -76,6 +76,7 @@
   --limiar-ember: 4.5rem; /* brasa --sangue da transição do ato Som (spec Limiar 4) */
   --limiar-clarao: 80vmax; /* clarão desfocado da entrada "brasa" */
   --limiar-grao-opacidade: 0.07; /* grão de filme sobre o palco do Limiar (spec Limiar 5) */
+  --limiar-anel: clamp(7rem, 26vmin, 11rem); /* anel do "segure" (ato Gesto, spec Limiar 3.3) */
   /* Fundo do diálogo do Limiar (breu com linhas de gravura); o véu da cortina final repete o mesmo. */
   --limiar-fundo: repeating-linear-gradient(
     0deg,
@@ -703,6 +704,11 @@ body {
     transform var(--motion-fast);
 }
 
+/* Zona de verbo vazio (ato Abertura do Limiar): só o anel cresce, sem a etiqueta. */
+.cursor-cripta__verbo:empty {
+  display: none;
+}
+
 .cursor-cripta[data-zone="on"] .cursor-cripta__verbo {
   opacity: 1;
   transform: none;
@@ -1084,6 +1090,178 @@ body {
   display: grid;
   justify-items: center;
   gap: var(--space-md);
+}
+
+/* Atos reais (Tarefa 7) ocupam a cena inteira: a camada própria não rola nem vaza (clarão, tremor). */
+.limiar-abertura,
+.limiar-gesto,
+.limiar-gesto__quadro {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* Ato Abertura: gravura no canvas (aria-hidden) sobre a caixa do <h2>; a frase entra depois da varredura. */
+.limiar-abertura {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: calc(var(--hud-h) + var(--space-md)) var(--edge-padding) var(--space-2xl);
+}
+
+.limiar-abertura__gravura {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.limiar-abertura__marca {
+  position: relative;
+  margin: 0;
+  width: min(100%, 64rem);
+  height: clamp(6rem, 30vh, 18rem);
+}
+
+.limiar-abertura__frase {
+  position: relative;
+  margin: 0;
+  padding: var(--space-2xs) var(--space-xs);
+  border: 0;
+  background: none;
+  color: var(--osso);
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(1.375rem, 3.2vw, 2.25rem);
+  line-height: 1.1;
+  text-align: center;
+  cursor: inherit;
+  opacity: 0;
+  transform: translateY(var(--motion-rise));
+  transition:
+    opacity var(--motion-slower) var(--ease-out),
+    transform var(--motion-slower) var(--ease-out);
+}
+
+.limiar-abertura[data-acesa] .limiar-abertura__frase {
+  opacity: 1;
+  transform: none;
+}
+
+.limiar-abertura__virada {
+  color: var(--sangue);
+}
+
+/* Ato Gesto: anel no centro, texto logo abaixo, clarão radial atrás (opacidade = carga). */
+.limiar-gesto {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.limiar-gesto__clarao {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--limiar-clarao);
+  height: var(--limiar-clarao);
+  margin: calc(var(--limiar-clarao) / -2) 0 0 calc(var(--limiar-clarao) / -2);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--sangue) 55%, transparent) 0,
+    color-mix(in srgb, var(--sangue) 18%, transparent) 30%,
+    transparent 60%
+  );
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Acendeu: clarão --osso. */
+.limiar-gesto[data-aceso] .limiar-gesto__clarao {
+  background: radial-gradient(
+    circle,
+    var(--osso) 0,
+    color-mix(in srgb, var(--osso) 35%, transparent) 25%,
+    transparent 60%
+  );
+}
+
+.limiar-gesto__anel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: var(--limiar-anel);
+  height: var(--limiar-anel);
+  margin: calc(var(--limiar-anel) / -2) 0 0 calc(var(--limiar-anel) / -2);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--breu) 70%, transparent);
+  color: var(--osso);
+  cursor: inherit;
+  touch-action: none;
+}
+
+.limiar-gesto__anel.focus-ring:focus-visible {
+  border-radius: 50%;
+}
+
+.limiar-gesto__carga {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.limiar-gesto__carga circle {
+  fill: none;
+  stroke: var(--sangue);
+  stroke-width: 4;
+}
+
+.limiar-gesto__carga .limiar-gesto__trilha {
+  stroke: var(--cinza);
+  stroke-width: 1.5;
+}
+
+.limiar-gesto__verbo {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: color var(--motion-fast);
+}
+
+.limiar-gesto[data-segurando] .limiar-gesto__verbo {
+  color: var(--sangue-texto);
+}
+
+.limiar-gesto__texto {
+  position: absolute;
+  inset-inline: var(--edge-padding);
+  top: calc(50% + var(--limiar-anel) / 2 + var(--space-md));
+  margin: 0;
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(1.25rem, 2.6vw, 1.75rem);
+  line-height: 1.1;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .limiar-abertura__frase {
+    transform: none;
+    transition: opacity var(--motion-fast);
+  }
 }
 
 /* Camada de transição: solta enquanto não cobre; cobrindo, segura os cliques. */

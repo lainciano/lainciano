@@ -2,6 +2,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type MouseEvent as ReactMouseEvent } from "react";
 import { prefersReducedMotion, whenGsap } from "@/lib/motion";
+import { HoldAct } from "./acts/Hold";
+import { OpeningAct } from "./acts/Opening";
 import type { LimiarLabels, StageProps } from "./Limiar";
 import { ACTS, nextAct, transitionFor, type Act, type TransitionKind } from "./sequence";
 import { GRAIN_FPS, stepAccumulator } from "./stage-plan";
@@ -27,8 +29,8 @@ const GRAIN_SCALE = 3;
 
 const isStageAct = (act: Act | null): act is StageAct => act !== null && act !== "som";
 
-// Provisórios (Tarefa 6): só o nome do ato e "avançar", para validar a máquina. As Tarefas 7 e 8 trocam
-// cada entrada de ACT_VIEWS pelo ato real.
+// Provisórios (Tarefa 6): só o nome do ato e "avançar", para validar a máquina. A Tarefa 8 troca as
+// Inscrições e a Relíquia pelos atos reais (Abertura e Gesto já são os da Tarefa 7).
 function provisional(act: StageAct): ComponentType<ActProps> {
   function ProvisionalAct({ labels, done }: ActProps) {
     const advance = (event: ReactMouseEvent<HTMLButtonElement>) =>
@@ -46,8 +48,8 @@ function provisional(act: StageAct): ComponentType<ActProps> {
 }
 
 const ACT_VIEWS: Record<StageAct, ComponentType<ActProps>> = {
-  abertura: provisional("abertura"),
-  gesto: provisional("gesto"),
+  abertura: OpeningAct,
+  gesto: HoldAct,
   inscricoes: provisional("inscricoes"),
   reliquia: provisional("reliquia"),
 };
