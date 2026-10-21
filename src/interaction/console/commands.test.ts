@@ -31,7 +31,7 @@ const texts = (raw: string, s?: ConsoleState) => run(raw, s).lines.map((line) =>
 
 describe("tabela da spec 8.6", () => {
   it("todos os comandos da spec existem", () => {
-    for (const name of ["ajuda", "ir", "projetos", "abrir", "blog", "ler", "sobre", "contato", "reliquias", "som", "leitura", "arremessar", "girar", "revelar", "cripta", "ranking", "limpar", "sudo"]) {
+    for (const name of ["ajuda", "ir", "projetos", "abrir", "blog", "ler", "sobre", "contato", "reliquias", "som", "leitura", "arremessar", "girar", "revelar", "cripta", "limiar", "ranking", "limpar", "sudo"]) {
       expect(COMMANDS).toContain(name);
     }
   });
@@ -218,5 +218,25 @@ describe("aliases", () => {
       expect(run(name).status).toBe("error");
       expect(argOptions(name, data)).toEqual([]);
     }
+  });
+});
+
+describe("limiar", () => {
+  it("limiar abre a entrada", () => {
+    const result = run("limiar");
+    expect(result.status).toBe("ok");
+    expect(result.lines.map((line) => line.text)).toEqual([terminal.limiarOpening]);
+    expect(result.effects).toEqual([{ type: "limiar" }]);
+  });
+  it("limiar em modo leitura só dá a dica", () => {
+    const result = run("limiar", { ...state, reading: true });
+    expect(result.status).toBe("ok");
+    expect(result.effects).toEqual([]);
+    expect(result.lines.map((line) => line.text)).toEqual([terminal.limiarReading]);
+  });
+  it("limiar aparece na ajuda e no Tab", () => {
+    expect(COMMANDS).toContain("limiar");
+    expect(terminal.help.some((line) => line.includes("limiar"))).toBe(true);
+    expect(COMMANDS.indexOf("limiar")).toBe(COMMANDS.indexOf("cripta") + 1);
   });
 });
