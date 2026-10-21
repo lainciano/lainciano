@@ -161,7 +161,7 @@ export const soundEngine = {
     emit();
   },
   /**
-   * Prévia do volume (duas notas suaves): toca no Portal, antes de o visitante escolher som, e com o som
+   * Prévia do volume (duas notas suaves): toca no Limiar, antes de o visitante escolher som, e com o som
    * ligado — o gesto no controle libera o áudio. Nunca com som desligado de propósito nem em modo leitura.
    */
   preview() {
@@ -258,7 +258,7 @@ export const soundEngine = {
     const scale = scaleOf(options);
     NOISE[name].forEach((burst) => playNoise(g, burst, scale));
   },
-  /** Sino FM do Portal (razão 1:3.5, decaimento 2,5 s). */
+  /** Sino FM do Limiar (razão 1:3.5, decaimento 2,5 s). */
   bell() {
     if (!allowed()) return;
     const g = ensure();

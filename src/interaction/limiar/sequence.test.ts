@@ -4,6 +4,7 @@ import {
   INSCRIPTION_COUNT,
   TIMING,
   closeOutcome,
+  stripWon,
   nextAct,
   transitionFor,
   type Act,
@@ -79,5 +80,17 @@ describe("closeOutcome", () => {
   it("reading liga o modo leitura", () => {
     expect(closeOutcome({ ...base, reason: "reading" }).enableReading).toBe(true);
     expect(closeOutcome({ ...base, reason: "complete" }).enableReading).toBe(false);
+  });
+});
+
+describe("stripWon", () => {
+  it("sem coletar, devolve o que o store tem", () => {
+    const won = ["sangue"];
+    expect(stripWon(won, false)).toBe(won);
+  });
+
+  it("coletada acende a do Limiar uma vez só", () => {
+    expect(stripWon(["sangue"], true)).toEqual(["sangue", "limiar"]);
+    expect(stripWon(["limiar", "sangue"], true)).toEqual(["limiar", "sangue"]);
   });
 });

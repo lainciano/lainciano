@@ -50,3 +50,11 @@ export function closeOutcome(input: {
     enableReading: input.reason === "reading",
   };
 }
+
+/**
+ * Relíquias acesas na faixa de HUD do Limiar: as do store e, se a do Limiar já foi pega, ela também
+ * (a concessão real só acontece ao fechar, mas o pip acende na hora).
+ */
+export function stripWon(won: readonly string[], collected: boolean): readonly string[] {
+  return collected && !won.includes("limiar") ? [...won, "limiar"] : won;
+}

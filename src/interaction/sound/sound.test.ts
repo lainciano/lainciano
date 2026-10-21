@@ -76,7 +76,7 @@ describe("SFX das salas (Fase 2)", () => {
   });
 });
 
-describe("BELL (sino do Portal)", () => {
+describe("BELL (sino do Limiar)", () => {
   it("a cauda audível dura pelo menos 3 s (queda de 40 dB), sem cortar quando a sala entra", () => {
     expect(BELL.tau * Math.log(100)).toBeGreaterThanOrEqual(3);
     expect(BELL.stopS).toBeGreaterThan(BELL.tau * Math.log(1000));

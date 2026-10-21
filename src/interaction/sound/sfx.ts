@@ -134,7 +134,7 @@ export const NOISE: Record<NoiseName, NoiseBurst[]> = {
 };
 
 /**
- * Sino FM do Portal (spec 8.3: razão 1:3.5). O decaimento é exponencial por constante de tempo (`tau`):
+ * Sino FM do Limiar (spec 8.3: razão 1:3.5). O decaimento é exponencial por constante de tempo (`tau`):
  * 40 dB abaixo em `tau·ln(100)` ≈ 3,9 s de cauda audível. A versão anterior caía 61 dB em 2,5 s, o que
  * soava como ~1 s e era coberto pelo estrondo da arena.
  */

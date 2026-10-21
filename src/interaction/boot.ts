@@ -18,6 +18,3 @@ const BOT_UA = "bot|crawl|spider|slurp|lighthouse|headless|inspectiontool|facebo
  * senão abre o `<dialog id="limiar">` e marca `data-limiar="open"`. Roda depois do READING_BOOT_SCRIPT.
  */
 export const LIMIAR_BOOT_SCRIPT = `try{var s="${STORAGE_KEYS.sound}";if(!localStorage.getItem(s)&&!(navigator.webdriver||/${BOT_UA}/i.test(navigator.userAgent))){if(document.documentElement.dataset.reading==="on"){localStorage.setItem(s,"off")}else{var d=document.getElementById("limiar");if(d&&typeof d.showModal==="function"){d.showModal();document.documentElement.dataset.limiar="open"}}}}catch(e){}`;
-
-/** Alias temporário para o build não quebrar: a Tarefa 5 religa o SiteChrome e remove este alias. */
-export const PORTAL_BOOT_SCRIPT = LIMIAR_BOOT_SCRIPT;

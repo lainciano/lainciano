@@ -15,7 +15,7 @@ type VolumeControlProps = {
   className?: string;
 };
 
-// Controle de volume com prévia sonora (Portal, HUD e menu mobile). Teclado: setas ajustam e tocam a prévia.
+// Controle de volume com prévia sonora (Limiar, HUD e menu mobile). Teclado: setas ajustam e tocam a prévia.
 export function VolumeControl({ id, compact = false, className = "" }: VolumeControlProps) {
   const volume = useVolume();
   const percent = volumeToPercent(volume);

@@ -9,7 +9,7 @@ export function shouldPlay(pref: SoundPref | null, reading: boolean, unlocked: b
   return pref === "on" && !reading && unlocked;
 }
 
-/** Prévia do volume: vale no Portal (ainda sem escolha) e com som ligado; nunca se o som foi desligado de propósito nem em modo leitura. */
+/** Prévia do volume: vale no Limiar (ainda sem escolha) e com som ligado; nunca se o som foi desligado de propósito nem em modo leitura. */
 export function canPreview(pref: SoundPref | null, reading: boolean): boolean {
   return pref !== "off" && !reading;
 }

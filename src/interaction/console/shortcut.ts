@@ -7,7 +7,7 @@ export type ShortcutEvent = {
   isComposing: boolean;
   defaultPrevented: boolean;
   target: { tagName?: string; isContentEditable?: boolean } | null;
-  /** Já há um <dialog open> (Portal, gaveta de relíquias, o próprio console). */
+  /** Já há um <dialog open> (Limiar, gaveta de relíquias, o próprio console). */
   dialogOpen: boolean;
 };
 

@@ -112,15 +112,39 @@ export const hud = {
   menuConsole: "Console",
 };
 
-/** Portal da primeira visita (spec 7.1). */
-export const portal = {
-  lede: "Entre. Quase tudo aqui responde ao toque.",
-  withSound: "Entrar com som",
-  silent: "Entrar em silêncio",
+/**
+ * Limiar, a introdução da primeira visita (spec Limiar 3). Desce por props para a casca e a ilha (nunca
+ * importar valores daqui em ilha cliente). `progress` é modelo para `fillTemplate`, porque `hud.progress`
+ * é função e não atravessa do servidor para o cliente. Em cada inscrição, o item do meio é a palavra-chave.
+ */
+export const limiar = {
+  dialogTitle: "Limiar",
+  skip: "pular",
+  soundQuestion: "antes de entrar: com som ou em silêncio?",
+  withSound: "com som",
+  withSoundHint: "recomendado · fones ajudam",
+  silent: "em silêncio",
+  silentHint: "dá para ligar depois no HUD",
   reading: "Modo leitura",
   volumeHint: "Ajuste agora: você ouve uma prévia.",
-  enterKey: "Enter",
-  escKey: "Esc",
+  openingLede: "isto é um portfólio.",
+  openingTwist: "mas não só.",
+  holdVerb: "segure",
+  holdText: "segure para acender a cripta",
+  inscriptions: [
+    ["há ", "relíquias", " escondidas nestas salas."],
+    ["a cripta ", "lembra", " o que você faz."],
+    ["no fim, um ", "livro", " guarda os nomes de quem chegou."],
+  ] as [before: string, keyword: string, after: string][],
+  readVerb: "leia",
+  revealVerb: "revele",
+  takeVerb: "pegue",
+  takeButton: "pegar a relíquia",
+  ending: "agora você sabe como funciona.",
+  railLabels: ["som", "abertura", "gesto", "inscrições", "relíquia"],
+  soundOn: "som ligado",
+  soundOff: "som desligado",
+  progress: "{won} de {total}",
 };
 
 /** Títulos e papéis de sala. Home e Sobre já com o verbo da sala (Fase 2); os demais trocam nas Fases 3–5. */
