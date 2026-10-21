@@ -275,7 +275,7 @@ export const contact = {
 /** Tela de platina (spec 8.5). Modelos com {marcador}: preenchidos no cliente com fillTemplate. */
 export const platinum = {
   title: "Platina.",
-  summary: "10 de 10 em {tempo}.",
+  summary: "{total} de {total} em {tempo}.",
   nicknameLabel: "Apelido",
   nicknameHint: "3 a 16 letras, números, _ ou -.",
   submit: "Gravar no livro",
@@ -307,7 +307,7 @@ export const book = {
   time: "tempo",
   date: "data",
   loading: "abrindo o livro…",
-  empty: "Ninguém platinou ainda. As 10 relíquias estão espalhadas pelo site.",
+  empty: "Ninguém platinou ainda. As {total} relíquias estão espalhadas pelo site.",
   failed: "O livro não respondeu. Tente de novo em instantes.",
   rows: "Linhas no livro: {n}.",
   retry: "tentar de novo",

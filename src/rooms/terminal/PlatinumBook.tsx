@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { BookLabels } from "@/interaction/platinum/labels";
+import { RELICS } from "@/interaction/relics/catalog";
 import { formatElapsed } from "@/interaction/relics/state";
 import { formatDate } from "@/lib/format";
 import { fillTemplate } from "@/lib/template";
@@ -33,7 +34,7 @@ export function PlatinumBook({ labels }: { labels: BookLabels }) {
         ? labels.failed
         : book.status === "ready"
           ? book.entries.length === 0
-            ? labels.empty
+            ? fillTemplate(labels.empty, { total: String(RELICS.length) })
             : fillTemplate(labels.rows, { n: book.entries.length })
           : "";
 
@@ -52,7 +53,7 @@ export function PlatinumBook({ labels }: { labels: BookLabels }) {
           </button>
         </div>
       )}
-      {book.status === "ready" && book.entries.length === 0 && <p className="livro__estado">{labels.empty}</p>}
+      {book.status === "ready" && book.entries.length === 0 && <p className="livro__estado">{fillTemplate(labels.empty, { total: String(RELICS.length) })}</p>}
       {entries && entries.length > 0 && (
         <table className="livro">
           <caption className="sr-only">{labels.caption}</caption>

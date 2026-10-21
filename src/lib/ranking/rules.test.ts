@@ -21,6 +21,12 @@ describe("checkSubmission", () => {
     expect(checkSubmission({ ...base, relics: [...RELIC_IDS.slice(1), "coroa"] })).toEqual({ ok: false, error: "incomplete" });
     expect(checkSubmission({ ...base, relics: [...RELIC_IDS, "sangue"] })).toEqual({ ok: false, error: "incomplete" });
   });
+  it("run com as 10 relíquias antigas é rejeitada; com as 11 passa", () => {
+    const old = RELIC_IDS.filter((id) => id !== "limiar");
+    expect(old).toHaveLength(10);
+    expect(checkSubmission({ ...base, relics: old })).toEqual({ ok: false, error: "incomplete" });
+    expect(checkSubmission({ ...base, relics: [...old, "limiar"] })).toEqual({ ok: true });
+  });
   it("a ordem das relíquias não importa", () => {
     expect(checkSubmission({ ...base, relics: [...RELIC_IDS].reverse() })).toEqual({ ok: true });
   });

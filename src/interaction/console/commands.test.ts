@@ -8,6 +8,7 @@ import {
   type ConsoleData,
   type ConsoleState,
 } from "@/interaction/console/commands";
+import { RELIC_IDS } from "@/interaction/relics/catalog";
 import { about, terminal } from "@/lib/content/copy";
 
 const data: ConsoleData = {
@@ -122,10 +123,10 @@ describe("sobre e contato", () => {
 describe("reliquias", () => {
   it("mostra sigilo das ganhas, ??? das outras e o total", () => {
     const lines = texts("reliquias", { ...state, won: ["sangue"] });
-    expect(lines[0]).toBe("✠ sangue");
-    expect(lines[1]).toBe(`· ${terminal.locked}`);
-    expect(lines).toHaveLength(11);
-    expect(lines[10]).toBe(terminal.relicsSummary(1, 10));
+    expect(lines[0]).toBe(`· ${terminal.locked}`);
+    expect(lines[1]).toBe("✠ sangue");
+    expect(lines).toHaveLength(RELIC_IDS.length + 1);
+    expect(lines[RELIC_IDS.length]).toBe(terminal.relicsSummary(1, RELIC_IDS.length));
   });
   it("aceita acento", () => {
     expect(run("relíquias").status).toBe("ok");
@@ -160,7 +161,7 @@ describe("alternativas acessíveis de relíquia (D7)", () => {
 
 describe("cripta, ranking, limpar, sudo", () => {
   it("cripta sem platina conta o que falta; com platina abre a tela (efeito platinum)", () => {
-    expect(texts("cripta", { ...state, won: ["sangue", "case"] })).toEqual([terminal.cryptLocked(2, 10)]);
+    expect(texts("cripta", { ...state, won: ["sangue", "case"] })).toEqual([terminal.cryptLocked(2, RELIC_IDS.length)]);
     expect(run("cripta", { ...state, won: ["sangue"] }).effects).toEqual([]);
     const open = run("cripta", { ...state, platinum: true });
     expect(open.lines.map((line) => line.text)).toEqual([terminal.cryptOpen]);
