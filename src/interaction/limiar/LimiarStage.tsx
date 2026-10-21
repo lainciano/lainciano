@@ -26,7 +26,9 @@ export type ActProps = {
   done(origin?: Origin): void;
   reduced: boolean;
   entered: boolean;
-  /** Só a Relíquia usa: avisa a casca que a relíquia foi pega (a concessão acontece ao fechar). */
+  /** Só a Relíquia usa: a relíquia foi pega (o gesto); a casca concede ao fechar, mesmo com pular/Esc. */
+  onTaken(): void;
+  /** Só a Relíquia usa: a relíquia chegou ao contador (o pip acende). */
   onCollected(): void;
   /** Só a Relíquia usa: o contador da faixa de HUD, alvo do voo. */
   hudCounterRef: RefObject<HTMLElement | null>;
@@ -58,7 +60,7 @@ function focusAct(scene: HTMLElement, fallback: HTMLElement) {
  * e `onComplete()`. Grão de filme (~12 fps no ticker) e trilho de progresso (desktop, `aria-hidden`).
  */
 export default function LimiarStage(props: StageProps) {
-  const { labels, siteName, startAt, onComplete, onCollected, hudCounterRef } = props;
+  const { labels, siteName, startAt, onComplete, onTaken, onCollected, hudCounterRef } = props;
   const rootRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
@@ -192,6 +194,7 @@ export default function LimiarStage(props: StageProps) {
           done={done}
           reduced={reduced}
           entered={enteredAct === act}
+          onTaken={onTaken}
           onCollected={onCollected}
           hudCounterRef={hudCounterRef}
         />

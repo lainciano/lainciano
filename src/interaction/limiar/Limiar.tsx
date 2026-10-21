@@ -35,7 +35,8 @@ export type StageProps = {
   startAt: Exclude<Act, "som">; // sempre "abertura" depois da escolha
   origin: Origin | null; // ponto da escolha, para a brasa (null: veio do teclado, centro)
   hudCounterRef: RefObject<HTMLElement | null>; // alvo do voo da relíquia
-  onCollected(): void; // a ilha avisa que a relíquia foi pega
+  onTaken(): void; // a relíquia foi pega (gesto): vale para a concessão no fechamento, inclusive pular/Esc
+  onCollected(): void; // a relíquia chegou ao contador: o pip acende
   onComplete(): void; // fim da cortina
 };
 
@@ -323,6 +324,9 @@ export function Limiar({ siteName, labels }: { siteName: string; labels: LimiarL
           startAt="abertura"
           origin={origin}
           hudCounterRef={counterRef}
+          onTaken={() => {
+            collectedRef.current = true; // síncrono: o fechamento (deactivate) lê este ref
+          }}
           onCollected={() => {
             collectedRef.current = true;
             setCollected(true);

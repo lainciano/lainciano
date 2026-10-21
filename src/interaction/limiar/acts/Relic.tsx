@@ -51,23 +51,26 @@ function makeShape(rand: () => number): Shape {
  * 14 pedras caem por cima (canvas 2D, `stepStones` no ticker). O ponteiro empurra as pedras (velocidade medida
  * entre eventos); baque escalado nos primeiros impactos. Cursor: `takeVerb` sobre a relíquia descoberta,
  * `revealVerb` no resto. Clicar ou tocar a relíquia pega mesmo com ela meio coberta (`isUncovered` só troca o
- * verbo e a dica); o botão `takeButton`, sempre presente, também pega. Pegar: cresce, voa até o contador da
+ * verbo e a dica); o botão `takeButton`, sempre presente, também pega. Pegar: `onTaken()` (a casca já conta
+ * a relíquia para o fechamento), cresce, voa até o contador da
  * faixa de HUD (medido na hora), `onCollected()` (o pip acende com pulo), sino, `labels.ending` e, depois de
  * `TIMING.endingHoldMs`, `done()`. O disco é um elemento sob o canvas (as pedras o cobrem), e é ele que voa.
  */
-export function RelicAct({ labels, done, reduced, entered, onCollected, hudCounterRef }: ActProps) {
+export function RelicAct({ labels, done, reduced, entered, onTaken, onCollected, hudCounterRef }: ActProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const relicRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const doneRef = useRef(done);
+  const takenRef = useRef(onTaken);
   const collectedRef = useRef(onCollected);
   const [ending, setEnding] = useState(false);
 
   useLayoutEffect(() => {
     doneRef.current = done;
+    takenRef.current = onTaken;
     collectedRef.current = onCollected;
-  }, [done, onCollected]);
+  }, [done, onTaken, onCollected]);
 
   // Enter/espaço que vinham apertados das Inscrições não pegam a relíquia.
   useEffect(() => {
@@ -209,6 +212,8 @@ export function RelicAct({ labels, done, reduced, entered, onCollected, hudCount
       const next = collectStep(collect, "take");
       if (!next || disposed) return;
       collect = next;
+      // A concessão vale a partir do gesto (pular/Esc durante o voo ainda concede); o voo é só a imagem.
+      takenRef.current();
       const gsap = getGsap()?.gsap;
       if (!gsap || reduced) {
         relicEl.dataset.pega = "sem-voo"; // sem voo: a relíquia some (CSS) e o pip acende
