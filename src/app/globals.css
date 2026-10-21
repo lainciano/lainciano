@@ -77,6 +77,8 @@
   --limiar-clarao: 80vmax; /* clarão desfocado da entrada "brasa" */
   --limiar-grao-opacidade: 0.07; /* grão de filme sobre o palco do Limiar (spec Limiar 5) */
   --limiar-anel: clamp(7rem, 26vmin, 11rem); /* anel do "segure" (ato Gesto, spec Limiar 3.3) */
+  --limiar-palavra-borrado: 0.3em; /* desfoque de onde cada palavra das Inscrições sai (spec Limiar 3.4) */
+  --limiar-reliquia: clamp(3.25rem, 8vmin, 4.5rem); /* disco da relíquia sob as pedras (spec Limiar 3.5) */
   /* Fundo do diálogo do Limiar (breu com linhas de gravura); o véu da cortina final repete o mesmo. */
   --limiar-fundo: repeating-linear-gradient(
     0deg,
@@ -1085,17 +1087,12 @@ body {
   overflow-y: auto;
 }
 
-/* Ato provisório (Tarefa 6): só o nome e "avançar"; some com os atos reais. */
-.limiar__provisorio {
-  display: grid;
-  justify-items: center;
-  gap: var(--space-md);
-}
-
-/* Atos reais (Tarefa 7) ocupam a cena inteira: a camada própria não rola nem vaza (clarão, tremor). */
+/* Os atos ocupam a cena inteira: a camada própria não rola nem vaza (clarão, tremor, pedras). */
 .limiar-abertura,
 .limiar-gesto,
-.limiar-gesto__quadro {
+.limiar-gesto__quadro,
+.limiar-inscricoes,
+.limiar-reliquia {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -1257,10 +1254,224 @@ body {
   text-align: center;
 }
 
+/* Ato Inscrições: pilha das três frases (texto inteiro no DOM desde o início); a atual acende palavra por
+   palavra, saindo do borrado e de baixo (--i é a ordem da palavra, o passo vem do TIMING por estilo inline). */
+.limiar-inscricoes {
+  display: grid;
+  place-items: center;
+  padding: calc(var(--hud-h) + var(--space-md)) var(--edge-padding) var(--space-2xl);
+}
+
+.limiar-inscricoes__frases {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-md);
+  max-width: 30ch;
+  margin: 0;
+  padding: var(--space-2xs) var(--space-xs);
+  border: 0;
+  background: none;
+  color: var(--osso);
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(1.625rem, 4vw, 3rem);
+  line-height: 1.05;
+  text-align: center;
+  cursor: inherit;
+}
+
+.limiar-inscricoes__frase {
+  display: block;
+  transition:
+    opacity var(--motion-slower) var(--ease-out),
+    transform var(--motion-slower) var(--ease-out);
+}
+
+/* As anteriores esmaecem e encolhem. */
+.limiar-inscricoes__frase[data-estado="passada"] {
+  opacity: 0.35;
+  transform: scale(0.82);
+}
+
+.limiar-inscricoes__palavra {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(var(--limiar-palavra-borrado));
+  transform: translateY(var(--motion-rise));
+}
+
+.limiar-inscricoes__frase:not([data-estado="futura"]) .limiar-inscricoes__palavra {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  transition:
+    opacity var(--motion-slow) var(--ease-out),
+    filter var(--motion-slow) var(--ease-out),
+    transform var(--motion-slow) var(--ease-out);
+  transition-delay: calc(var(--i, 0) * var(--limiar-palavra-passo, 0ms));
+}
+
+/* Avançar no meio do acendimento completa a frase de uma vez. */
+.limiar-inscricoes__frase[data-acesa] .limiar-inscricoes__palavra,
+.limiar-inscricoes__frase[data-estado="passada"] .limiar-inscricoes__palavra {
+  transition-delay: 0s;
+}
+
+.limiar-inscricoes__palavra[data-chave] {
+  color: var(--sangue);
+}
+
+/* Ato Relíquia: o disco (elemento, sob o canvas das pedras) e o botão sempre presente, discreto. */
+.limiar-reliquia {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.limiar-reliquia__relic {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: var(--limiar-reliquia);
+  height: var(--limiar-reliquia);
+  border: var(--frame-w) solid var(--sangue);
+  border-radius: 50%;
+  background: var(--breu);
+  color: var(--osso);
+  box-shadow: 0 0 var(--space-sm) var(--sangue);
+  visibility: hidden;
+  cursor: inherit;
+  animation: limiar-reliquia-pulso var(--motion-pulse) var(--ease-in-out) infinite alternate;
+}
+
+/* Alvo de clique/toque maior que o disco. */
+.limiar-reliquia__relic::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  border-radius: 50%;
+}
+
+.limiar-reliquia__relic[data-pronta] {
+  visibility: visible;
+}
+
+/* Pega: passa à frente das pedras e para de receber cliques. */
+.limiar-reliquia__relic[data-pega] {
+  z-index: 1;
+  pointer-events: none;
+}
+
+.limiar-reliquia__relic[data-pega="sem-voo"] {
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+}
+
+.limiar-reliquia__sigilo {
+  font-family: var(--font-grenze), Georgia, serif;
+  font-size: calc(var(--limiar-reliquia) * 0.5);
+  line-height: 1;
+}
+
+@keyframes limiar-reliquia-pulso {
+  to {
+    box-shadow: 0 0 var(--space-lg) var(--space-2xs) var(--sangue);
+  }
+}
+
+.limiar-reliquia__pedras {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.limiar-reliquia__fim {
+  position: absolute;
+  inset-inline: var(--edge-padding);
+  top: 38%;
+  margin: 0;
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(1.75rem, 4.5vw, 3.25rem);
+  line-height: 0.95;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(var(--motion-rise));
+  transition:
+    opacity var(--motion-slower) var(--ease-out),
+    transform var(--motion-slower) var(--ease-out);
+  pointer-events: none;
+}
+
+.limiar-reliquia[data-fim] .limiar-reliquia__fim {
+  opacity: 1;
+  transform: none;
+}
+
+.limiar-reliquia__pegar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-md));
+  min-height: var(--tap-min);
+  padding: var(--space-2xs) var(--space-xs);
+  border: 1px solid var(--linha);
+  background: var(--breu);
+  color: var(--cinza);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  transform: translateX(-50%);
+  cursor: pointer;
+  transition:
+    color var(--motion-fast),
+    border-color var(--motion-fast);
+}
+
+/* A dica: descoberta, o botão deixa de ser discreto. */
+.limiar-reliquia__pegar[data-descoberta],
+.limiar-reliquia__pegar:hover,
+.limiar-reliquia__pegar:focus-visible {
+  color: var(--osso);
+  border-color: var(--sangue);
+}
+
+/* Pip da faixa de HUD do Limiar que a Relíquia acabou de acender. */
+.limiar__contador i[data-pulo] {
+  animation: limiar-pulo var(--motion-slow) var(--ease-out);
+}
+
+@keyframes limiar-pulo {
+  40% {
+    transform: translateY(calc(var(--space-2xs) * -1));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .limiar-abertura__frase {
+  .limiar-abertura__frase,
+  .limiar-reliquia__fim {
     transform: none;
     transition: opacity var(--motion-fast);
+  }
+
+  .limiar-inscricoes__palavra,
+  .limiar-inscricoes__frase[data-estado="passada"] {
+    filter: none;
+    transform: none;
+  }
+
+  .limiar-inscricoes__frase:not([data-estado="futura"]) .limiar-inscricoes__palavra {
+    transition: opacity var(--motion-fast);
+    transition-delay: 0s;
+  }
+
+  .limiar-reliquia__relic,
+  .limiar__contador i[data-pulo] {
+    animation: none;
   }
 }
 

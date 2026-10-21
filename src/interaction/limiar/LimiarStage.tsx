@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type RefObject } from "react";
 import { prefersReducedMotion, whenGsap } from "@/lib/motion";
 import { HoldAct } from "./acts/Hold";
+import { InscriptionsAct } from "./acts/Inscriptions";
 import { OpeningAct } from "./acts/Opening";
+import { RelicAct } from "./acts/Relic";
 import type { LimiarLabels, StageProps } from "./Limiar";
 import { ACTS, nextAct, transitionFor, type Act, type TransitionKind } from "./sequence";
 import { GRAIN_FPS, stepAccumulator } from "./stage-plan";
@@ -15,13 +17,19 @@ type StageAct = Exclude<Act, "som">;
 /**
  * Contrato dos atos (Tarefas 7 e 8). O ato chama `done()` uma vez quando termina (com o ponto do gesto, se
  * houver: a transição nasce dali). O controle principal leva `data-limiar-foco`: o palco o foca quando a
- * entrada termina (durante as transições a cena fica `inert`).
+ * entrada termina (durante as transições a cena fica `inert`). `entered` vira true nesse momento: o palco
+ * descarta `done()` durante a entrada, então prazos e animações próprias começam só depois dela.
  */
 export type ActProps = {
   labels: LimiarLabels;
   siteName: string;
   done(origin?: Origin): void;
   reduced: boolean;
+  entered: boolean;
+  /** Só a Relíquia usa: avisa a casca que a relíquia foi pega (a concessão acontece ao fechar). */
+  onCollected(): void;
+  /** Só a Relíquia usa: o contador da faixa de HUD, alvo do voo. */
+  hudCounterRef: RefObject<HTMLElement | null>;
 };
 
 /** Divisor da resolução do grão (o canvas é esticado: ruído não precisa de pixel nativo). */
@@ -29,29 +37,11 @@ const GRAIN_SCALE = 3;
 
 const isStageAct = (act: Act | null): act is StageAct => act !== null && act !== "som";
 
-// Provisórios (Tarefa 6): só o nome do ato e "avançar", para validar a máquina. A Tarefa 8 troca as
-// Inscrições e a Relíquia pelos atos reais (Abertura e Gesto já são os da Tarefa 7).
-function provisional(act: StageAct): ComponentType<ActProps> {
-  function ProvisionalAct({ labels, done }: ActProps) {
-    const advance = (event: ReactMouseEvent<HTMLButtonElement>) =>
-      done(event.detail > 0 ? { x: event.clientX, y: event.clientY } : undefined);
-    return (
-      <div className="limiar__provisorio">
-        <p className="limiar__pergunta">{labels.railLabels[ACTS.indexOf(act)]}</p>
-        <button type="button" data-limiar-foco className="hud-btn focus-ring" onClick={advance}>
-          avançar
-        </button>
-      </div>
-    );
-  }
-  return ProvisionalAct;
-}
-
 const ACT_VIEWS: Record<StageAct, ComponentType<ActProps>> = {
   abertura: OpeningAct,
   gesto: HoldAct,
-  inscricoes: provisional("inscricoes"),
-  reliquia: provisional("reliquia"),
+  inscricoes: InscriptionsAct,
+  reliquia: RelicAct,
 };
 
 function focusAct(scene: HTMLElement, fallback: HTMLElement) {
@@ -68,7 +58,7 @@ function focusAct(scene: HTMLElement, fallback: HTMLElement) {
  * e `onComplete()`. Grão de filme (~12 fps no ticker) e trilho de progresso (desktop, `aria-hidden`).
  */
 export default function LimiarStage(props: StageProps) {
-  const { labels, siteName, startAt, onComplete } = props;
+  const { labels, siteName, startAt, onComplete, onCollected, hudCounterRef } = props;
   const rootRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
@@ -81,6 +71,7 @@ export default function LimiarStage(props: StageProps) {
   const onCompleteRef = useRef(onComplete);
   const [reduced] = useState(prefersReducedMotion);
   const [act, setAct] = useState<StageAct>(startAt);
+  const [enteredAct, setEnteredAct] = useState<StageAct | null>(null);
 
   useLayoutEffect(() => {
     onCompleteRef.current = onComplete;
@@ -114,10 +105,18 @@ export default function LimiarStage(props: StageProps) {
       if (controller.signal.aborted) return;
       scene.inert = false;
       busyRef.current = false;
-      focusAct(scene, root);
+      setEnteredAct(act); // o foco vem no efeito abaixo, já com `entered` no DOM
     });
     return () => controller.abort();
   }, [act, reduced]);
+
+  // Fim da entrada: foca o controle do ato depois do commit (o nome dele pode depender de `entered`).
+  useLayoutEffect(() => {
+    const scene = sceneRef.current;
+    const root = rootRef.current;
+    if (enteredAct === null || enteredAct !== actRef.current || busyRef.current || !scene || !root) return;
+    focusAct(scene, root);
+  }, [enteredAct]);
 
   // Grão de filme: ruído redesenhado a ~12 fps no ticker do GSAP (acumulador), só sem movimento reduzido.
   useEffect(() => {
@@ -186,7 +185,16 @@ export default function LimiarStage(props: StageProps) {
   return (
     <div ref={rootRef} className="limiar__palco" tabIndex={-1}>
       <div ref={sceneRef} className="limiar__cena" data-ato={act}>
-        <View key={act} labels={labels} siteName={siteName} done={done} reduced={reduced} />
+        <View
+          key={act}
+          labels={labels}
+          siteName={siteName}
+          done={done}
+          reduced={reduced}
+          entered={enteredAct === act}
+          onCollected={onCollected}
+          hudCounterRef={hudCounterRef}
+        />
       </div>
       <div ref={layerRef} className="limiar__transicao" aria-hidden="true" />
       {!reduced && <canvas ref={grainRef} className="limiar__grao" aria-hidden="true" />}

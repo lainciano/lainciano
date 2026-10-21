@@ -88,7 +88,10 @@ export function Limiar({ siteName, labels }: { siteName: string; labels: LimiarL
   const [collected, setCollected] = useState(false);
   const source = useSyncExternalStore(limiarStore.subscribe, limiarStore.getSource, () => null);
   const sound = useSoundEnabled();
-  const lit = stripWon(useRelics().won, collected);
+  const won = useRelics().won;
+  const lit = stripWon(won, collected);
+  // Pip que a Relíquia acabou de acender (ainda não concedida: a concessão é no fechamento) dá um pulo.
+  const fresh = collected && !won.includes("limiar");
 
   const stopDrone = () => {
     droneRef.current?.stop();
@@ -339,6 +342,7 @@ export function Limiar({ siteName, labels }: { siteName: string; labels: LimiarL
               {RELICS.map((relic) => (
                 <i
                   key={relic.id}
+                  data-pulo={fresh && relic.id === "limiar" ? "" : undefined}
                   className={`block h-3 w-[7px] border border-current ${lit.includes(relic.id) ? "bg-current" : ""}`}
                 />
               ))}
