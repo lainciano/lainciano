@@ -8,7 +8,9 @@ import { stepHold } from "../hold";
 import type { ActProps } from "../LimiarStage";
 import {
   IDLE_INPUT,
+  droneShouldStop,
   holdOrigin,
+  isAssistiveClick,
   isHoldKey,
   isHolding,
   progressStep,
@@ -87,13 +89,15 @@ export function HoldAct({ labels, done, reduced }: ActProps) {
         root.dataset.segurando = "";
       } else if (!now && was) {
         delete root.dataset.segurando;
+        // Soltou antes de o ticker rodar (toque mais curto que um quadro): o tick não chega a parar o drone.
+        if (droneShouldStop(now, progress)) stopDrone();
       }
     };
 
     const complete = () => {
       finished = true;
       frame.style.transform = ""; // sem tremor antes de medir o anel
-      // A íris nasce do ponto do ponteiro se ele ainda segurava; pelo teclado, do centro do anel.
+      // A íris nasce do ponto do ponteiro se ele ainda segurava; pelo teclado ou leitor de tela, do centro do anel.
       const origin = holdOrigin(input.pointer ? pointerPoint : null, ring.getBoundingClientRect());
       input = IDLE_INPUT;
       delete root.dataset.segurando;
@@ -107,11 +111,14 @@ export function HoldAct({ labels, done, reduced }: ActProps) {
     const tick = (_time: number, deltaMs: number) => {
       if (finished) return;
       const holding = isHolding(input);
-      if (!holding && progress === 0) return;
+      if (droneShouldStop(holding, progress)) {
+        stopDrone(); // vazio e solto: sem drone (no-op se já parou)
+        return;
+      }
       progress = stepHold(progress, deltaMs, holding);
       paint();
       if (progress >= 1) complete();
-      else if (progress === 0) stopDrone(); // esvaziou depois de soltar
+      else if (droneShouldStop(holding, progress)) stopDrone(); // esvaziou depois de soltar
     };
 
     const onPointerDown = (event: PointerEvent) => {
@@ -141,6 +148,11 @@ export function HoldAct({ labels, done, reduced }: ActProps) {
       event.preventDefault();
       send({ type: "keyup", key: event.key });
     };
+    // Leitor de tela em modo navegação aciona o botão com um clique sintético (detail 0): o anel enche sozinho
+    // pelo mesmo caminho (anel, clarão, drone, baque) e acende uma vez só (`finished`).
+    const onClick = (event: MouseEvent) => {
+      if (isAssistiveClick(event.detail, finished)) send({ type: "assist" });
+    };
     const onBlur = () => send({ type: "blur" });
     const onWindowBlur = () => {
       pointerId = null;
@@ -157,6 +169,7 @@ export function HoldAct({ labels, done, reduced }: ActProps) {
     root.addEventListener("contextmenu", onContextMenu);
     ring.addEventListener("keydown", onKeyDown);
     ring.addEventListener("keyup", onKeyUp);
+    ring.addEventListener("click", onClick);
     ring.addEventListener("blur", onBlur);
     window.addEventListener("blur", onWindowBlur);
     document.addEventListener("visibilitychange", onVisibility);
@@ -175,6 +188,7 @@ export function HoldAct({ labels, done, reduced }: ActProps) {
       root.removeEventListener("contextmenu", onContextMenu);
       ring.removeEventListener("keydown", onKeyDown);
       ring.removeEventListener("keyup", onKeyUp);
+      ring.removeEventListener("click", onClick);
       ring.removeEventListener("blur", onBlur);
       window.removeEventListener("blur", onWindowBlur);
       document.removeEventListener("visibilitychange", onVisibility);

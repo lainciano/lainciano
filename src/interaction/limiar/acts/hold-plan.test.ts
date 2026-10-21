@@ -3,6 +3,8 @@ import { HOLD_SHAKE_FROM } from "@/interaction/limiar/hold";
 import {
   IDLE_INPUT,
   SHAKE_MAX_PX,
+  droneShouldStop,
+  isAssistiveClick,
   holdOrigin,
   isHoldKey,
   isHolding,
@@ -65,6 +67,21 @@ describe("reduceHoldInput", () => {
     expect(run([{ type: "pointerdown" }, { type: "keydown", key: " " }, { type: "reset" }])).toEqual(IDLE_INPUT);
   });
 
+  it("clique assistivo segura até o fim: tecla, ponteiro e foco não soltam", () => {
+    const state = run([
+      { type: "assist" },
+      { type: "keyup", key: " " },
+      { type: "pointerup" },
+      { type: "blur" },
+    ]);
+    expect(isHolding(state)).toBe(true);
+    expect(state.pointer).toBe(false);
+  });
+
+  it("reset solta também o clique assistivo", () => {
+    expect(run([{ type: "assist" }, { type: "reset" }])).toEqual(IDLE_INPUT);
+  });
+
   it("evento sem efeito devolve o mesmo estado", () => {
     expect(reduceHoldInput(IDLE_INPUT, { type: "pointerup" })).toBe(IDLE_INPUT);
     expect(reduceHoldInput(IDLE_INPUT, { type: "keyup", key: " " })).toBe(IDLE_INPUT);
@@ -106,5 +123,31 @@ describe("holdOrigin", () => {
 
   it("pelo teclado, o centro do anel", () => {
     expect(holdOrigin(null, ring)).toEqual({ x: 120, y: 230 });
+  });
+});
+
+describe("isAssistiveClick", () => {
+  it("clique sem detalhe (leitor de tela) aciona", () => {
+    expect(isAssistiveClick(0, false)).toBe(true);
+  });
+
+  it("clique de mouse ou toque (detail ≥ 1) nunca aciona", () => {
+    expect(isAssistiveClick(1, false)).toBe(false);
+    expect(isAssistiveClick(2, false)).toBe(false);
+  });
+
+  it("depois de acender não aciona de novo", () => {
+    expect(isAssistiveClick(0, true)).toBe(false);
+  });
+});
+
+describe("droneShouldStop", () => {
+  it("toque mais curto que um quadro: soltou com a carga vazia, para", () => {
+    expect(droneShouldStop(false, 0)).toBe(true);
+  });
+
+  it("segurando, ou ainda esvaziando, continua", () => {
+    expect(droneShouldStop(true, 0)).toBe(false);
+    expect(droneShouldStop(false, 0.3)).toBe(false);
   });
 });

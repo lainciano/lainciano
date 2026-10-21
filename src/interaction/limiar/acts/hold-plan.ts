@@ -7,8 +7,11 @@ import { HOLD_SHAKE_FROM } from "../hold";
 
 type Origin = { x: number; y: number };
 
-/** Entrada do segurar: o ponteiro capturado e as teclas de segurar pressionadas. */
-export type HoldInput = { readonly pointer: boolean; readonly keys: readonly string[] };
+/**
+ * Entrada do segurar: o ponteiro capturado, as teclas de segurar pressionadas e o acionamento assistivo
+ * (leitor de tela em modo navegação: um clique sem ponteiro nem tecla enche o anel sozinho).
+ */
+export type HoldInput = { readonly pointer: boolean; readonly keys: readonly string[]; readonly assist: boolean };
 
 export type HoldEvent =
   /** `repeat`: autorrepetição de uma tecla que já vinha apertada (ex.: o Enter que avançou o ato anterior). */
@@ -16,12 +19,14 @@ export type HoldEvent =
   | { type: "keyup"; key: string }
   | { type: "pointerdown" }
   | { type: "pointerup" }
+  /** Clique assistivo (`isAssistiveClick`): segura até acender, sem soltar por tecla ou ponteiro. */
+  | { type: "assist" }
   /** O botão perdeu o foco: as teclas soltam (o keyup não chega mais nele). */
   | { type: "blur" }
   /** A janela perdeu o foco ou a aba sumiu: solta tudo. */
   | { type: "reset" };
 
-export const IDLE_INPUT: HoldInput = { pointer: false, keys: [] };
+export const IDLE_INPUT: HoldInput = { pointer: false, keys: [], assist: false };
 
 /** Espaço e Enter seguram (no botão do anel). */
 export function isHoldKey(key: string): boolean {
@@ -41,15 +46,31 @@ export function reduceHoldInput(state: HoldInput, event: HoldEvent): HoldInput {
       return state.pointer ? state : { ...state, pointer: true };
     case "pointerup":
       return state.pointer ? { ...state, pointer: false } : state;
+    case "assist":
+      return state.assist ? state : { ...state, assist: true };
     case "blur":
       return state.keys.length ? { ...state, keys: [] } : state;
     case "reset":
-      return state.pointer || state.keys.length ? IDLE_INPUT : state;
+      return isHolding(state) ? IDLE_INPUT : state;
   }
 }
 
 export function isHolding(state: HoldInput): boolean {
-  return state.pointer || state.keys.length > 0;
+  return state.pointer || state.keys.length > 0 || state.assist;
+}
+
+/**
+ * Clique no botão do anel que vem de tecnologia assistiva (leitor de tela em modo navegação ativa botões com
+ * um `click` sintético, `detail === 0`). Mouse e toque chegam com `detail ≥ 1`; espaço/Enter de verdade
+ * nunca chegam aqui, porque o keydown/keyup do anel faz `preventDefault` (sem clique de ativação).
+ */
+export function isAssistiveClick(detail: number, finished: boolean): boolean {
+  return detail === 0 && !finished;
+}
+
+/** O drone para quando ninguém segura e a carga está vazia (inclusive num toque mais curto que um quadro). */
+export function droneShouldStop(holding: boolean, progress: number): boolean {
+  return !holding && progress <= 0;
 }
 
 /** Progresso anunciado (`aria-valuenow`): degraus de 25%, arredondando para baixo (100 só quando acende). */
