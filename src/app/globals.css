@@ -74,6 +74,14 @@
   --z-toast: 9995;
   --z-limiar: 10000; /* Limiar (diálogo modal da intro, camada superior): acima de tudo */
   --limiar-ember: 4.5rem; /* brasa --sangue da transição do ato Som (spec Limiar 4) */
+  --limiar-clarao: 80vmax; /* clarão desfocado da entrada "brasa" */
+  --limiar-grao-opacidade: 0.07; /* grão de filme sobre o palco do Limiar (spec Limiar 5) */
+  /* Fundo do diálogo do Limiar (breu com linhas de gravura); o véu da cortina final repete o mesmo. */
+  --limiar-fundo: repeating-linear-gradient(
+    0deg,
+    var(--breu) 0 3px,
+    color-mix(in srgb, var(--osso) 6%, var(--breu)) 3px 4px
+  );
 
   /* ---------- Cripta Fase 2: salas ---------- */
   --coagulo: #380503; /* sangue sólido do shader (protótipo: vec3(0.22, 0.02, 0.01)) */
@@ -824,11 +832,7 @@ body {
   margin: 0;
   padding: 0;
   border: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    var(--breu) 0 3px,
-    color-mix(in srgb, var(--osso) 6%, var(--breu)) 3px 4px
-  );
+  background: var(--limiar-fundo);
   color: var(--osso);
   overflow: hidden;
 }
@@ -1032,7 +1036,8 @@ body {
   animation: limiar-brasa var(--motion-pulse) var(--ease-in-out) infinite alternate;
 }
 
-.limiar[data-fase="palco"] .limiar__brasa {
+/* No palco a brasa da casca some: as transições usam a própria, dentro da camada. */
+.limiar[data-fase="palco"] > .limiar__brasa {
   display: none;
 }
 
@@ -1048,6 +1053,195 @@ body {
   .limiar__brasa::after {
     animation: none;
   }
+}
+
+/* Palco (ilha LimiarStage): cena do ato, camada de transição, grão e trilho, nesta ordem de pintura.
+   Tudo vem antes da faixa de HUD e do "pular" no DOM: os dois ficam por cima sem z-index. */
+.limiar__palco,
+.limiar__cena,
+.limiar__transicao,
+.limiar__grao {
+  position: absolute;
+  inset: 0;
+}
+
+.limiar__palco:focus {
+  outline: none;
+}
+
+.limiar__cena {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: var(--space-lg);
+  padding: calc(var(--hud-h) + var(--space-md)) var(--edge-padding) var(--space-2xl);
+  overflow-y: auto;
+}
+
+/* Ato provisório (Tarefa 6): só o nome e "avançar"; some com os atos reais. */
+.limiar__provisorio {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-md);
+}
+
+/* Camada de transição: solta enquanto não cobre; cobrindo, segura os cliques. */
+.limiar__transicao {
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.limiar__transicao[data-cobre] {
+  pointer-events: auto;
+}
+
+.limiar__transicao > * {
+  position: absolute;
+}
+
+.limiar__transicao-clarao {
+  left: 0;
+  top: 0;
+  width: var(--limiar-clarao);
+  height: var(--limiar-clarao);
+  margin: calc(var(--limiar-clarao) / -2) 0 0 calc(var(--limiar-clarao) / -2);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--osso) 35%, var(--sangue)) 0,
+    color-mix(in srgb, var(--sangue) 40%, transparent) 30%,
+    transparent 65%
+  );
+  filter: blur(var(--space-lg));
+  opacity: 0;
+}
+
+.limiar__transicao-faixa,
+.limiar__transicao-fatia {
+  left: 0;
+  width: 100%;
+}
+
+.limiar__transicao-faixa {
+  background: var(--breu);
+}
+
+.limiar__transicao-varredura {
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--sangue);
+  box-shadow: 0 0 var(--space-sm) var(--sangue);
+}
+
+.limiar__transicao-iris {
+  inset: 0;
+}
+
+.limiar__transicao-iris--sangue,
+.limiar__transicao-fatia--sangue {
+  background: var(--sangue);
+}
+
+.limiar__transicao-iris--breu {
+  background: var(--breu);
+}
+
+.limiar__transicao-fatia--linha {
+  background: var(--linha);
+}
+
+/* Véu da cortina final: o fundo do diálogo com um buraco que abre do centro (--cortina-r, animado). */
+.limiar__transicao-veu {
+  --cortina-r: 0px;
+  inset: 0;
+  background: var(--limiar-fundo);
+  -webkit-mask-image: radial-gradient(
+    circle at 50% 50%,
+    transparent var(--cortina-r),
+    var(--breu) calc(var(--cortina-r) + 2px)
+  );
+  mask-image: radial-gradient(circle at 50% 50%, transparent var(--cortina-r), var(--breu) calc(var(--cortina-r) + 2px));
+}
+
+/* Cortina: o diálogo fica transparente e a página real aparece pelo buraco do véu. */
+.limiar[data-cortina],
+.limiar[data-cortina]::backdrop {
+  background: transparent;
+}
+
+.limiar__grao {
+  width: 100%;
+  height: 100%;
+  opacity: var(--limiar-grao-opacidade);
+  pointer-events: none;
+}
+
+/* Trilho de progresso do Limiar (desktop): um marcador por ato, o atual em --sangue com rótulo. */
+.limiar__trilho {
+  position: absolute;
+  right: var(--space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-right: 1px solid var(--linha);
+  pointer-events: none;
+}
+
+@media (min-width: 48rem) {
+  .limiar__trilho {
+    display: flex;
+  }
+}
+
+.limiar__trilho-marca {
+  position: relative;
+  width: 1.5rem;
+  height: 2.75rem;
+}
+
+.limiar__trilho-marca::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 25%;
+  bottom: 25%;
+  width: 3px;
+  background: var(--cinza);
+  transition: background-color var(--motion-fast);
+}
+
+.limiar__trilho-marca[data-estado="feito"]::after {
+  background: var(--osso);
+}
+
+.limiar__trilho-marca[data-estado="atual"]::after {
+  background: var(--sangue);
+}
+
+.limiar__trilho-rotulo {
+  position: absolute;
+  right: var(--space-wide);
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--sangue-texto);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+}
+
+.limiar__trilho-marca[data-estado="atual"] .limiar__trilho-rotulo {
+  opacity: 1;
 }
 
 /* Foco devolvido ao <main> quando o Limiar fecha sem foco anterior: sem anel no bloco inteiro. */

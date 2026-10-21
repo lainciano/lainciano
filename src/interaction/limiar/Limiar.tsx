@@ -52,10 +52,11 @@ function loadStage(): Promise<ComponentType<StageProps>> {
   return stageModule;
 }
 
-// A saída animada do ato Som só baixa com o Limiar aberto (fora do JS inicial), junto com o GSAP.
-let exitModule: Promise<typeof import("./exit")> | null = null;
-function loadExit(): Promise<typeof import("./exit")> {
-  exitModule ??= import("./exit");
+// A saída animada do ato Som (`playExit`, em transitions.ts, módulo que o palco também usa) só baixa com o
+// Limiar aberto (fora do JS inicial), junto com o GSAP.
+let exitModule: Promise<typeof import("./transitions")> | null = null;
+function loadExit(): Promise<typeof import("./transitions")> {
+  exitModule ??= import("./transitions");
   exitModule.catch(() => {
     exitModule = null;
   });
