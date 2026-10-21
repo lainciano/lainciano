@@ -13,3 +13,8 @@ export function shouldPlay(pref: SoundPref | null, reading: boolean, unlocked: b
 export function canPreview(pref: SoundPref | null, reading: boolean): boolean {
   return pref !== "off" && !reading;
 }
+
+/** Prévia do drone do Limiar: a mesma regra da prévia, mas só depois do primeiro gesto (o áudio não destrava antes). */
+export function canPreviewDrone(pref: SoundPref | null, reading: boolean, unlocked: boolean): boolean {
+  return canPreview(pref, reading) && unlocked;
+}

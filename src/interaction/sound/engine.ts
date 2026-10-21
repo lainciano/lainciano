@@ -2,11 +2,14 @@ import { useSyncExternalStore } from "react";
 import { STORAGE_KEYS } from "@/interaction/boot";
 import { readingStore } from "@/interaction/reading-mode/store";
 import { whiteNoise } from "./buffers";
-import { canPreview, parseSoundPref, shouldPlay, type SoundPref } from "./policy";
+import { canPreview, canPreviewDrone, parseSoundPref, shouldPlay, type SoundPref } from "./policy";
 import { DEFAULT_VOLUME, parseVolume, volumeToGain } from "./volume";
-import { BELL, NOISE, SFX, type NoiseBurst, type NoiseName, type SfxName, type Tone } from "./sfx";
+import { BELL, DRONE, NOISE, SFX, droneParams, type NoiseBurst, type NoiseName, type SfxName, type Tone } from "./sfx";
 
 const MAX_VOICES = 12;
+
+/** Drone contínuo do Limiar: `set` leva a intensidade (0–1), `stop` faz fade e é idempotente. */
+export type DroneHandle = { set(intensity: number): void; stop(): void };
 
 type Graph = { ctx: AudioContext; master: GainNode; sfx: GainNode; ambience: GainNode };
 type PlayOptions = { gain?: number; pitch?: number };
@@ -167,6 +170,63 @@ export const soundEngine = {
     const g = ensure();
     if (!g) return;
     SFX.preview.forEach((tone) => playTone(g, tone, 1));
+  },
+  /** true depois do primeiro gesto do visitante (a casca decide entre prévia do drone e barras). */
+  isUnlocked(): boolean {
+    return unlocked;
+  },
+  /**
+   * Drone do Limiar. "preview" (casca, antes de o visitante escolher) respeita `canPreviewDrone`;
+   * "play" (som ligado) respeita `allowed()`. Retorna null quando não pode tocar.
+   */
+  drone(mode: "preview" | "play"): DroneHandle | null {
+    const ok =
+      mode === "preview" ? canPreviewDrone(pref, readingStore.getSnapshot(), unlocked) : allowed();
+    if (!ok) return null;
+    const g = ensure();
+    if (!g) return null;
+    const { ctx } = g;
+    const start = ctx.currentTime;
+    const initial = droneParams(0);
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(initial.cutoffHz, start);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, start);
+    env.gain.setTargetAtTime(initial.gain, start, DRONE.tau);
+    const oscillators = [DRONE.baseHz, DRONE.baseHz * DRONE.detune].map((freq) => {
+      const osc = ctx.createOscillator();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(freq, start);
+      osc.connect(filter);
+      osc.start(start);
+      return osc;
+    });
+    filter.connect(env).connect(g.sfx);
+    let stopped = false;
+    return {
+      set(intensity) {
+        if (stopped) return;
+        const { cutoffHz, gain } = droneParams(intensity);
+        const t = ctx.currentTime;
+        filter.frequency.setTargetAtTime(cutoffHz, t, DRONE.tau);
+        env.gain.setTargetAtTime(gain, t, DRONE.tau);
+      },
+      stop() {
+        if (stopped) return;
+        stopped = true;
+        const t = ctx.currentTime;
+        env.gain.cancelScheduledValues(t);
+        env.gain.setValueAtTime(Math.max(env.gain.value, 0.0001), t);
+        env.gain.exponentialRampToValueAtTime(0.0001, t + DRONE.fadeS);
+        oscillators.forEach((osc) => osc.stop(t + DRONE.fadeS + 0.05));
+        oscillators[0]!.onended = () => {
+          oscillators.forEach((osc) => osc.disconnect());
+          filter.disconnect();
+          env.disconnect();
+        };
+      },
+    };
   },
   /** true quando um som tocaria agora (preferência on, fora do modo leitura, depois de um gesto). */
   canPlay(): boolean {

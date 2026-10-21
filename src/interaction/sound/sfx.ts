@@ -28,7 +28,8 @@ export type SfxName =
   | "ok"
   | "denied"
   | "tap"
-  | "preview";
+  | "preview"
+  | "thud";
 
 // Receitas da matriz de feedback (spec 8.1) e das salas (spec 7.2, 7.3, 8.3).
 export const SFX: Record<SfxName, Tone[]> = {
@@ -77,7 +78,30 @@ export const SFX: Record<SfxName, Tone[]> = {
     { freq: 990, dur: 0.05, type: "square", gain: 0.03, delay: 0.05 },
   ],
   denied: [{ freq: 80, dur: 0.3, type: "sawtooth", gain: 0.04 }],
+  // Limiar: baque grave do Gesto e das pedras. O tique de palavra reusa "key" com `pitch` entre 0,9 e 1,2.
+  thud: [{ freq: 48, dur: 0.5, type: "sine", gain: 0.09, glideTo: 30 }],
 };
+
+/**
+ * Drone do Limiar: dois dentes de serra levemente dessintonizados (55 Hz e 55 × 1,005) por um passa-baixas.
+ * A intensidade (0–1) abre o corte e o ganho; as mudanças usam `setTargetAtTime` com a constante `tau`.
+ */
+export const DRONE = {
+  baseHz: 55,
+  detune: 1.005,
+  cutoffHz: [200, 1400],
+  gain: [0.02, 0.09],
+  tau: 0.08,
+  fadeS: 0.4,
+} as const;
+
+/** Corte (Hz) e ganho do drone para uma intensidade 0–1 (presa fora do intervalo). */
+export function droneParams(intensity: number): { cutoffHz: number; gain: number } {
+  const i = Math.min(1, Math.max(0, Number.isFinite(intensity) ? intensity : 0));
+  const [c0, c1] = DRONE.cutoffHz;
+  const [g0, g1] = DRONE.gain;
+  return { cutoffHz: c0 + (c1 - c0) * i, gain: g0 + (g1 - g0) * i };
+}
 
 /** Tecla do console: clique mecânico entre 900 e 1200 Hz (spec 8.1) — multiplicador do `key` (1000 Hz). */
 export const KEY_PITCH = [0.9, 1.2] as const;
