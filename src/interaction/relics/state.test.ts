@@ -21,7 +21,7 @@ describe("unlockRelic", () => {
     expect(again.isNew).toBe(false);
     expect(again.state).toBe(first.state);
   });
-  it("platina exatamente na 10ª", () => {
+  it("platina exatamente na última relíquia", () => {
     let s = startRun(EMPTY_STATE, "r", 1_000);
     const [last, ...rest] = [...RELIC_IDS].reverse();
     for (const id of rest) {
@@ -63,7 +63,7 @@ describe("parseRelicState", () => {
     expect(s.won).toEqual(["sangue"]);
     expect(s.startedAt).toBe(5);
   });
-  it("ignora platinumAt sem as 10 relíquias", () => {
+  it("ignora platinumAt sem todas as relíquias", () => {
     const s = parseRelicState(JSON.stringify({ won: ["sangue"], platinumAt: 9 }));
     expect(s.platinumAt).toBeNull();
   });

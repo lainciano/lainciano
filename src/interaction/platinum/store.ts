@@ -4,7 +4,7 @@ let open = false;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((listener) => listener());
 
-/** Tela de platina aberta? (spec 8.5). Aberta pelo InteractionProvider na 10ª relíquia e pelo `cripta`. */
+/** Tela de platina aberta? (spec 8.5). Aberta pelo InteractionProvider na última relíquia e pelo `cripta`. */
 export const platinumStore = {
   open() {
     if (open) return;

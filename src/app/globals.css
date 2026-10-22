@@ -64,6 +64,8 @@
 
   /* ---------- Cripta v2: layout / motion / camadas ---------- */
   --hud-h: 4.25rem;
+  --limiar-pular-h: 2.75rem; /* altura do botão "pular" do Limiar: reserva no pé do ato Som */
+  --limiar-porta-h: 7rem; /* altura mínima da porta do ato Som em tela estreita ou baixa */
   --frame-w: 2px;
   --sombra-dura: 6px 6px 0 var(--sangue); /* sombra dura da spec 4.3 */
   --motion-cursor: 180ms;
@@ -973,6 +975,62 @@ body {
   font-family: var(--font-jetbrains), ui-monospace, monospace;
   font-size: 0.75rem;
   letter-spacing: 0.04em;
+}
+
+/* Celular em pé: portas empilhadas, mas sem a altura de desktop (24vh), que estourava o diálogo. */
+@media (max-width: 40rem) {
+  .limiar__porta {
+    min-height: var(--limiar-porta-h);
+  }
+}
+
+/* Telas baixas (celular em pé curto, paisagem): portas lado a lado e respiros menores, para volume,
+   "Modo leitura" e "pular" caberem sem rolar o diálogo. A rolagem do .limiar__som fica como rede. */
+@media (max-height: 50rem) {
+  .limiar__som {
+    gap: var(--space-sm);
+    padding-top: calc(var(--hud-h) + var(--space-3xs));
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--limiar-pular-h) + var(--space-md));
+  }
+
+  .limiar__pergunta {
+    font-size: clamp(1.5rem, 4vw, 2.25rem);
+  }
+
+  .limiar__portas {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-xs);
+  }
+
+  .limiar__porta {
+    min-height: var(--limiar-porta-h);
+    padding: var(--space-xs);
+  }
+
+  .limiar__porta-nome {
+    font-size: clamp(1.5rem, 6vw, 2.25rem);
+  }
+}
+
+/* Paisagem de celular: só o "pular" (canto direito) e o conteúdo largo (portas) disputam o pé; o resto é estreito e centrado. */
+@media (max-height: 30rem) {
+  .limiar__som {
+    gap: var(--space-2xs);
+    padding-top: var(--hud-h);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-2xs));
+  }
+
+  .limiar__pergunta {
+    font-size: 1.25rem;
+  }
+
+  .limiar__porta {
+    min-height: 0;
+  }
+
+  .limiar__eq {
+    height: 1rem;
+  }
 }
 
 /* Barras de equalizador da porta "com som": animam ao passar ou focar, com ou sem áudio liberado. */

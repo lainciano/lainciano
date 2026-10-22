@@ -15,7 +15,7 @@ describe("checkSubmission", () => {
   it("run completa e plausível passa", () => {
     expect(checkSubmission(base)).toEqual({ ok: true });
   });
-  it("as 10 relíquias, sem faltar, repetir nem inventar", () => {
+  it("todas as relíquias, sem faltar, repetir nem inventar", () => {
     expect(checkSubmission({ ...base, relics: RELIC_IDS.slice(1) })).toEqual({ ok: false, error: "incomplete" });
     expect(checkSubmission({ ...base, relics: [...RELIC_IDS.slice(1), RELIC_IDS[1]] })).toEqual({ ok: false, error: "incomplete" });
     expect(checkSubmission({ ...base, relics: [...RELIC_IDS.slice(1), "coroa"] })).toEqual({ ok: false, error: "incomplete" });
