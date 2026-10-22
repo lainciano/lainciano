@@ -81,8 +81,13 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       engine = created;
       uninstallDebug = installDebug(created, () => save.get().layer, save.get);
       // Cena de referência de debug (`?debug=1&shot=psx-ref`): entra antes do start para ser compilada junto.
-      disposeShot = (await loadShot(created, window.location.search)) ?? disposeShot;
-      if (signal.aborted) return;
+      const shot = await loadShot(created, window.location.search, signal);
+      if (signal.aborted) {
+        // O cleanup já rodou: a cena montada no meio do caminho morre aqui.
+        shot?.();
+        return;
+      }
+      if (shot) disposeShot = shot;
       // Compila cena e pós antes do primeiro quadro; o "carregando" fica na tela até aqui.
       await created.start();
       if (signal.aborted) return;

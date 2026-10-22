@@ -18,7 +18,13 @@ export type CriptaDebug = {
   setQuality(q: QualityLines): void;
   /** Gancho de teste: um callback de quadro (ex.: um que lança, para provar que o loop segue e conta). */
   onFrame(fn: (dt: number, t: number) => void): () => void;
+  /** Fotos em movimento: posiciona a câmera (metros; yaw/pitch em radianos, ordem YXZ). */
+  setCamera(pose: CameraPose): void;
+  /** Liga/desliga o tremor e muda a afinidade (teste de nado de textura). Só os campos passados mudam. */
+  setPsx(o: { snap?: boolean; affine?: number }): void;
 };
+
+export type CameraPose = { x: number; y: number; z: number; yaw: number; pitch: number };
 
 declare global {
   interface Window {
@@ -75,6 +81,16 @@ export function installDebug(engine: Engine, getLayer: () => string, getSave: ()
     setPostMode: (m) => engine.setPostMode(m),
     setQuality: (q) => engine.setQuality(q),
     onFrame: (fn) => engine.onFrame(fn),
+    setCamera({ x, y, z, yaw, pitch }) {
+      if (![x, y, z, yaw, pitch].every(Number.isFinite)) return;
+      engine.camera.position.set(x, y, z);
+      engine.camera.rotation.set(pitch, yaw, 0, "YXZ");
+      engine.camera.updateMatrixWorld();
+    },
+    setPsx({ snap, affine }) {
+      if (snap !== undefined) engine.psx.uSnap.value = snap ? 1 : 0;
+      if (affine !== undefined && Number.isFinite(affine)) engine.psx.uAff.value = Math.min(1, Math.max(0, affine));
+    },
   };
   window.__cripta = api;
   return () => {
@@ -86,7 +102,7 @@ export function installDebug(engine: Engine, getLayer: () => string, getSave: ()
  * Monta a cena de referência pedida em `?shot=` (só com o debug ligado) antes do `engine.start()`, para o
  * `compileAsync` já pegar os materiais dela. Devolve a remoção (o que a cena criou fora do kit) ou null.
  */
-export async function loadShot(engine: Engine, search: string): Promise<(() => void) | null> {
+export async function loadShot(engine: Engine, search: string, signal?: AbortSignal): Promise<(() => void) | null> {
   if (!debugEnabled(search)) return null;
   const name = new URLSearchParams(search).get("shot");
   if (!name) return null;
@@ -95,5 +111,7 @@ export async function loadShot(engine: Engine, search: string): Promise<(() => v
     return null;
   }
   const build = await SHOTS[name as keyof typeof SHOTS]();
+  // O shell pode ter desmontado (e descartado o engine) enquanto o chunk chegava: não monta nada.
+  if (signal?.aborted || engine.info().disposed) return null;
   return build(engine);
 }

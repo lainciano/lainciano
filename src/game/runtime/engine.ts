@@ -12,7 +12,7 @@ export type PostMode = 0 | 1 | 2;
 
 export type DebugInfo = {
   quality: QualityLines;
-  /** A qualidade desce sozinha (FpsGuard) só com o ajuste em "auto". */
+  /** A qualidade desce sozinha (FpsGuard) só com o ajuste em "auto" e até alguém escolher uma (`setQuality`). */
   autoQuality: boolean;
   postMode: PostMode;
   /** Render target da cena (linhas × aspecto). */
@@ -51,6 +51,7 @@ export type Engine = {
   start(): Promise<void>;
   /** Debug/fotos: prende o tempo dos callbacks e do pós em `t` (dt 0); `null` solta. */
   freezeTime(t: number | null): void;
+  /** Escolha manual: troca as linhas e desliga a descida automática (manual vence). */
   setQuality(q: QualityLines): void;
   setPostMode(m: PostMode): void;
   setFade(v: number): void;
@@ -204,7 +205,7 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
       post.dispose();
     });
 
-    const autoQuality = settings.quality === "auto";
+    let autoQuality = settings.quality === "auto";
     let quality = initialQuality(coarse, settings.quality);
     let target: THREE.WebGLRenderTarget | null = null;
     /** Alvo do tamanho do canvas para gravura e ASCII (Linear, como o RT.full do protótipo). */
@@ -423,6 +424,8 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
       },
       setQuality(q) {
         if (disposed) return;
+        // Manual vence: escolhida uma qualidade, o FpsGuard não a muda mais (ajustes, fotos de referência).
+        autoQuality = false;
         quality = q;
         guard = createFpsGuard();
         rebuildTarget();

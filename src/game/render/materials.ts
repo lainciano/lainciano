@@ -7,8 +7,10 @@ import { applyPsx, type PsxUniforms } from "./psx";
  *
  * Convenção de cor do protótipo 7 (aprovado): lá o three r128 não tinha gestão de cor, então os hex dos
  * materiais e das luzes e os pixels dos canvas valiam como números lineares, e o pós aplicava a gama 1/2.2.
- * Para manter a mesma paleta com os mesmos números, o kit lê `color`/`emissive`/`specular` numéricos como
- * lineares (`protoColor`) e as texturas de canvas nascem com `NoColorSpace` (sem decodificar sRGB). Com isso,
+ * Para manter a mesma paleta com os mesmos números, o kit lê `color`/`emissive`/`specular` como lineares, seja
+ * número (`0x8a867d`) ou texto CSS (`"#8a867d"`, `"rgb(…)"`), igual ao `protoColor`; um `THREE.Color` pronto
+ * passa como está (já no espaço de trabalho). As texturas de canvas nascem com `NoColorSpace` (sem decodificar
+ * sRGB). Com isso,
  * uma cor sem luz sai na tela igual ao protótipo; o que muda com a luz física do 0.186 se recalibra nas
  * intensidades (ver a cena de referência `psx-ref`).
  */
@@ -26,26 +28,28 @@ export type MaterialKit = {
 /** Phong do protótipo: especular fraco e quente, brilho baixo. */
 export const PHONG_DEFAULTS = { specular: 0x080706, shininess: 12 } as const;
 
-/** Uma cor da paleta do protótipo 7 (hex lido como linear, como no r128). */
-export function protoColor(three: typeof THREE, hex: number): THREE.Color {
-  return new three.Color().setHex(hex, three.LinearSRGBColorSpace);
+/** Uma cor da paleta do protótipo 7 (hex ou texto CSS lido como linear, como no r128). */
+export function protoColor(three: typeof THREE, value: number | string): THREE.Color {
+  const color = new three.Color();
+  return typeof value === "number" ? color.setHex(value, three.LinearSRGBColorSpace) : color.setStyle(value, three.LinearSRGBColorSpace);
 }
 
 type ColorKeys = "color" | "emissive" | "specular";
 const COLOR_KEYS: readonly ColorKeys[] = ["color", "emissive", "specular"];
+type RawColor = number | string;
 
-/** Separa as cores numéricas (que o construtor leria como sRGB) do resto dos parâmetros. */
-function splitColors<P extends object>(o: P): { rest: P; hexes: Partial<Record<ColorKeys, number>> } {
+/** Separa as cores em número ou texto (que o construtor leria como sRGB) do resto dos parâmetros. */
+function splitColors<P extends object>(o: P): { rest: P; raw: Partial<Record<ColorKeys, RawColor>> } {
   const rest = { ...o } as Record<string, unknown>;
-  const hexes: Partial<Record<ColorKeys, number>> = {};
+  const raw: Partial<Record<ColorKeys, RawColor>> = {};
   for (const key of COLOR_KEYS) {
     const value = rest[key];
-    if (typeof value === "number") {
-      hexes[key] = value;
+    if (typeof value === "number" || typeof value === "string") {
+      raw[key] = value;
       delete rest[key];
     }
   }
-  return { rest: rest as P, hexes };
+  return { rest: rest as P, raw };
 }
 
 export function createMaterialKit(three: typeof THREE, psx: PsxUniforms): MaterialKit {
@@ -53,11 +57,11 @@ export function createMaterialKit(three: typeof THREE, psx: PsxUniforms): Materi
   const textures = new Map<string, THREE.CanvasTexture>();
   let disposed = false;
 
-  const track = <T extends THREE.Material>(mat: T, hexes: Partial<Record<ColorKeys, number>>): T => {
+  const track = <T extends THREE.Material>(mat: T, raw: Partial<Record<ColorKeys, RawColor>>): T => {
     const target = mat as unknown as Partial<Record<ColorKeys, THREE.Color>>;
     for (const key of COLOR_KEYS) {
-      const hex = hexes[key];
-      if (hex !== undefined) target[key]?.setHex(hex, three.LinearSRGBColorSpace);
+      const value = raw[key];
+      if (value !== undefined) target[key]?.copy(protoColor(three, value));
     }
     materials.add(mat);
     return applyPsx(mat, psx);
@@ -65,12 +69,12 @@ export function createMaterialKit(three: typeof THREE, psx: PsxUniforms): Materi
 
   return {
     phong(o) {
-      const { rest, hexes } = splitColors({ ...PHONG_DEFAULTS, ...o });
-      return track(new three.MeshPhongMaterial(rest), hexes);
+      const { rest, raw } = splitColors({ ...PHONG_DEFAULTS, ...o });
+      return track(new three.MeshPhongMaterial(rest), raw);
     },
     basic(o) {
-      const { rest, hexes } = splitColors(o);
-      return track(new three.MeshBasicMaterial(rest), hexes);
+      const { rest, raw } = splitColors(o);
+      return track(new three.MeshBasicMaterial(rest), raw);
     },
     texture(key, draw, size) {
       const cached = textures.get(key);
