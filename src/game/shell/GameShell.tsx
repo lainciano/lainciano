@@ -45,6 +45,7 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
     const { signal } = controller;
     let engine: Engine | null = null;
     let uninstallDebug = () => {};
+    let disposeShot = () => {};
     let lost = false;
     const fail = () => {
       if (!signal.aborted) setStatus("failed");
@@ -53,7 +54,7 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
     // Runtime, three, save (zod) e debug chegam juntos por import(): o chunk do shell (e a lista de chunks
     // que o JS inicial guarda para ele) não cresce.
     const boot = async () => {
-      const [{ createEngine }, { installDebug }, { createSaveStore }] = await Promise.all([
+      const [{ createEngine }, { installDebug, loadShot }, { createSaveStore }] = await Promise.all([
         import("../runtime/engine"),
         import("../runtime/debug"),
         import("../save/store"),
@@ -79,6 +80,12 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       if (!created) return fail();
       engine = created;
       uninstallDebug = installDebug(created, () => save.get().layer, save.get);
+      // Cena de referência de debug (`?debug=1&shot=psx-ref`): entra antes do start para ser compilada junto.
+      disposeShot = (await loadShot(created, window.location.search)) ?? disposeShot;
+      if (signal.aborted) return;
+      // Compila cena e pós antes do primeiro quadro; o "carregando" fica na tela até aqui.
+      await created.start();
+      if (signal.aborted) return;
       if (lost) {
         created.dispose();
         return fail();
@@ -94,6 +101,7 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
     return () => {
       controller.abort();
       uninstallDebug();
+      disposeShot();
       engine?.dispose();
       engine = null;
     };

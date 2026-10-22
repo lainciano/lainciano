@@ -26,6 +26,11 @@ declare global {
   }
 }
 
+/** Cenas de referência para fotos e comparação visual (`?debug=1&shot=<nome>`), cada uma num chunk próprio. */
+const SHOTS = {
+  "psx-ref": () => import("../render/shots/psxRef").then((m) => m.buildPsxRef),
+} satisfies Record<string, () => Promise<(engine: Engine) => () => void>>;
+
 /** Só em dev ou com `?debug=1` na URL de quando o jogo abriu. */
 export function debugEnabled(search: string): boolean {
   return process.env.NODE_ENV !== "production" || new URLSearchParams(search).get("debug") === "1";
@@ -75,4 +80,20 @@ export function installDebug(engine: Engine, getLayer: () => string, getSave: ()
   return () => {
     if (window.__cripta === api) delete window.__cripta;
   };
+}
+
+/**
+ * Monta a cena de referência pedida em `?shot=` (só com o debug ligado) antes do `engine.start()`, para o
+ * `compileAsync` já pegar os materiais dela. Devolve a remoção (o que a cena criou fora do kit) ou null.
+ */
+export async function loadShot(engine: Engine, search: string): Promise<(() => void) | null> {
+  if (!debugEnabled(search)) return null;
+  const name = new URLSearchParams(search).get("shot");
+  if (!name) return null;
+  if (!Object.hasOwn(SHOTS, name)) {
+    console.warn(`[jogo] cena de referência desconhecida: ${name}`);
+    return null;
+  }
+  const build = await SHOTS[name as keyof typeof SHOTS]();
+  return build(engine);
 }
