@@ -75,6 +75,10 @@
   --z-cursor: 9990;
   --z-toast: 9995;
   --z-limiar: 10000; /* Limiar (diálogo modal da intro, camada superior): acima de tudo */
+  /* Jogo: cobre o site inteiro, inclusive cursor (9990), toast (9995), menu móvel (9999) e o fallback do Limiar.
+     Com o jogo aberto o cursor do site fica coberto (o mouse é do jogo) e os avisos do site não aparecem por cima. */
+  --z-game: 10010;
+  --z-game-ui: 10011; /* prompt, legendas, painéis e botão de sair: acima do palco */
   --limiar-ember: 4.5rem; /* brasa --sangue da transição do ato Som (spec Limiar 4) */
   --limiar-clarao: 80vmax; /* clarão desfocado da entrada "brasa" */
   --limiar-grao-opacidade: 0.07; /* grão de filme sobre o palco do Limiar (spec Limiar 5) */

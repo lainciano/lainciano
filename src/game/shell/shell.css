@@ -1,0 +1,98 @@
+/* Casca do jogo (chunk lazy: só baixa com o jogo aberto). Cores, espaços e camadas vêm dos tokens do globals.css. */
+[data-game-shell] {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-game);
+  overflow: hidden;
+  background: var(--poco);
+  color: var(--osso);
+  outline: none;
+}
+
+/* O cursor do site esconde o ponteiro nativo em todo o body; dentro do jogo ele volta (o cursor do site fica coberto). */
+:root[data-game="open"] [data-game-shell],
+:root[data-game="open"] [data-game-shell] * {
+  cursor: auto;
+}
+
+[data-game-stage] {
+  position: absolute;
+  inset: 0;
+}
+
+[data-game-loading] {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 0.875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cinza);
+  pointer-events: none;
+}
+
+[data-game-prompt],
+[data-game-subtitles],
+[data-game-overlay] {
+  position: absolute;
+  z-index: var(--z-game-ui);
+}
+
+/* As camadas só capturam o ponteiro quando têm conteúdo próprio (painéis); vazias deixam o palco livre. */
+[data-game-prompt],
+[data-game-subtitles] {
+  pointer-events: none;
+}
+
+[data-game-prompt] {
+  left: 50%;
+  bottom: 28%;
+  transform: translateX(-50%);
+}
+
+[data-game-subtitles] {
+  left: 50%;
+  bottom: var(--space-lg);
+  width: min(42rem, calc(100% - 2 * var(--edge-padding)));
+  transform: translateX(-50%);
+}
+
+[data-game-overlay] {
+  inset: 0;
+  pointer-events: none;
+}
+
+[data-game-exit] {
+  position: absolute;
+  z-index: var(--z-game-ui);
+  top: var(--space-sm);
+  right: var(--space-sm);
+  min-height: 2.75rem;
+  padding: 0 var(--space-sm);
+  border: var(--frame-w) solid var(--osso);
+  background: var(--breu);
+  color: var(--osso);
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 0.8125rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+}
+
+:root[data-game="open"] [data-game-exit] {
+  cursor: pointer;
+}
+
+[data-game-exit]:hover {
+  background: var(--osso);
+  color: var(--breu);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-game-exit] {
+    transition: none;
+  }
+}
