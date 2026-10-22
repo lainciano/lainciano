@@ -42,9 +42,39 @@ describe("moveWithCollision", () => {
     expect(free.z).toBeCloseTo(-0.67);
     // Ponto a ~0,14 do canto: colide, então não pode ficar ali.
     const blocked = moveWithCollision({ x: 1.0, z: -1.0 }, { x: 0.4, z: 0.4 }, R, [crate], room);
+    // Não chegou ao alvo, mas andou de fato (deslizou), em vez de ficar parado.
+    expect(blocked.x === 1.4 && blocked.z === -0.6).toBe(false);
+    expect(Math.hypot(blocked.x - 1.0, blocked.z + 1.0)).toBeGreaterThan(0.3);
     const dx = Math.max(crate.minX - blocked.x, 0, blocked.x - crate.maxX);
     const dz = Math.max(crate.minZ - blocked.z, 0, blocked.z - crate.maxZ);
     expect(Math.hypot(dx, dz)).toBeGreaterThanOrEqual(R - 1e-9);
+  });
+
+  it("quem começa dentro do raio desliza ao longo da parede", () => {
+    // 0,2 da parede da caixa (< R): já viola, mas pode andar sem se aproximar.
+    const p = moveWithCollision({ x: 1.3, z: 0 }, { x: 0, z: 0.5 }, R, [crate], room);
+    expect(p.z).toBeCloseTo(0.5);
+    expect(p.x).toBeLessThanOrEqual(1.3 + 1e-9);
+  });
+
+  it("quem começa dentro da caixa consegue sair, mas não atravessa", () => {
+    const out = moveWithCollision({ x: 2, z: 0 }, { x: -1, z: 0 }, R, [crate], room);
+    expect(out.x).toBeLessThan(1.3);
+    // Perto da face esquerda, ir para o centro só aprofunda: bloqueado (não atravessa).
+    const deeper = moveWithCollision({ x: 1.7, z: 0 }, { x: 2, z: 0 }, R, [crate], room);
+    expect(deeper.x).toBeLessThanOrEqual(1.7 + 1e-9);
+  });
+
+  it("a partir de posição livre não deixa chegar mais perto que R da parede", () => {
+    const p = moveWithCollision({ x: 1.0, z: 0 }, { x: 0.5, z: 0 }, R, [crate], room);
+    expect(p.x).toBeCloseTo(crate.minX - R, 2);
+  });
+
+  it("delta não finito devolve a posição original", () => {
+    const from = { x: 0, z: 0 };
+    expect(moveWithCollision(from, { x: Infinity, z: 0 }, R, [], room)).toEqual(from);
+    expect(moveWithCollision(from, { x: 0, z: -Infinity }, R, [], room)).toEqual(from);
+    expect(moveWithCollision(from, { x: NaN, z: 0.1 }, R, [], room)).toEqual(from);
   });
 
   it("não atravessa a caixa com um passo grande", () => {

@@ -15,6 +15,13 @@ describe("alcance", () => {
     expect(inReach(o, { x: 1, z: 0, distance: 2.5 })).toBe(false);
   });
 
+  it("limites exatos são inclusivos", () => {
+    const o = { x: 0, z: 0 };
+    expect(inReach(o, { x: REACH_FLOOR, z: 0, distance: REACH_3D })).toBe(true);
+    expect(inReach(o, { x: REACH_FLOOR + 0.01, z: 0, distance: REACH_3D })).toBe(false);
+    expect(inReach(o, { x: 1, z: 0, distance: REACH_3D + 0.01 })).toBe(false);
+  });
+
   it("placesWithinReach mede do lugar ao ponto do objeto", () => {
     const g: PlaceGraph = {
       places: { p: { id: "p", x: 1, z: 1, face: { x: 0, z: 1 }, pitch: 0, name: "p" } },

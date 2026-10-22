@@ -56,6 +56,10 @@ describe("nearestPlace", () => {
     expect(nearestPlace(g, { x: 1, z: 1 }, allOpen)).toBeNull();
     expect(nearestPlace(g, { x: 1, z: 0.69 }, allOpen)).toBe("b");
   });
+  it("0,7 exato é inclusivo", () => {
+    expect(nearestPlace(g, { x: 1, z: 0.7 }, allOpen)).toBe("b");
+    expect(nearestPlace(g, { x: 1, z: 0.71 }, allOpen)).toBeNull();
+  });
   it("aceita maxDist customizado", () => {
     expect(nearestPlace(g, { x: 1, z: 1 }, allOpen, 1.1)).toBe("b");
   });
