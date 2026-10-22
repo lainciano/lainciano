@@ -20,6 +20,32 @@
   inset: 0;
 }
 
+/* O renderer dimensiona o buffer (setSize sem estilo); o CSS estica o canvas ao palco. */
+[data-game-stage] canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Sem WebGL, sem slot no orçamento ou contexto perdido: aviso e saída, sobre o palco vazio. */
+[data-game-fallback] {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-game-ui);
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-md);
+  padding: var(--edge-padding);
+  text-align: center;
+}
+
+[data-game-fallback] p {
+  max-width: 32rem;
+  margin: 0;
+  color: var(--osso);
+}
+
 [data-game-loading] {
   position: absolute;
   inset: 0;
@@ -65,11 +91,8 @@
   pointer-events: none;
 }
 
+[data-game-fallback] button,
 [data-game-exit] {
-  position: absolute;
-  z-index: var(--z-game-ui);
-  top: var(--space-sm);
-  right: var(--space-sm);
   min-height: 2.75rem;
   padding: 0 var(--space-sm);
   border: var(--frame-w) solid var(--osso);
@@ -82,16 +105,26 @@
   transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
 }
 
+[data-game-exit] {
+  position: absolute;
+  z-index: var(--z-game-ui);
+  top: var(--space-sm);
+  right: var(--space-sm);
+}
+
+:root[data-game="open"] [data-game-fallback] button,
 :root[data-game="open"] [data-game-exit] {
   cursor: pointer;
 }
 
+[data-game-fallback] button:hover,
 [data-game-exit]:hover {
   background: var(--osso);
   color: var(--breu);
 }
 
 @media (prefers-reduced-motion: reduce) {
+  [data-game-fallback] button,
   [data-game-exit] {
     transition: none;
   }

@@ -360,4 +360,6 @@ export const game = {
   loading: "Carregando o jogo…",
   exit: "Sair do jogo",
   region: "Jogo",
+  noWebgl: "O 3D não abriu neste aparelho (WebGL indisponível ou perdido). O site continua aqui.",
+  back: "Voltar ao site",
 };
