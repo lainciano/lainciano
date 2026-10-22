@@ -13,6 +13,7 @@ type CriptaWindow = Window & {
   };
 };
 type Pose = { x: number; y: number; z: number; yaw: number; pitch: number };
+type ShotWindow = Window & { __criptaShot?: { wear(mode: "on" | "off" | "solid"): void } };
 
 async function hydrated(page: Page) {
   await page.waitForLoadState("networkidle");
@@ -159,4 +160,59 @@ test("psx-ref em movimento: textura presa à superfície (sem nado) e quadro rep
   // O quadro deslocado também vira referência (o par fica anexado ao relatório do teste).
   await frameAt(page, MOVED, 0.28);
   await expect(page).toHaveScreenshot("psx-ref-movimento.png", { maxDiffPixelRatio: 0.02, animations: "disabled" });
+});
+
+// Revisão da T6 (rodada 2): o decalque de desgaste fica no mesmo plano do piso. Se as duas malhas tivessem
+// vértices diferentes, o tremor moveria cada uma do seu jeito e o decalque furaria (piscaria) em ângulo rasante.
+// Com o decalque pintado de magenta chapado, conta os pixels de piso que aparecem por baixo dele em duas poses
+// rasantes deslocadas, com o tremor ligado. Medido: 0 furos; com malha própria e sem polygonOffset, 36–62 %.
+const GRAZE: Pose = { x: -1.6, y: 0.3, z: 2.3, yaw: -0.05, pitch: -0.1 };
+const GRAZE_MOVED: Pose = { ...GRAZE, x: GRAZE.x + 0.05, yaw: GRAZE.yaw + 0.02 };
+/** Só piso nas duas poses (1280×800). */
+const GRAZE_REGION = [400, 560, 880, 240] as const;
+
+test("decalque do piso não fura nem pisca em ângulo rasante (mesmos vértices do piso)", async ({ page }, testInfo) => {
+  await page.goto("/?jogo=1&debug=1&shot=psx-ref");
+  await hydrated(page);
+  await expect(page.locator("[data-game-loading]")).toHaveCount(0, { timeout: 20_000 });
+  await page.addStyleTag({ content: HIDE_UI });
+  const wear = (mode: "on" | "off" | "solid") => page.evaluate((m) => (window as unknown as ShotWindow).__criptaShot?.wear(m), mode);
+
+  for (const [name, pose] of [["rasante", GRAZE], ["rasante-deslocada", GRAZE_MOVED]] as const) {
+    await wear("on");
+    const on = await frameAt(page, pose, 0.28);
+    await wear("off");
+    const off = await frameAt(page, pose, 0.28);
+    await wear("solid");
+    const solid = await frameAt(page, pose, 0.28);
+    await testInfo.attach(`${name}-com-decalque.png`, { body: on, contentType: "image/png" });
+    await testInfo.attach(`${name}-sem-decalque.png`, { body: off, contentType: "image/png" });
+    await testInfo.attach(`${name}-chapado.png`, { body: solid, contentType: "image/png" });
+
+    const holes = await page.evaluate(
+      async ({ b64, region }) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${b64}`;
+        await img.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const g = canvas.getContext("2d");
+        if (!g) throw new Error("sem 2D");
+        g.drawImage(img, 0, 0);
+        const d = g.getImageData(region[0], region[1], region[2], region[3]).data;
+        let magenta = 0;
+        let other = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i] > d[i + 1] * 1.6 && d[i + 2] > d[i + 1] * 1.6) magenta += 1;
+          else other += 1;
+        }
+        return { magenta, other };
+      },
+      { b64: solid.toString("base64"), region: GRAZE_REGION },
+    );
+    expect(holes.magenta, `${name}: a região é piso coberto pelo decalque`).toBeGreaterThan(0);
+    expect(holes.other / (holes.magenta + holes.other), `${name}: piso furando o decalque`).toBeLessThanOrEqual(0.001);
+  }
+  await wear("on");
 });

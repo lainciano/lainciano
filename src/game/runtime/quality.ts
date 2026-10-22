@@ -19,3 +19,35 @@ export function targetSize(lines: QualityLines, aspect: number): { width: number
   const safe = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
   return { width: Math.max(2, Math.round(lines * safe)), height: lines };
 }
+
+/**
+ * Estado da qualidade em execução. No "auto" o FpsGuard desce um degrau por vez; uma escolha manual (`choose`)
+ * troca as linhas e desliga a descida automática de vez ("manual vence"). Ainda não há volta a "auto" em
+ * execução: só reabrindo o jogo com o ajuste em "auto" (o menu de ajustes da 1A decide se precisa de `resume`).
+ */
+export function createQualityControl(initial: QualityLines, auto: boolean) {
+  let quality = initial;
+  let automatic = auto;
+  return {
+    get quality(): QualityLines {
+      return quality;
+    },
+    /** A descida automática ainda vale (e há degrau para descer): só então o FpsGuard precisa amostrar. */
+    get canDegrade(): boolean {
+      return automatic && quality !== 240;
+    },
+    get auto(): boolean {
+      return automatic;
+    },
+    choose(q: QualityLines) {
+      quality = q;
+      automatic = false;
+    },
+    /** O FpsGuard disparou: desce um degrau se automático. Devolve true se mudou. */
+    degrade(): boolean {
+      if (!automatic || quality === 240) return false;
+      quality = downgrade(quality);
+      return true;
+    },
+  };
+}

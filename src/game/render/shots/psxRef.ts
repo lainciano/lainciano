@@ -17,9 +17,24 @@ import { protoColor } from "../materials";
  *   tremor, um quad grande de 2 triângulos faz a textura "nadar" quando a câmera anda;
  * - UV em metros do mundo (`worldUv`) quando duas peças do mesmo material se encostam: sem costura de escala;
  * - nada coplanar e sobreposto (z-fighting): peças vizinhas se encostam na borda, não se cruzam;
- * - sombra da luz principal: `near` 0,5 (a cúpula e a lâmpada ficam fora), `bias` −0,0005, `normalBias` 0,015,
- *   mapa 1024: objeto de 2 cm deitado no tampo ainda projeta e encosta na própria sombra.
+ * - decalque sobre uma superfície (desgaste, mancha): mesma malha de vértices da superfície (posições e índice
+ *   compartilhados, só a UV muda). Com o tremor, malhas diferentes no mesmo plano movem os vértices cada uma do
+ *   seu jeito e o decalque pisca em ângulo rasante; com os mesmos vértices a profundidade coincide;
+ * - sombra da luz principal: `near` 0,5 (a cúpula e a lâmpada ficam fora), `bias` −0,0005, `normalBias` 0,003,
+ *   mapa 1024: objeto de 2 cm deitado no tampo ainda projeta e encosta na própria sombra (com 0,015 o livro
+ *   ficava sem sombra). Regra para dimensionar: `normalBias` ≈ 1–1,5 texel no receptor principal, com
+ *   texel ≈ 2·d·tan(ângulo do spot)/mapSize e d = distância luz → receptor. Aqui o receptor é o tampo
+ *   (d ≈ 0,86 m → texel ≈ 2 mm, 0,003 ≈ 1,5 texel); numa sala 4 × 4 com o piso como receptor (d ≈ 2 m, texel
+ *   ≈ 4,8 mm) 0,003 fica abaixo de 1 texel: a T8 deve recalcular e varrer o ângulo de visão (acne em parede
+ *   rasante não foi checada aqui).
  */
+
+declare global {
+  interface Window {
+    /** Controles da cena de referência (só com `?debug=1&shot=psx-ref`). */
+    __criptaShot?: { wear(mode: "on" | "off" | "solid"): void };
+  }
+}
 
 const ROOM = { w: 4.5, d: 5, h: 2.6 } as const;
 /** Altura onde o verde de baixo encontra o bege (m). */
@@ -623,7 +638,8 @@ export function buildPsxRef(engine: Engine): () => void {
 
   // Piso: 4 variantes de granilite por ladrilho + decalque de desgaste da sala inteira.
   const tiles = [0, 1, 2, 3].map((v) => kit.phong({ map: kit.texture(`psx-ref:granilite-${v}`, drawGranilite(v), 256) }));
-  mesh(floorGeometry(T, tiles.length), tiles, 0, 0, 0);
+  const floorGeo = floorGeometry(T, tiles.length);
+  mesh(floorGeo, tiles, 0, 0, 0);
   const wearTex = kit.texture("psx-ref:desgaste", drawFloorWear, 256);
   wearTex.wrapS = T.ClampToEdgeWrapping;
   wearTex.wrapT = T.ClampToEdgeWrapping;
@@ -636,7 +652,38 @@ export function buildPsxRef(engine: Engine): () => void {
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -2,
   });
-  plane(ROOM.w, ROOM.d, wear, 0, 0, 0, -Math.PI / 2, 0).renderOrder = 1;
+  // O decalque usa as MESMAS posições e o mesmo índice do piso (só a UV, em coordenadas da sala, é dele): o
+  // tremor move os vértices dos dois igual e a profundidade coincide; o polygonOffset fica só como folga.
+  const wearGeo = new T.BufferGeometry();
+  const floorPos = floorGeo.getAttribute("position");
+  wearGeo.setAttribute("position", floorPos);
+  wearGeo.setAttribute("normal", floorGeo.getAttribute("normal"));
+  const roomUv = new Float32Array(floorPos.count * 2);
+  for (let i = 0; i < floorPos.count; i++) {
+    roomUv[i * 2] = (floorPos.getX(i) + ROOM.w / 2) / ROOM.w;
+    roomUv[i * 2 + 1] = 1 - (floorPos.getZ(i) + ROOM.d / 2) / ROOM.d;
+  }
+  wearGeo.setAttribute("uv", new T.BufferAttribute(roomUv, 2));
+  wearGeo.setIndex(floorGeo.getIndex());
+  const wearMesh = mesh(wearGeo, wear, 0, 0, 0);
+  wearMesh.renderOrder = 1;
+  // Teste de cintilação (e2e): o decalque some, volta, ou vira uma cor chapada (magenta, sem luz nem névoa) para
+  // contar os pixels de piso que "furam" o decalque em ângulo rasante.
+  const solid = kit.basic({
+    color: 0xff00ff,
+    fog: false,
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -2,
+  });
+  window.__criptaShot = {
+    wear(mode) {
+      wearMesh.visible = mode !== "off";
+      wearMesh.material = mode === "solid" ? solid : wear;
+    },
+  };
   plane(ROOM.w, ROOM.d, kit.phong({ map: kit.texture("psx-ref:teto", drawCeiling, 256) }), 0, ROOM.h, 0, Math.PI / 2, 0);
 
   // Paredes: norte, sul, oeste, leste (viradas para dentro).
@@ -689,8 +736,11 @@ export function buildPsxRef(engine: Engine): () => void {
   box(xa - x0, lipH, LIP, alu, (xa + x0) / 2, lipY, zf - LIP / 2, { cast: false });
   box(LIP, lipH, zf - LIP - (zb + LIP), alu, x0 + LIP / 2, lipY, (zf - LIP + zb + LIP) / 2, { cast: false });
   box(x1 - x0, lipH, LIP, alu, (x1 + x0) / 2, lipY, zb + LIP / 2, { cast: false });
-  const annexLipBack = annexBack - 0.006;
-  box(LIP, lipH, zf - LIP - annexLipBack, alu, xa - LIP / 2, lipY, (zf - LIP + annexLipBack) / 2, { cast: false });
+  // anexo: cantoneira também no fundo (x 1,33–1,692, metade dentro do tampo); a da ponta termina dentro dela,
+  // sem sobrar no ar atrás do tampo e do corpo
+  const annexBackOut = annexBack - LIP / 2;
+  box(xa - 1.33, lipH, LIP, alu, (xa + 1.33) / 2, lipY, annexBack, { cast: false });
+  box(LIP, lipH, zf - LIP - (annexBackOut + LIP), alu, xa - LIP / 2, lipY, (zf - LIP + annexBackOut + LIP) / 2, { cast: false });
   // rodapé escuro recuado sob a frente (encosta no corpo, não entra nele)
   box(0.02, 0.1, 1.8, dark, 0.71, 0.05, -0.7, { cast: false });
   // prateleira interna (vista só por trás)
@@ -769,6 +819,7 @@ export function buildPsxRef(engine: Engine): () => void {
   engine.setQuality(engine.info().quality);
 
   return () => {
+    delete window.__criptaShot;
     engine.freezeTime(null);
     scene.remove(root);
     for (const light of lights) light.dispose();

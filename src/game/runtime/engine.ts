@@ -6,7 +6,7 @@ import { createPsxUniforms, PSX_DEFAULTS, type PsxUniforms } from "../render/psx
 import type { Settings } from "../save/schema";
 import { createClock } from "./clock";
 import { createFrameMetrics } from "./metrics";
-import { downgrade, initialQuality, targetSize, type QualityLines } from "./quality";
+import { createQualityControl, initialQuality, targetSize, type QualityLines } from "./quality";
 
 export type PostMode = 0 | 1 | 2;
 
@@ -51,7 +51,10 @@ export type Engine = {
   start(): Promise<void>;
   /** Debug/fotos: prende o tempo dos callbacks e do pós em `t` (dt 0); `null` solta. */
   freezeTime(t: number | null): void;
-  /** Escolha manual: troca as linhas e desliga a descida automática (manual vence). */
+  /**
+   * Escolha manual: troca as linhas e desliga a descida automática (manual vence). Ainda não há volta a "auto"
+   * em execução (`createQualityControl`); só reabrindo o jogo com o ajuste em "auto".
+   */
   setQuality(q: QualityLines): void;
   setPostMode(m: PostMode): void;
   setFade(v: number): void;
@@ -205,8 +208,7 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
       post.dispose();
     });
 
-    let autoQuality = settings.quality === "auto";
-    let quality = initialQuality(coarse, settings.quality);
+    const qualityControl = createQualityControl(initialQuality(coarse, settings.quality), settings.quality === "auto");
     let target: THREE.WebGLRenderTarget | null = null;
     /** Alvo do tamanho do canvas para gravura e ASCII (Linear, como o RT.full do protótipo). */
     let fullTarget: THREE.WebGLRenderTarget | null = null;
@@ -232,7 +234,7 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
       });
 
     const rebuildTarget = () => {
-      const { width, height } = targetSize(quality, aspect);
+      const { width, height } = targetSize(qualityControl.quality, aspect);
       if (target && target.width === width && target.height === height) return;
       target?.dispose();
       target = makeTarget(width, height, three.NearestFilter);
@@ -300,8 +302,8 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
         if (ms > 0 && ms <= PAUSE_MS) {
           metrics.push(ms);
           // Manual vence: só o ajuste "auto" desce sozinho, um degrau por vez, nunca sobe.
-          if (autoQuality && quality !== 240 && guard.sample(ms)) {
-            quality = downgrade(quality);
+          if (qualityControl.canDegrade && guard.sample(ms)) {
+            qualityControl.degrade();
             guard = createFpsGuard();
             rebuildTarget();
           }
@@ -356,8 +358,8 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
     const snapshot = (): DebugInfo => {
       const { render, memory, programs } = renderer.info;
       return {
-        quality,
-        autoQuality,
+        quality: qualityControl.quality,
+        autoQuality: qualityControl.auto,
         postMode,
         target: { width: target?.width ?? 0, height: target?.height ?? 0 },
         canvas: { width: canvas.width, height: canvas.height },
@@ -425,8 +427,7 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
       setQuality(q) {
         if (disposed) return;
         // Manual vence: escolhida uma qualidade, o FpsGuard não a muda mais (ajustes, fotos de referência).
-        autoQuality = false;
-        quality = q;
+        qualityControl.choose(q);
         guard = createFpsGuard();
         rebuildTarget();
       },

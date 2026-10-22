@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { downgrade, initialQuality, targetSize } from "./quality";
+import { createQualityControl, downgrade, initialQuality, targetSize } from "./quality";
 
 describe("qualidade", () => {
   it("desktop começa em 480, toque em 360", () => {
@@ -31,5 +31,38 @@ describe("targetSize", () => {
     expect(targetSize(240, 0)).toEqual({ width: 240, height: 240 });
     expect(targetSize(240, -1)).toEqual({ width: 240, height: 240 });
     expect(targetSize(240, Number.NaN)).toEqual({ width: 240, height: 240 });
+  });
+});
+
+describe("createQualityControl", () => {
+  it("no auto, cada disparo do FpsGuard desce um degrau até 240", () => {
+    const q = createQualityControl(480, true);
+    expect(q.canDegrade).toBe(true);
+    expect(q.degrade()).toBe(true);
+    expect(q.quality).toBe(360);
+    expect(q.degrade()).toBe(true);
+    expect(q.quality).toBe(240);
+    expect(q.canDegrade).toBe(false);
+    expect(q.degrade()).toBe(false);
+    expect(q.quality).toBe(240);
+  });
+
+  it("setQuality manual desliga a descida automática (manual vence, sem volta a auto)", () => {
+    const q = createQualityControl(480, true);
+    q.choose(480);
+    expect(q.auto).toBe(false);
+    expect(q.canDegrade).toBe(false);
+    expect(q.degrade()).toBe(false);
+    expect(q.quality).toBe(480);
+    q.choose(240);
+    expect(q.quality).toBe(240);
+    expect(q.auto).toBe(false);
+  });
+
+  it("ajuste manual desde o início: nunca desce", () => {
+    const q = createQualityControl(360, false);
+    expect(q.canDegrade).toBe(false);
+    expect(q.degrade()).toBe(false);
+    expect(q.quality).toBe(360);
   });
 });
