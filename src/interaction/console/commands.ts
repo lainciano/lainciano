@@ -5,7 +5,7 @@ import { normalize, parseCommand } from "./parse";
 export type ConsoleProject = { slug: string; title: string; year: number; kind?: string };
 export type ConsolePost = { slug: string; title: string; createdAt: string };
 export type ConsoleData = { projects: ConsoleProject[]; posts: ConsolePost[]; email: string; availability: string };
-export type ConsoleState = { won: readonly RelicId[]; sound: boolean; reading: boolean; platinum: boolean };
+export type ConsoleState = { won: readonly RelicId[]; sound: boolean; reading: boolean; platinum: boolean; game: boolean };
 
 export type LineKind = "cmd" | "res" | "err";
 export type ConsoleLine = { kind: LineKind; text: string };
@@ -19,6 +19,7 @@ export type ConsoleEffect =
   | { type: "platinum" }
   | { type: "limiar" }
   | { type: "ranking" }
+  | { type: "game"; action: "on" | "off" | "open" }
   | { type: "clear" };
 
 export type CommandStatus = "ok" | "error" | "denied";
@@ -212,6 +213,16 @@ export function runCommand(raw: string, data: ConsoleData, state: ConsoleState):
 
     case "limiar":
       return state.reading ? ok([copy.limiarReading]) : ok([copy.limiarOpening], [{ type: "limiar" }]);
+
+    // Escondido até a 1B: fora de COMMANDS (ajuda e Tab não o mostram) e sem opções de argumento.
+    case "jogo": {
+      const arg = args[0];
+      if (arg === "on") return ok([copy.gameOn], [{ type: "game", action: "on" }]);
+      if (!state.game) return { status: "denied", lines: [{ kind: "err", text: copy.gameDenied }], effects: [] };
+      if (arg === "off") return ok([copy.gameOff], [{ type: "game", action: "off" }]);
+      if (arg !== undefined) return fail(copy.gameUsage);
+      return state.reading ? ok([copy.gameReading]) : ok([copy.gameOpening], [{ type: "game", action: "open" }]);
+    }
 
     case "ranking":
       return ok([copy.rankingLoading], [{ type: "ranking" }]);

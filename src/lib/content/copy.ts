@@ -278,6 +278,12 @@ export const terminal = {
   cryptOpen: "a cripta se abre.",
   limiarOpening: "o limiar se abre.",
   limiarReading: "o limiar não abre em modo leitura. leitura off para entrar.",
+  gameOn: "o jogo foi liberado neste navegador. digite jogo para entrar.",
+  gameOff: "o jogo foi desligado.",
+  gameOpening: "o jogo se abre.",
+  gameReading: "o jogo não abre em modo leitura. leitura off para entrar.",
+  gameDenied: "permissão negada.",
+  gameUsage: "uso: jogo [on|off]",
   rankingLoading: "abrindo o livro…",
   rankingEmpty: "ninguém platinou ainda.",
   rankingFailed: "o livro não respondeu. tente de novo em instantes.",
@@ -347,4 +353,11 @@ export const cryptEmpty = {
   title: "Cripta vazia",
   lede: "Não há nada neste endereço.",
   pathsLabel: "Caminhos",
+};
+
+/** Jogo 3D (Fase 1A): rótulos do shell, descidos do servidor por props (ilhas cliente não importam este arquivo). */
+export const game = {
+  loading: "Carregando o jogo…",
+  exit: "Sair do jogo",
+  region: "Jogo",
 };

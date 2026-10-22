@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { readingStore, useReadingMode } from "@/interaction/reading-mode/store";
+import { gameStore } from "@/game/activation";
 import { limiarStore } from "@/interaction/limiar/store";
 import { fetchBook } from "@/interaction/platinum/api";
 import { platinumStore } from "@/interaction/platinum/store";
@@ -135,6 +136,17 @@ export function ConsoleSession({ greeting, inline = false, autoFocus = false, on
           limiarStore.open("console");
         }
         return;
+      case "game":
+        if (effect.action === "on") gameStore.setEnabled(true);
+        else if (effect.action === "off") gameStore.setEnabled(false);
+        else if (onNavigate) {
+          // O console fecha antes de abrir o jogo, como no limiar.
+          onNavigate();
+          window.setTimeout(() => gameStore.requestOpen(), CLOSE_MS);
+        } else {
+          gameStore.requestOpen();
+        }
+        return;
       case "ranking":
         void fetchBook().then((entries) => {
           if (entries === null) {
@@ -159,7 +171,7 @@ export function ConsoleSession({ greeting, inline = false, autoFocus = false, on
   };
 
   const run = (raw: string) => {
-    const result = runCommand(raw, data, { won, sound, reading, platinum: platinumAt !== null });
+    const result = runCommand(raw, data, { won, sound, reading, platinum: platinumAt !== null, game: gameStore.isEnabled() });
     if (!result) return;
     consoleStore.setHistory(pushHistory(consoleStore.getHistory(), raw));
     if (!result.effects.some((effect) => effect.type === "clear")) {

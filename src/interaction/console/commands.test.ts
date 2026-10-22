@@ -8,6 +8,7 @@ import {
   type ConsoleData,
   type ConsoleState,
 } from "@/interaction/console/commands";
+import { complete } from "@/interaction/console/parse";
 import { RELIC_IDS } from "@/interaction/relics/catalog";
 import { about, terminal } from "@/lib/content/copy";
 
@@ -25,7 +26,7 @@ const data: ConsoleData = {
   email: "lainciano@gmail.com",
   availability: "Disponível para contato.",
 };
-const state: ConsoleState = { won: [], sound: false, reading: false, platinum: false };
+const state: ConsoleState = { won: [], sound: false, reading: false, platinum: false, game: false };
 const run = (raw: string, s: ConsoleState = state) => runCommand(raw, data, s)!;
 const texts = (raw: string, s?: ConsoleState) => run(raw, s).lines.map((line) => line.text);
 
@@ -238,5 +239,40 @@ describe("limiar", () => {
     expect(COMMANDS).toContain("limiar");
     expect(terminal.help.some((line) => line.includes("limiar"))).toBe(true);
     expect(COMMANDS.indexOf("limiar")).toBe(COMMANDS.indexOf("cripta") + 1);
+  });
+});
+
+describe("jogo (comando escondido até a 1B)", () => {
+  it("jogo on liga a chave", () => {
+    const result = run("jogo on");
+    expect(result.status).toBe("ok");
+    expect(result.effects).toEqual([{ type: "game", action: "on" }]);
+  });
+  it("jogo sem a chave é negado, sem efeito", () => {
+    const result = run("jogo");
+    expect(result.status).toBe("denied");
+    expect(result.effects).toEqual([]);
+  });
+  it("jogo em modo leitura só dá a dica", () => {
+    const result = run("jogo", { ...state, game: true, reading: true });
+    expect(result.status).toBe("ok");
+    expect(result.effects).toEqual([]);
+    expect(result.lines.map((line) => line.text)).toEqual([terminal.gameReading]);
+  });
+  it("jogo com a chave abre; jogo off desliga", () => {
+    expect(run("jogo", { ...state, game: true }).effects).toEqual([{ type: "game", action: "open" }]);
+    expect(run("jogo off", { ...state, game: true }).effects).toEqual([{ type: "game", action: "off" }]);
+  });
+  it("argumento inválido mostra o uso", () => {
+    const result = run("jogo xyz", { ...state, game: true });
+    expect(result.status).toBe("error");
+    expect(result.effects).toEqual([]);
+  });
+  it("não aparece na ajuda nem no Tab", () => {
+    expect(COMMANDS).not.toContain("jogo");
+    expect(terminal.help.some((line) => line.includes("jogo"))).toBe(false);
+    expect(argOptions("jogo", data)).toEqual([]);
+    expect(complete("jo", COMMANDS, () => [])).toEqual({ value: "jo", options: [] });
+    expect(complete("j", COMMANDS, () => [])).toEqual({ value: "j", options: [] });
   });
 });

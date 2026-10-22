@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Footer } from "@/components/ui/Footer";
+import { GameHost } from "@/game/GameHost";
 import { InteractionProvider } from "@/interaction/InteractionProvider";
 import { LIMIAR_BOOT_SCRIPT } from "@/interaction/boot";
 import type { ConsoleData } from "@/interaction/console/commands";
@@ -8,7 +9,7 @@ import { ConsoleDataProvider } from "@/interaction/console/data";
 import { Hud } from "@/interaction/hud/Hud";
 import { Limiar } from "@/interaction/limiar/Limiar";
 import { PlatinumHost } from "@/interaction/platinum/PlatinumHost";
-import { limiar, platinum } from "@/lib/content/copy";
+import { game, limiar, platinum } from "@/lib/content/copy";
 import { getPosts } from "@/lib/content/posts";
 import { getProjects } from "@/lib/content/projects";
 import { getSiteSettings } from "@/lib/content/site";
@@ -37,6 +38,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: LIMIAR_BOOT_SCRIPT }} />
         <ConsoleOverlay />
         <PlatinumHost labels={platinum} />
+        <GameHost labels={game} />
       </ConsoleDataProvider>
     </InteractionProvider>
   );

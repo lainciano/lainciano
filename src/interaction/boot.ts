@@ -5,6 +5,7 @@ export const STORAGE_KEYS = {
   volume: "lainciano:volume:v1",
   relics: "lainciano:reliquias:v1",
   explorer: "lainciano:explorador:v1",
+  game: "lainciano:jogo:v1",
 } as const;
 
 /** Aplica data-reading antes da pintura, evitando piscar efeitos para quem usa modo leitura. */
