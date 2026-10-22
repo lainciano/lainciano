@@ -112,15 +112,39 @@ export const hud = {
   menuConsole: "Console",
 };
 
-/** Portal da primeira visita (spec 7.1). */
-export const portal = {
-  lede: "Entre. Quase tudo aqui responde ao toque.",
-  withSound: "Entrar com som",
-  silent: "Entrar em silêncio",
+/**
+ * Limiar, a introdução da primeira visita (spec Limiar 3). Desce por props para a casca e a ilha (nunca
+ * importar valores daqui em ilha cliente). `progress` é modelo para `fillTemplate`, porque `hud.progress`
+ * é função e não atravessa do servidor para o cliente. Em cada inscrição, o item do meio é a palavra-chave.
+ */
+export const limiar = {
+  dialogTitle: "Limiar",
+  skip: "pular",
+  soundQuestion: "antes de entrar: com som ou em silêncio?",
+  withSound: "com som",
+  withSoundHint: "recomendado · fones ajudam",
+  silent: "em silêncio",
+  silentHint: "dá para ligar depois no HUD",
   reading: "Modo leitura",
   volumeHint: "Ajuste agora: você ouve uma prévia.",
-  enterKey: "Enter",
-  escKey: "Esc",
+  openingLede: "isto é um portfólio.",
+  openingTwist: "mas não só.",
+  holdVerb: "segure",
+  holdText: "segure para acender a cripta",
+  inscriptions: [
+    ["há ", "relíquias", " escondidas nestas salas."],
+    ["a cripta ", "lembra", " o que você faz."],
+    ["no fim, um ", "livro", " guarda os nomes de quem chegou."],
+  ] as [before: string, keyword: string, after: string][],
+  readVerb: "leia",
+  revealVerb: "revele",
+  takeVerb: "pegue",
+  takeButton: "pegar a relíquia",
+  ending: "agora você sabe como funciona.",
+  railLabels: ["som", "abertura", "gesto", "inscrições", "relíquia"],
+  soundOn: "som ligado",
+  soundOff: "som desligado",
+  progress: "{won} de {total}",
 };
 
 /** Títulos e papéis de sala. Home e Sobre já com o verbo da sala (Fase 2); os demais trocam nas Fases 3–5. */
@@ -217,6 +241,7 @@ export const terminal = {
     "som on|off | leitura on|off",
     "arremessar | girar | revelar <projeto>",
     "ranking | cripta | limpar",
+    "limiar                     rever a entrada da cripta",
   ],
   notFound: (name: string) => `comando não encontrado: ${name}. digite ajuda.`,
   goUsage: "uso: ir <home|projetos|blog|sobre|contato>",
@@ -251,6 +276,8 @@ export const terminal = {
   sudo: "permissão negada. a tentativa foi registrada no livro.",
   cryptLocked: (won: number, total: number) => `a cripta só abre para quem platinou. ${won} de ${total}.`,
   cryptOpen: "a cripta se abre.",
+  limiarOpening: "o limiar se abre.",
+  limiarReading: "o limiar não abre em modo leitura. leitura off para entrar.",
   rankingLoading: "abrindo o livro…",
   rankingEmpty: "ninguém platinou ainda.",
   rankingFailed: "o livro não respondeu. tente de novo em instantes.",
@@ -275,7 +302,7 @@ export const contact = {
 /** Tela de platina (spec 8.5). Modelos com {marcador}: preenchidos no cliente com fillTemplate. */
 export const platinum = {
   title: "Platina.",
-  summary: "10 de 10 em {tempo}.",
+  summary: "{total} de {total} em {tempo}.",
   nicknameLabel: "Apelido",
   nicknameHint: "3 a 16 letras, números, _ ou -.",
   submit: "Gravar no livro",
@@ -307,7 +334,7 @@ export const book = {
   time: "tempo",
   date: "data",
   loading: "abrindo o livro…",
-  empty: "Ninguém platinou ainda. As 10 relíquias estão espalhadas pelo site.",
+  empty: "Ninguém platinou ainda. As {total} relíquias estão espalhadas pelo site.",
   failed: "O livro não respondeu. Tente de novo em instantes.",
   rows: "Linhas no livro: {n}.",
   retry: "tentar de novo",

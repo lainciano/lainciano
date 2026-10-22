@@ -37,7 +37,7 @@ export function Cursor() {
     return whenGsap(({ gsap }) => {
       document.documentElement.dataset.cursor = "on";
 
-      // Camada superior (Popover API): o Portal e a gaveta de relíquias são <dialog> modais, que ficam
+      // Camada superior (Popover API): o Limiar e a gaveta de relíquias são <dialog> modais, que ficam
       // acima de qualquer z-index. Sem isto, com o cursor do sistema oculto, não haveria cursor neles.
       const raise = () => {
         if (typeof root.showPopover !== "function") return;

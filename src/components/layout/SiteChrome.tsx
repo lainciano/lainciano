@@ -1,19 +1,19 @@
 import type { ReactNode } from "react";
 import { Footer } from "@/components/ui/Footer";
 import { InteractionProvider } from "@/interaction/InteractionProvider";
-import { PORTAL_BOOT_SCRIPT } from "@/interaction/boot";
+import { LIMIAR_BOOT_SCRIPT } from "@/interaction/boot";
 import type { ConsoleData } from "@/interaction/console/commands";
 import { ConsoleOverlay } from "@/interaction/console/ConsoleOverlay";
 import { ConsoleDataProvider } from "@/interaction/console/data";
 import { Hud } from "@/interaction/hud/Hud";
+import { Limiar } from "@/interaction/limiar/Limiar";
 import { PlatinumHost } from "@/interaction/platinum/PlatinumHost";
-import { Portal } from "@/interaction/portal/Portal";
-import { platinum } from "@/lib/content/copy";
+import { limiar, platinum } from "@/lib/content/copy";
 import { getPosts } from "@/lib/content/posts";
 import { getProjects } from "@/lib/content/projects";
 import { getSiteSettings } from "@/lib/content/site";
 
-// Moldura de toda página da Cripta: HUD, Portal, rodapé, núcleo de interação e console global.
+// Moldura de toda página da Cripta: HUD, Limiar, rodapé, núcleo de interação e console global.
 // Usada pelo layout do (site) e pelo 404 da raiz (que fica fora do grupo — D2).
 export function SiteChrome({ children }: { children: ReactNode }) {
   const site = getSiteSettings();
@@ -32,9 +32,9 @@ export function SiteChrome({ children }: { children: ReactNode }) {
           <main className="page-surface">{children}</main>
           <Footer site={site} />
         </div>
-        <Portal siteName={site.siteName} />
-        {/* Precisa vir logo depois do <dialog id="portal">: abre antes da hidratação. */}
-        <script dangerouslySetInnerHTML={{ __html: PORTAL_BOOT_SCRIPT }} />
+        <Limiar siteName={site.siteName} labels={limiar} />
+        {/* Precisa vir logo depois do <dialog id="limiar">: abre antes da hidratação. */}
+        <script dangerouslySetInnerHTML={{ __html: LIMIAR_BOOT_SCRIPT }} />
         <ConsoleOverlay />
         <PlatinumHost labels={platinum} />
       </ConsoleDataProvider>

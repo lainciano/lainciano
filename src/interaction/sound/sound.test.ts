@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseSoundPref, shouldPlay } from "@/interaction/sound/policy";
-import { BELL, KEY_PITCH, NOISE, SFX, keyPitch } from "@/interaction/sound/sfx";
+import { canPreview, canPreviewDrone, parseSoundPref, shouldPlay } from "@/interaction/sound/policy";
+import { BELL, DRONE, KEY_PITCH, NOISE, SFX, droneParams, keyPitch } from "@/interaction/sound/sfx";
 
 describe("shouldPlay", () => {
   it("só toca com som on, fora do modo leitura e depois de um gesto", () => {
@@ -32,7 +32,7 @@ describe("SFX", () => {
         expect(t.freq).toBeLessThanOrEqual(20_000);
         expect(t.dur).toBeGreaterThan(0);
         expect(t.dur).toBeLessThanOrEqual(1);
-        expect(t.gain).toBeLessThanOrEqual(0.08);
+        expect(t.gain).toBeLessThanOrEqual(0.09);
       }
     }
   });
@@ -76,7 +76,7 @@ describe("SFX das salas (Fase 2)", () => {
   });
 });
 
-describe("BELL (sino do Portal)", () => {
+describe("BELL (sino do Limiar)", () => {
   it("a cauda audível dura pelo menos 3 s (queda de 40 dB), sem cortar quando a sala entra", () => {
     expect(BELL.tau * Math.log(100)).toBeGreaterThanOrEqual(3);
     expect(BELL.stopS).toBeGreaterThan(BELL.tau * Math.log(1000));
@@ -97,5 +97,52 @@ describe("sons do console (spec 7.8, 8.1)", () => {
     expect(base * keyPitch(() => 0)).toBeCloseTo(900);
     expect(base * keyPitch(() => 1)).toBeCloseTo(1200);
     expect(KEY_PITCH[0]).toBeLessThan(KEY_PITCH[1]);
+  });
+});
+
+describe("canPreviewDrone (prévia do drone do Limiar)", () => {
+  it("só toca com pref nula ou on E depois do primeiro gesto", () => {
+    for (const pref of [null, "on"] as const) {
+      expect(canPreviewDrone(pref, false, false)).toBe(false);
+      expect(canPreviewDrone(pref, false, true)).toBe(true);
+      expect(canPreviewDrone(pref, false, true)).toBe(canPreview(pref, false) && true);
+    }
+  });
+  it("som desligado ou modo leitura nunca tocam", () => {
+    for (const unlocked of [false, true]) {
+      expect(canPreviewDrone("off", false, unlocked)).toBe(false);
+      expect(canPreviewDrone(null, true, unlocked)).toBe(false);
+      expect(canPreviewDrone("on", true, unlocked)).toBe(false);
+    }
+  });
+});
+
+describe("SFX do Limiar", () => {
+  it("thud: uma voz senoidal grave que desce (baque do Gesto e das pedras)", () => {
+    expect(SFX.thud).toEqual([{ freq: 48, dur: 0.5, type: "sine", gain: 0.09, glideTo: 30 }]);
+    expect(SFX.thud).toHaveLength(1);
+    expect(SFX.thud[0]!.glideTo!).toBeLessThan(SFX.thud[0]!.freq);
+  });
+});
+
+describe("drone do Limiar", () => {
+  it("dois dentes de serra a 55 Hz e 55 × 1,005 Hz", () => {
+    expect(DRONE.baseHz).toBe(55);
+    expect(DRONE.baseHz * DRONE.detune).toBeCloseTo(55.275);
+  });
+  it("a intensidade leva o corte de 200 a 1400 Hz e o ganho de 0,02 a 0,09", () => {
+    expect(droneParams(0)).toEqual({ cutoffHz: 200, gain: 0.02 });
+    expect(droneParams(1).cutoffHz).toBe(1400);
+    expect(droneParams(1).gain).toBeCloseTo(0.09);
+    expect(droneParams(0.5).cutoffHz).toBe(800);
+  });
+  it("prende fora de 0–1 e ignora NaN", () => {
+    expect(droneParams(-3)).toEqual(droneParams(0));
+    expect(droneParams(7)).toEqual(droneParams(1));
+    expect(droneParams(Number.NaN)).toEqual(droneParams(0));
+  });
+  it("τ de 0,08 s e fade de 0,4 s", () => {
+    expect(DRONE.tau).toBe(0.08);
+    expect(DRONE.fadeS).toBe(0.4);
   });
 });

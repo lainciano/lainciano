@@ -17,6 +17,7 @@ export type ConsoleEffect =
   | { type: "sound"; on: boolean }
   | { type: "reading"; on: boolean }
   | { type: "platinum" }
+  | { type: "limiar" }
   | { type: "ranking" }
   | { type: "clear" };
 
@@ -51,6 +52,7 @@ export const COMMANDS = [
   "girar",
   "revelar",
   "cripta",
+  "limiar",
   "ranking",
   "limpar",
   "sudo",
@@ -207,6 +209,9 @@ export function runCommand(raw: string, data: ConsoleData, state: ConsoleState):
       return state.platinum
         ? ok([copy.cryptOpen], [{ type: "platinum" }])
         : ok([copy.cryptLocked(state.won.length, RELICS.length)]);
+
+    case "limiar":
+      return state.reading ? ok([copy.limiarReading]) : ok([copy.limiarOpening], [{ type: "limiar" }]);
 
     case "ranking":
       return ok([copy.rankingLoading], [{ type: "ranking" }]);

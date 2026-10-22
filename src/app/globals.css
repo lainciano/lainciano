@@ -64,6 +64,8 @@
 
   /* ---------- Cripta v2: layout / motion / camadas ---------- */
   --hud-h: 4.25rem;
+  --limiar-pular-h: 2.75rem; /* altura do botão "pular" do Limiar: reserva no pé do ato Som */
+  --limiar-porta-h: 7rem; /* altura mínima da porta do ato Som em tela estreita ou baixa */
   --frame-w: 2px;
   --sombra-dura: 6px 6px 0 var(--sangue); /* sombra dura da spec 4.3 */
   --motion-cursor: 180ms;
@@ -72,7 +74,19 @@
   --z-hud: 30;
   --z-cursor: 9990;
   --z-toast: 9995;
-  --z-portal: 10000;
+  --z-limiar: 10000; /* Limiar (diálogo modal da intro, camada superior): acima de tudo */
+  --limiar-ember: 4.5rem; /* brasa --sangue da transição do ato Som (spec Limiar 4) */
+  --limiar-clarao: 80vmax; /* clarão desfocado da entrada "brasa" */
+  --limiar-grao-opacidade: 0.07; /* grão de filme sobre o palco do Limiar (spec Limiar 5) */
+  --limiar-anel: clamp(7rem, 26vmin, 11rem); /* anel do "segure" (ato Gesto, spec Limiar 3.3) */
+  --limiar-palavra-borrado: 0.3em; /* desfoque de onde cada palavra das Inscrições sai (spec Limiar 3.4) */
+  --limiar-reliquia: clamp(3.25rem, 8vmin, 4.5rem); /* disco da relíquia sob as pedras (spec Limiar 3.5) */
+  /* Fundo do diálogo do Limiar (breu com linhas de gravura); o véu da cortina final repete o mesmo. */
+  --limiar-fundo: repeating-linear-gradient(
+    0deg,
+    var(--breu) 0 3px,
+    color-mix(in srgb, var(--osso) 6%, var(--breu)) 3px 4px
+  );
 
   /* ---------- Cripta Fase 2: salas ---------- */
   --coagulo: #380503; /* sangue sólido do shader (protótipo: vec3(0.22, 0.02, 0.01)) */
@@ -83,7 +97,7 @@
   --portrait-max: 32.5rem; /* retrato 3:5, 520 px */
   --z-room-fx: 4; /* onda, efeitos dentro da sala */
   --z-room-ui: 5; /* controles e legenda HQ dentro da sala */
-  --z-room-card: 9000; /* cartão de entrada de sala: acima do HUD, abaixo de toast, cursor e Portal */
+  --z-room-card: 9000; /* cartão de entrada de sala: acima do HUD, abaixo de toast, cursor e Limiar */
   --space-snug: 0.625rem; /* 10 px: gap de peças e selos (protótipo, fora da escala --space-*) */
   --space-chip: 0.875rem; /* 14 px: padding de laje, botão de arena e selo */
   --tap-min: 2.75rem; /* alvo de toque mínimo (44 px, spec 11) */
@@ -107,7 +121,7 @@
   --ledger-nudge: 0.5rem; /* 8 px: recuo da linha do livro-razão no hover (spec 7.6) */
   --ledger-tags: 12.5rem; /* coluna das tags do livro-razão */
   --ledger-date-short: 6rem; /* 96 px: coluna da data curta "25 mar" (mockup do Blog) */
-  --z-reading: 31; /* barra de leitura: acima do HUD (30), abaixo de cursor, toast e Portal */
+  --z-reading: 31; /* barra de leitura: acima do HUD (30), abaixo de cursor, toast e Limiar */
   --reading-bar-h: 2px; /* spec 7.7 */
   --terminal-min: 26.25rem; /* 420 px: altar e console (protótipo) */
   --terminal-min-mobile: 20rem; /* 320 px: altar no celular */
@@ -694,6 +708,11 @@ body {
     transform var(--motion-fast);
 }
 
+/* Zona de verbo vazio (ato Abertura do Limiar): só o anel cresce, sem a etiqueta. */
+.cursor-cripta__verbo:empty {
+  display: none;
+}
+
 .cursor-cripta[data-zone="on"] .cursor-cripta__verbo {
   opacity: 1;
   transform: none;
@@ -812,8 +831,8 @@ body {
   opacity: 1;
 }
 
-/* --- Cripta: Portal --- */
-.portal {
+/* --- Cripta: Limiar --- */
+.limiar {
   position: fixed;
   inset: 0;
   width: 100%;
@@ -823,102 +842,858 @@ body {
   margin: 0;
   padding: 0;
   border: 0;
-  background: transparent;
+  background: var(--limiar-fundo);
   color: var(--osso);
   overflow: hidden;
 }
 
-.portal:not([open]) {
+.limiar:not([open]) {
   display: none;
 }
 
-.portal::backdrop {
-  background: transparent;
-}
-
-.portal__folha {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 50%;
-  background: repeating-linear-gradient(
-    0deg,
-    var(--breu) 0 3px,
-    color-mix(in srgb, var(--osso) 6%, var(--breu)) 3px 4px
-  );
-  animation: portal-deriva 12s linear infinite;
-}
-
-.portal__folha--esq {
-  left: 0;
-  border-right: 1px solid var(--linha);
-}
-
-.portal__folha--dir {
-  right: 0;
-}
-
-@keyframes portal-deriva {
-  to {
-    background-position: 0 40px;
-  }
-}
-
-:root[data-reading="on"] .portal__folha {
-  animation: none;
+.limiar::backdrop {
   background: var(--breu);
 }
 
-.portal__conteudo {
-  position: relative;
-  z-index: 1;
-  height: 100%;
+/* Faixa de HUD própria: inerte, no lugar do HUD real (que fica sob o diálogo). */
+.limiar__hud {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: var(--space-lg);
-  padding: var(--edge-padding);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: var(--hud-h);
+  padding: calc(env(safe-area-inset-top, 0px) + var(--space-2xs)) var(--edge-padding) var(--space-2xs);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  background: linear-gradient(var(--breu) 60%, transparent);
+  pointer-events: none;
 }
 
-.portal__btn {
+.limiar__marca {
+  font-size: clamp(1.375rem, 2.6vw, 2.125rem);
+  line-height: 1;
+}
+
+.limiar__hud-dir,
+.limiar__contador {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  min-height: 3rem;
-  padding: 0 var(--space-md);
-  border: var(--frame-w) solid var(--osso);
-  background: none;
-  color: var(--osso);
-  font-family: var(--font-jetbrains), ui-monospace, monospace;
-  font-size: 0.875rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition:
-    background-color var(--motion-fast),
-    color var(--motion-fast),
-    transform var(--motion-fast);
 }
 
-.portal__btn:hover,
-.portal__btn--primario {
+.limiar__pular {
+  position: absolute;
+  right: var(--edge-padding);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-md));
+}
+
+.limiar__pular:hover {
   background: var(--osso);
   color: var(--breu);
 }
 
-.portal__btn--primario {
+/* Ato Som */
+.limiar__som {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: var(--space-lg);
+  padding: calc(var(--hud-h) + var(--space-md)) var(--edge-padding) var(--space-2xl);
+  overflow-y: auto;
+}
+
+.limiar[data-fase="saindo"] .limiar__som {
+  pointer-events: none;
+}
+
+.limiar__pergunta {
+  margin: 0;
+  max-width: 24ch;
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(1.75rem, 4.5vw, 3.25rem);
+  line-height: 0.95;
+  text-align: center;
+}
+
+.limiar__portas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-md);
+  width: min(100%, 46rem);
+}
+
+.limiar__porta {
+  display: grid;
+  align-content: end;
+  justify-items: start;
+  gap: var(--space-2xs);
+  min-height: clamp(7rem, 24vh, 15rem);
+  padding: var(--space-md);
+  border: var(--frame-w) solid var(--osso);
+  background: var(--breu);
+  color: var(--osso);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast);
+}
+
+.limiar__porta:hover,
+.limiar__porta:focus-visible {
+  background: var(--osso);
+  color: var(--breu);
+}
+
+.limiar__porta--som {
   box-shadow: var(--sombra-dura);
 }
 
-.portal__btn:active {
-  transform: scale(0.96);
+.limiar__porta[aria-pressed="true"] {
+  border-color: var(--sangue);
 }
 
-.portal__btn kbd {
-  font: inherit;
-  font-size: 0.6875rem;
-  opacity: 0.6;
+.limiar__porta-nome {
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  line-height: 0.9;
+}
+
+.limiar__porta-dica {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+/* Celular em pé: portas empilhadas, mas sem a altura de desktop (24vh), que estourava o diálogo. */
+@media (max-width: 40rem) {
+  .limiar__porta {
+    min-height: var(--limiar-porta-h);
+  }
+}
+
+/* Telas baixas (celular em pé curto, paisagem): portas lado a lado e respiros menores, para volume,
+   "Modo leitura" e "pular" caberem sem rolar o diálogo. A rolagem do .limiar__som fica como rede. */
+@media (max-height: 50rem) {
+  .limiar__som {
+    gap: var(--space-sm);
+    padding-top: calc(var(--hud-h) + var(--space-3xs));
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--limiar-pular-h) + var(--space-md));
+  }
+
+  .limiar__pergunta {
+    font-size: clamp(1.5rem, 4vw, 2.25rem);
+  }
+
+  .limiar__portas {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-xs);
+  }
+
+  .limiar__porta {
+    min-height: var(--limiar-porta-h);
+    padding: var(--space-xs);
+  }
+
+  .limiar__porta-nome {
+    font-size: clamp(1.5rem, 6vw, 2.25rem);
+  }
+}
+
+/* Paisagem de celular: só o "pular" (canto direito) e o conteúdo largo (portas) disputam o pé; o resto é estreito e centrado. */
+@media (max-height: 30rem) {
+  .limiar__som {
+    gap: var(--space-2xs);
+    padding-top: var(--hud-h);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-2xs));
+  }
+
+  .limiar__pergunta {
+    font-size: 1.25rem;
+  }
+
+  .limiar__porta {
+    min-height: 0;
+  }
+
+  .limiar__eq {
+    height: 1rem;
+  }
+}
+
+/* Barras de equalizador da porta "com som": animam ao passar ou focar, com ou sem áudio liberado. */
+.limiar__eq {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3xs);
+  height: 1.5rem;
+}
+
+.limiar__eq i {
+  width: 0.25rem;
+  height: 100%;
+  background: var(--sangue);
+  transform: scaleY(0.25);
+  transform-origin: bottom;
+  animation: limiar-eq var(--motion-slow) var(--ease-in-out) infinite alternate paused;
+}
+
+.limiar__eq i:nth-child(2) {
+  animation-delay: calc(var(--motion-slow) * -0.4);
+}
+
+.limiar__eq i:nth-child(3) {
+  animation-delay: calc(var(--motion-slow) * -0.8);
+}
+
+.limiar__eq i:nth-child(4) {
+  animation-delay: calc(var(--motion-slow) * -0.2);
+}
+
+.limiar__eq i:nth-child(5) {
+  animation-delay: calc(var(--motion-slow) * -0.6);
+}
+
+.limiar__porta--som:hover .limiar__eq i,
+.limiar__porta--som:focus-visible .limiar__eq i {
+  animation-play-state: running;
+}
+
+@keyframes limiar-eq {
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Brasa da saída do ato Som: nasce no ponto da escolha e segura no centro até a ilha chegar. */
+.limiar__brasa {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--limiar-ember);
+  height: var(--limiar-ember);
+  margin: calc(var(--limiar-ember) / -2) 0 0 calc(var(--limiar-ember) / -2);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--sangue) 0 30%, transparent 70%);
+  transform: translate(50vw, 50vh);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.limiar__brasa::after {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--sangue) 45%, transparent), transparent 70%);
+  animation: limiar-brasa var(--motion-pulse) var(--ease-in-out) infinite alternate;
+}
+
+/* No palco a brasa da casca some: as transições usam a própria, dentro da camada. */
+.limiar[data-fase="palco"] > .limiar__brasa {
+  display: none;
+}
+
+@keyframes limiar-brasa {
+  from {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .limiar__eq i,
+  .limiar__brasa::after {
+    animation: none;
+  }
+}
+
+/* Palco (ilha LimiarStage): cena do ato, camada de transição, grão e trilho, nesta ordem de pintura.
+   Tudo vem antes da faixa de HUD e do "pular" no DOM: os dois ficam por cima sem z-index. */
+.limiar__palco,
+.limiar__cena,
+.limiar__transicao,
+.limiar__grao {
+  position: absolute;
+  inset: 0;
+}
+
+.limiar__palco:focus {
+  outline: none;
+}
+
+.limiar__cena {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: var(--space-lg);
+  padding: calc(var(--hud-h) + var(--space-md)) var(--edge-padding) var(--space-2xl);
+  overflow-y: auto;
+}
+
+/* Os atos ocupam a cena inteira: a camada própria não rola nem vaza (clarão, tremor, pedras). */
+.limiar-abertura,
+.limiar-gesto,
+.limiar-gesto__quadro,
+.limiar-inscricoes,
+.limiar-reliquia {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* Ato Abertura: gravura no canvas (aria-hidden) sobre a caixa do <h2>; a frase entra depois da varredura. */
+.limiar-abertura {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: calc(var(--hud-h) + var(--space-md)) var(--edge-padding) var(--space-2xl);
+}
+
+.limiar-abertura__gravura {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.limiar-abertura__marca {
+  position: relative;
+  margin: 0;
+  width: min(100%, 64rem);
+  height: clamp(6rem, 30vh, 18rem);
+}
+
+.limiar-abertura__frase {
+  position: relative;
+  margin: 0;
+  padding: var(--space-2xs) var(--space-xs);
+  border: 0;
+  background: none;
+  color: var(--osso);
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(1.375rem, 3.2vw, 2.25rem);
+  line-height: 1.1;
+  text-align: center;
+  cursor: inherit;
+  opacity: 0;
+  transform: translateY(var(--motion-rise));
+  transition:
+    opacity var(--motion-slower) var(--ease-out),
+    transform var(--motion-slower) var(--ease-out);
+}
+
+.limiar-abertura[data-acesa] .limiar-abertura__frase {
+  opacity: 1;
+  transform: none;
+}
+
+.limiar-abertura__virada {
+  color: var(--sangue);
+}
+
+/* Ato Gesto: anel no centro, texto logo abaixo, clarão radial atrás (opacidade = carga). */
+.limiar-gesto {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.limiar-gesto__clarao {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--limiar-clarao);
+  height: var(--limiar-clarao);
+  margin: calc(var(--limiar-clarao) / -2) 0 0 calc(var(--limiar-clarao) / -2);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--sangue) 55%, transparent) 0,
+    color-mix(in srgb, var(--sangue) 18%, transparent) 30%,
+    transparent 60%
+  );
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Acendeu: clarão --osso. */
+.limiar-gesto[data-aceso] .limiar-gesto__clarao {
+  background: radial-gradient(
+    circle,
+    var(--osso) 0,
+    color-mix(in srgb, var(--osso) 35%, transparent) 25%,
+    transparent 60%
+  );
+}
+
+.limiar-gesto__anel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: var(--limiar-anel);
+  height: var(--limiar-anel);
+  margin: calc(var(--limiar-anel) / -2) 0 0 calc(var(--limiar-anel) / -2);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--breu) 70%, transparent);
+  color: var(--osso);
+  cursor: inherit;
+  touch-action: none;
+}
+
+.limiar-gesto__anel.focus-ring:focus-visible {
+  border-radius: 50%;
+}
+
+.limiar-gesto__carga {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.limiar-gesto__carga circle {
+  fill: none;
+  stroke: var(--sangue);
+  stroke-width: 4;
+}
+
+.limiar-gesto__carga .limiar-gesto__trilha {
+  stroke: var(--cinza);
+  stroke-width: 1.5;
+}
+
+.limiar-gesto__verbo {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: color var(--motion-fast);
+}
+
+.limiar-gesto[data-segurando] .limiar-gesto__verbo {
+  color: var(--sangue-texto);
+}
+
+.limiar-gesto__texto {
+  position: absolute;
+  inset-inline: var(--edge-padding);
+  top: calc(50% + var(--limiar-anel) / 2 + var(--space-md));
+  margin: 0;
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(1.25rem, 2.6vw, 1.75rem);
+  line-height: 1.1;
+  text-align: center;
+}
+
+/* Ato Inscrições: pilha das três frases (texto inteiro no DOM desde o início); a atual acende palavra por
+   palavra, saindo do borrado e de baixo (--i é a ordem da palavra, o passo vem do TIMING por estilo inline). */
+.limiar-inscricoes {
+  display: grid;
+  place-items: center;
+  padding: calc(var(--hud-h) + var(--space-md)) var(--edge-padding) var(--space-2xl);
+}
+
+.limiar-inscricoes__frases {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-md);
+  max-width: 30ch;
+  margin: 0;
+  padding: var(--space-2xs) var(--space-xs);
+  border: 0;
+  background: none;
+  color: var(--osso);
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(1.625rem, 4vw, 3rem);
+  line-height: 1.05;
+  text-align: center;
+  cursor: inherit;
+}
+
+.limiar-inscricoes__frase {
+  display: block;
+  transition:
+    opacity var(--motion-slower) var(--ease-out),
+    transform var(--motion-slower) var(--ease-out);
+}
+
+/* As anteriores esmaecem e encolhem. */
+.limiar-inscricoes__frase[data-estado="passada"] {
+  opacity: 0.35;
+  transform: scale(0.82);
+}
+
+.limiar-inscricoes__palavra {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(var(--limiar-palavra-borrado));
+  transform: translateY(var(--motion-rise));
+}
+
+.limiar-inscricoes__frase:not([data-estado="futura"]) .limiar-inscricoes__palavra {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  transition:
+    opacity var(--motion-slow) var(--ease-out),
+    filter var(--motion-slow) var(--ease-out),
+    transform var(--motion-slow) var(--ease-out);
+  transition-delay: calc(var(--i, 0) * var(--limiar-palavra-passo, 0ms));
+}
+
+/* Avançar no meio do acendimento completa a frase de uma vez. */
+.limiar-inscricoes__frase[data-acesa] .limiar-inscricoes__palavra,
+.limiar-inscricoes__frase[data-estado="passada"] .limiar-inscricoes__palavra {
+  transition-delay: 0s;
+}
+
+.limiar-inscricoes__palavra[data-chave] {
+  color: var(--sangue);
+}
+
+/* Ato Relíquia: o disco (elemento, sob o canvas das pedras) e o botão sempre presente, discreto. */
+.limiar-reliquia {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.limiar-reliquia__relic {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: var(--limiar-reliquia);
+  height: var(--limiar-reliquia);
+  border: var(--frame-w) solid var(--sangue);
+  border-radius: 50%;
+  background: var(--breu);
+  color: var(--osso);
+  box-shadow: 0 0 var(--space-sm) var(--sangue);
+  visibility: hidden;
+  cursor: inherit;
+  animation: limiar-reliquia-pulso var(--motion-pulse) var(--ease-in-out) infinite alternate;
+}
+
+/* Alvo de clique/toque maior que o disco. */
+.limiar-reliquia__relic::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  border-radius: 50%;
+}
+
+.limiar-reliquia__relic[data-pronta] {
+  visibility: visible;
+}
+
+/* Pega: passa à frente das pedras e para de receber cliques. */
+.limiar-reliquia__relic[data-pega] {
+  z-index: 1;
+  pointer-events: none;
+}
+
+.limiar-reliquia__relic[data-pega="sem-voo"] {
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+}
+
+.limiar-reliquia__sigilo {
+  font-family: var(--font-grenze), Georgia, serif;
+  font-size: calc(var(--limiar-reliquia) * 0.5);
+  line-height: 1;
+}
+
+@keyframes limiar-reliquia-pulso {
+  to {
+    box-shadow: 0 0 var(--space-lg) var(--space-2xs) var(--sangue);
+  }
+}
+
+.limiar-reliquia__pedras {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.limiar-reliquia__fim {
+  position: absolute;
+  inset-inline: var(--edge-padding);
+  top: 38%;
+  margin: 0;
+  font-family: var(--font-grenze), Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(1.75rem, 4.5vw, 3.25rem);
+  line-height: 0.95;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(var(--motion-rise));
+  transition:
+    opacity var(--motion-slower) var(--ease-out),
+    transform var(--motion-slower) var(--ease-out);
+  pointer-events: none;
+}
+
+.limiar-reliquia[data-fim] .limiar-reliquia__fim {
+  opacity: 1;
+  transform: none;
+}
+
+.limiar-reliquia__pegar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-md));
+  min-height: var(--tap-min);
+  padding: var(--space-2xs) var(--space-xs);
+  border: 1px solid var(--linha);
+  background: var(--breu);
+  color: var(--cinza);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  transform: translateX(-50%);
+  cursor: pointer;
+  transition:
+    color var(--motion-fast),
+    border-color var(--motion-fast);
+}
+
+/* A dica: descoberta, o botão deixa de ser discreto. */
+.limiar-reliquia__pegar[data-descoberta],
+.limiar-reliquia__pegar:hover,
+.limiar-reliquia__pegar:focus-visible {
+  color: var(--osso);
+  border-color: var(--sangue);
+}
+
+/* Pip da faixa de HUD do Limiar que a Relíquia acabou de acender. */
+.limiar__contador i[data-pulo] {
+  animation: limiar-pulo var(--motion-slow) var(--ease-out);
+}
+
+@keyframes limiar-pulo {
+  40% {
+    transform: translateY(calc(var(--space-2xs) * -1));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .limiar-abertura__frase,
+  .limiar-reliquia__fim {
+    transform: none;
+    transition: opacity var(--motion-fast);
+  }
+
+  .limiar-inscricoes__palavra,
+  .limiar-inscricoes__frase[data-estado="passada"] {
+    filter: none;
+    transform: none;
+  }
+
+  .limiar-inscricoes__frase:not([data-estado="futura"]) .limiar-inscricoes__palavra {
+    transition: opacity var(--motion-fast);
+    transition-delay: 0s;
+  }
+
+  .limiar-reliquia__relic,
+  .limiar__contador i[data-pulo] {
+    animation: none;
+  }
+}
+
+/* Camada de transição: solta enquanto não cobre; cobrindo, segura os cliques. */
+.limiar__transicao {
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.limiar__transicao[data-cobre] {
+  pointer-events: auto;
+}
+
+.limiar__transicao > * {
+  position: absolute;
+}
+
+.limiar__transicao-clarao {
+  left: 0;
+  top: 0;
+  width: var(--limiar-clarao);
+  height: var(--limiar-clarao);
+  margin: calc(var(--limiar-clarao) / -2) 0 0 calc(var(--limiar-clarao) / -2);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--osso) 35%, var(--sangue)) 0,
+    color-mix(in srgb, var(--sangue) 40%, transparent) 30%,
+    transparent 65%
+  );
+  filter: blur(var(--space-lg));
+  opacity: 0;
+}
+
+.limiar__transicao-faixa,
+.limiar__transicao-fatia {
+  left: 0;
+  width: 100%;
+}
+
+.limiar__transicao-faixa {
+  background: var(--breu);
+}
+
+.limiar__transicao-varredura {
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--sangue);
+  box-shadow: 0 0 var(--space-sm) var(--sangue);
+}
+
+.limiar__transicao-iris {
+  inset: 0;
+}
+
+.limiar__transicao-iris--sangue,
+.limiar__transicao-fatia--sangue {
+  background: var(--sangue);
+}
+
+.limiar__transicao-iris--breu {
+  background: var(--breu);
+}
+
+.limiar__transicao-fatia--linha {
+  background: var(--linha);
+}
+
+/* Véu da cortina final: o fundo do diálogo com um buraco que abre do centro (--cortina-r, animado). */
+.limiar__transicao-veu {
+  --cortina-r: 0px;
+  inset: 0;
+  background: var(--limiar-fundo);
+  -webkit-mask-image: radial-gradient(
+    circle at 50% 50%,
+    transparent var(--cortina-r),
+    var(--breu) calc(var(--cortina-r) + 2px)
+  );
+  mask-image: radial-gradient(circle at 50% 50%, transparent var(--cortina-r), var(--breu) calc(var(--cortina-r) + 2px));
+}
+
+/* Cortina: o diálogo fica transparente e a página real aparece pelo buraco do véu. */
+.limiar[data-cortina],
+.limiar[data-cortina]::backdrop {
+  background: transparent;
+}
+
+.limiar__grao {
+  width: 100%;
+  height: 100%;
+  opacity: var(--limiar-grao-opacidade);
+  pointer-events: none;
+}
+
+/* Trilho de progresso do Limiar (desktop): um marcador por ato, o atual em --sangue com rótulo. */
+.limiar__trilho {
+  position: absolute;
+  right: var(--space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-right: 1px solid var(--linha);
+  pointer-events: none;
+}
+
+@media (min-width: 48rem) {
+  .limiar__trilho {
+    display: flex;
+  }
+}
+
+.limiar__trilho-marca {
+  position: relative;
+  width: 1.5rem;
+  height: 2.75rem;
+}
+
+.limiar__trilho-marca::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 25%;
+  bottom: 25%;
+  width: 3px;
+  background: var(--cinza);
+  transition: background-color var(--motion-fast);
+}
+
+.limiar__trilho-marca[data-estado="feito"]::after {
+  background: var(--osso);
+}
+
+.limiar__trilho-marca[data-estado="atual"]::after {
+  background: var(--sangue);
+}
+
+.limiar__trilho-rotulo {
+  position: absolute;
+  right: var(--space-wide);
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--sangue-texto);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+}
+
+.limiar__trilho-marca[data-estado="atual"] .limiar__trilho-rotulo {
+  opacity: 1;
+}
+
+/* Foco devolvido ao <main> quando o Limiar fecha sem foco anterior: sem anel no bloco inteiro. */
+.page-surface:focus {
+  outline: none;
 }
 
 /* --- Cripta Fase 2: peças compartilhadas das salas --- */
@@ -1750,13 +2525,13 @@ body {
   background: var(--osso);
 }
 
-.portal__volume {
+.limiar__volume {
   display: grid;
   gap: var(--space-3xs);
   width: min(100%, 26rem);
 }
 
-.portal__dica {
+.limiar__dica {
   margin: 0;
   font-family: var(--font-jetbrains), ui-monospace, monospace;
   font-size: 0.75rem;
