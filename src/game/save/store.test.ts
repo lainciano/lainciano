@@ -43,6 +43,18 @@ describe("save store", () => {
     expect(JSON.parse(s.map.get(SAVE_KEY)!)).toEqual({ ...initialSave(NOW), place: "mesa", items: ["chave"] });
   });
 
+  it("patch funde flags e puzzles chave a chave e substitui o resto (bilhete + porta-norte)", () => {
+    const s = memoryStorage();
+    const store = createSaveStore(s, () => NOW);
+    store.patch({ flags: { bilhete: true }, items: ["chave"] });
+    store.patch({ flags: { "porta-norte": true }, items: ["chave", "lanterna"] });
+    expect(store.get().flags).toEqual({ bilhete: true, "porta-norte": true });
+    expect(store.get().items).toEqual(["chave", "lanterna"]);
+    store.patch({ puzzles: { a: 1 } });
+    store.patch({ puzzles: { b: 2 } });
+    expect(JSON.parse(s.map.get(SAVE_KEY)!).puzzles).toEqual({ a: 1, b: 2 });
+  });
+
   it("recarrega o que foi gravado", () => {
     const s = memoryStorage();
     createSaveStore(s, () => NOW).patch({ playMs: 500 });

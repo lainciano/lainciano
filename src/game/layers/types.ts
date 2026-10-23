@@ -76,12 +76,29 @@ export type LayerInstance = {
   dispose(): void;
 };
 
+/**
+ * Coletor de posse da carga (emenda aditiva ao contrato §3, Ruling 7). `own(recurso)` registra qualquer coisa
+ * com `dispose()` e a devolve; `own.add(fn)` registra uma limpeza qualquer (listener, objectURL…).
+ * O carregador drena em ordem reversa, cada item protegido: quando a carga falha ou é abortada (inclusive
+ * `load` que ignora o sinal e só termina depois), e, no caminho feliz, depois do `instance.dispose()`.
+ * Depois de drenado, um `own()` tardio (callback de TextureLoader, por exemplo) descarta na hora.
+ */
+export type Own = {
+  <T extends { dispose(): void }>(resource: T): T;
+  add(cleanup: () => void): void;
+};
+
+/**
+ * Regras do `load` (emenda ao §3, Ruling 7):
+ * - NUNCA toca `ctx.scene`: constrói um `Group` raiz privado; `instance.enter()` o anexa à cena e
+ *   `instance.dispose()` o solta e descarta o que criou. Assim uma carga cancelada não deixa rastro na cena.
+ * - Tudo o que cria (geometria, material, textura, render target, listener) passa por `own(...)`, para o
+ *   carregador limpar se o `load` rejeitar ou for abortado; o que `kit` e `audio` entregam é compartilhado e
+ *   NÃO entra em `own`.
+ * - Pode parar cedo se `signal` abortar; se ignorar o sinal, o carregador descarta o resultado quando chegar.
+ */
 export type Layer = {
   id: LayerId;
   manifest: Manifest;
-  /**
-   * Cria a camada. Se `signal` abortar no meio, quem chamou descarta o que já nasceu; uma camada que
-   * respeita o sinal pode parar antes, mas nunca deixa a cena do engine alterada se rejeitar.
-   */
-  load(ctx: GameCtx, signal: AbortSignal): Promise<LayerInstance>;
+  load(ctx: GameCtx, signal: AbortSignal, own: Own): Promise<LayerInstance>;
 };

@@ -1,3 +1,4 @@
+import { mergeSavePatch } from "./merge";
 import { initialSave, parseSave, type SaveV1 } from "./schema";
 
 export const GAME_KEY_PREFIX = "lainciano:jogo:";
@@ -39,7 +40,7 @@ export function createSaveStore(storage: StorageLike, now: () => number): SaveAp
   return {
     get: () => state,
     patch(p) {
-      state = { ...state, ...p, version: 1 };
+      state = mergeSavePatch(state, p);
       persist();
     },
     reset() {

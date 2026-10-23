@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { initialSave } from "../save/schema";
 import type { SaveV1 } from "../save/schema";
 import { createLayerRunner, loadLayer, MAX_LOAD_FAILURES } from "./loader";
-import type { GameCtx, Layer, LayerId, LayerInstance, SavePatch } from "./types";
+import type { GameCtx, Layer, LayerId, LayerInstance, Own, SavePatch } from "./types";
 
 const SAVE: SaveV1 = initialSave(1_700_000_000_000);
 
@@ -97,7 +97,7 @@ describe("loadLayer", () => {
     const calls: Calls = [];
     const { layer, instance } = immediateLayer("cinza", "a", calls);
     const r = await loadLayer(layer, fakeCtx().ctx, new AbortController().signal);
-    expect(r).toEqual({ ok: true, instance });
+    expect(r).toMatchObject({ ok: true, instance });
     expect(instance.enter).not.toHaveBeenCalled();
     expect(instance.dispose).not.toHaveBeenCalled();
   });
@@ -177,13 +177,148 @@ describe("loadLayer", () => {
   });
 });
 
+
+describe("loadLayer: posse dos recursos (own)", () => {
+  /** Recurso falso que registra a ordem de descarte. */
+  const res = (name: string, order: string[]) => ({ dispose: vi.fn(() => order.push(name)) });
+
+  function ownLayer(id: LayerId, body: (own: Own, signal: AbortSignal) => Promise<LayerInstance>): Layer {
+    return {
+      id,
+      manifest: { id, textures: [], models: [], audio: [], budget: { triangles: 0, textureBytes: 0 } },
+      load: (_ctx, signal, own) => body(own, signal),
+    };
+  }
+
+  it("own de 3 recursos e rejeitar DEPOIS do abort → os 3 descartados, em ordem reversa", async () => {
+    const order: string[] = [];
+    const rs = ["a", "b", "c"].map((n) => res(n, order));
+    let reject!: (e: unknown) => void;
+    const gate = new Promise<void>((_, rej) => (reject = rej));
+    const layer = ownLayer("cinza", async (own) => {
+      rs.forEach((r) => own(r));
+      await gate;
+      throw new Error("nunca chega");
+    });
+    const ac = new AbortController();
+    const p = loadLayer(layer, fakeCtx().ctx, ac.signal, vi.fn());
+    await tick();
+    ac.abort();
+    reject(new DOMException("x", "AbortError"));
+    expect(await p).toEqual({ ok: false, reason: "aborted" });
+    rs.forEach((r) => expect(r.dispose).toHaveBeenCalledTimes(1));
+    expect(order).toEqual(["c", "b", "a"]);
+  });
+
+  it("own de recursos e rejeitar sem abort → failed e recursos descartados", async () => {
+    const order: string[] = [];
+    const layer = ownLayer("cinza", async (own) => {
+      own(res("a", order));
+      own.add(() => order.push("listener"));
+      throw new Error("404");
+    });
+    const r = await loadLayer(layer, fakeCtx().ctx, new AbortController().signal, vi.fn());
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBe("failed");
+    expect(order).toEqual(["listener", "a"]);
+  });
+
+  it("own() DEPOIS do drain descarta na hora (load que ignora o sinal, callback tardio)", async () => {
+    let lateOwn!: Own;
+    const layer = ownLayer("cinza", async (own) => {
+      lateOwn = own;
+      throw new Error("falhou");
+    });
+    await loadLayer(layer, fakeCtx().ctx, new AbortController().signal, vi.fn());
+    const order: string[] = [];
+    const late = res("tardio", order);
+    expect(lateOwn(late)).toBe(late);
+    expect(late.dispose).toHaveBeenCalledTimes(1);
+    lateOwn.add(() => order.push("add-tardio"));
+    expect(order).toEqual(["tardio", "add-tardio"]);
+  });
+
+  it("resolve DEPOIS do abort → instance.dispose e o drain rodam uma vez cada", async () => {
+    const calls: Calls = [];
+    const inst = fakeInstance("a", calls);
+    const owned = res("tex", calls);
+    let go!: () => void;
+    const gate = new Promise<void>((r) => (go = r));
+    const layer = ownLayer("cinza", async (own) => {
+      own(owned);
+      await gate;
+      return inst;
+    });
+    const ac = new AbortController();
+    const p = loadLayer(layer, fakeCtx().ctx, ac.signal);
+    await tick();
+    ac.abort();
+    go();
+    expect(await p).toEqual({ ok: false, reason: "aborted" });
+    expect(inst.dispose).toHaveBeenCalledTimes(1);
+    expect(owned.dispose).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(["a.dispose", "tex"]);
+  });
+
+  it("erro real depois do abort vai para onError; AbortError não", async () => {
+    for (const [error, reported] of [
+      [new Error("real"), 1],
+      [new DOMException("x", "AbortError"), 0],
+    ] as const) {
+      let reject!: (e: unknown) => void;
+      const gate = new Promise<void>((_, rej) => (reject = rej));
+      const layer = ownLayer("cinza", async () => {
+        await gate;
+        throw error;
+      });
+      const onError = vi.fn();
+      const ac = new AbortController();
+      const p = loadLayer(layer, fakeCtx().ctx, ac.signal, onError);
+      await tick();
+      ac.abort();
+      reject(error);
+      expect(await p).toEqual({ ok: false, reason: "aborted" });
+      expect(onError).toHaveBeenCalledTimes(reported);
+    }
+  });
+
+  it("um item do drain que lança vai para onError e não impede os outros", async () => {
+    const order: string[] = [];
+    const layer = ownLayer("cinza", async (own) => {
+      own.add(() => order.push("a"));
+      own.add(() => {
+        throw new Error("dispose ruim");
+      });
+      own.add(() => order.push("c"));
+      throw new Error("falhou");
+    });
+    const onError = vi.fn();
+    await loadLayer(layer, fakeCtx().ctx, new AbortController().signal, onError);
+    expect(order).toEqual(["c", "a"]);
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it("sem onError o erro engolido vai para console.error", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const layer = ownLayer("cinza", async (own) => {
+      own.add(() => {
+        throw new Error("x");
+      });
+      throw new Error("falhou");
+    });
+    await loadLayer(layer, fakeCtx().ctx, new AbortController().signal);
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+});
+
 describe("createLayerRunner", () => {
   it("enter carrega, entra com o save e expõe current", async () => {
     const calls: Calls = [];
     const { layer, instance } = immediateLayer("cinza", "a", calls);
     const runner = createLayerRunner(fakeCtx().ctx);
     expect(runner.current()).toBeNull();
-    expect(await runner.enter(layer, SAVE)).toEqual({ ok: true, instance });
+    expect(await runner.enter(layer, SAVE)).toMatchObject({ ok: true, instance });
     expect(runner.current()).toBe(instance);
     expect(instance.enter).toHaveBeenCalledWith(SAVE);
     expect(calls).toEqual(["a.load", "a.enter"]);
@@ -273,7 +408,7 @@ describe("createLayerRunner", () => {
     expect(a.instance.enter).not.toHaveBeenCalled();
     expect(runner.current()).toBeNull();
     b.resolve();
-    expect(await pb).toEqual({ ok: true, instance: b.instance });
+    expect(await pb).toMatchObject({ ok: true, instance: b.instance });
     expect(runner.current()).toBe(b.instance);
     expect(b.instance.dispose).not.toHaveBeenCalled();
   });
@@ -420,6 +555,87 @@ describe("createLayerRunner", () => {
     expect(await p).toEqual({ ok: false, reason: "aborted" });
     expect(a.instance.dispose).toHaveBeenCalledTimes(1);
     expect(runner.current()).toBeNull();
+  });
+
+
+  it("o coletor da carga é drenado DEPOIS do instance.dispose() ao sair (e uma só vez)", async () => {
+    const calls: Calls = [];
+    const inst = fakeInstance("a", calls);
+    const owned = { dispose: vi.fn(() => calls.push("tex")) };
+    const layer: Layer = {
+      id: "cinza",
+      manifest: { id: "cinza", textures: [], models: [], audio: [], budget: { triangles: 0, textureBytes: 0 } },
+      load: async (_c, _s, own) => {
+        own(owned);
+        return inst;
+      },
+    };
+    const runner = createLayerRunner(fakeCtx().ctx);
+    await runner.enter(layer, SAVE);
+    expect(owned.dispose).not.toHaveBeenCalled();
+    runner.leave();
+    runner.dispose();
+    expect(calls).toEqual(["a.enter", "a.exit", "a.dispose", "tex"]);
+    expect(owned.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("instance.enter() que lança → dispose da instância e depois o coletor, uma vez cada", async () => {
+    const calls: Calls = [];
+    const inst = fakeInstance("a", calls, {
+      enter: () => {
+        throw new Error("save estranho");
+      },
+    });
+    const owned = { dispose: vi.fn(() => calls.push("tex")) };
+    const layer: Layer = {
+      id: "cinza",
+      manifest: { id: "cinza", textures: [], models: [], audio: [], budget: { triangles: 0, textureBytes: 0 } },
+      load: async (_c, _s, own) => {
+        own(owned);
+        return inst;
+      },
+    };
+    const runner = createLayerRunner(fakeCtx().ctx, { onError: vi.fn() });
+    const r = await runner.enter(layer, SAVE);
+    expect(r.ok).toBe(false);
+    expect(calls).toEqual(["a.enter", "a.dispose", "tex"]);
+  });
+
+  it("a brecha entre o fim do load e a continuação do enter: aborto em qualquer ponto não vaza nem duplica", async () => {
+    const outcomes = new Set<string>();
+    for (let depth = 0; depth <= 8; depth++) {
+      const calls: Calls = [];
+      const inst = fakeInstance("a", calls);
+      const owned = { dispose: vi.fn() };
+      const runnerRef: { r?: ReturnType<typeof createLayerRunner> } = {};
+      const layer: Layer = {
+        id: "cinza",
+        manifest: { id: "cinza", textures: [], models: [], audio: [], budget: { triangles: 0, textureBytes: 0 } },
+        load: async (_c, _s, own) => {
+          own(owned);
+          // dispara o aborto `depth` microtarefas depois de o load devolver
+          let p: Promise<void> = Promise.resolve();
+          for (let i = 0; i < depth; i++) p = p.then(() => undefined);
+          void p.then(() => runnerRef.r!.leave());
+          return inst;
+        },
+      };
+      runnerRef.r = createLayerRunner(fakeCtx().ctx);
+      const result = await runnerRef.r.enter(layer, SAVE);
+      await tick();
+      outcomes.add(result.ok ? "ok" : "aborted");
+      // sempre: nada fica vivo, tudo descartado exatamente uma vez
+      expect(runnerRef.r.current()).toBeNull();
+      expect(inst.dispose).toHaveBeenCalledTimes(1);
+      expect(owned.dispose).toHaveBeenCalledTimes(1);
+      if (!result.ok) {
+        expect(result.reason).toBe("aborted");
+        expect(inst.enter).not.toHaveBeenCalled();
+        expect(inst.exit).not.toHaveBeenCalled();
+      }
+    }
+    // a janela existe e é coberta: houve aborto depois de o load ter resolvido
+    expect(outcomes.has("aborted")).toBe(true);
   });
 
   describe("falhas", () => {
