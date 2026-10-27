@@ -532,12 +532,13 @@ export function buildLamp(m: Maker, x: number, ceilingY: number, z: number, bulb
     [0.05, -0.02],
     [0.012, -0.03],
     [0.0001, -0.03],
-  ].map(([r, y]) => new T.Vector2(r, y));
+  ].map(([r, y]) => new T.Vector2(r, y)).reverse();
   m.mesh(new T.LatheGeometry(rose, 14), metal, pivot, 0, -0.001, 0, opts);
   // fio até a cúpula
   const shadeTop = -(drop - 0.07);
   m.mesh(new T.CylinderGeometry(0.0035, 0.0035, -shadeTop - 0.03, 5), cordMat, pivot, 0, (shadeTop - 0.03) / 2, 0, opts);
-  // cúpula: cone com a borda enrolada (perfil), de fora e de dentro (2 mm para dentro, sem coplanar)
+  // cúpula: cone com a borda enrolada (perfil), de fora e de dentro (2 mm para dentro, sem coplanar). O perfil é
+  // escrito de cima para baixo; a lathe quer de baixo para cima para as faces olharem para fora: `reverse`.
   const shade = (k: number) =>
     [
       [0.03, 0],
@@ -548,8 +549,8 @@ export function buildLamp(m: Maker, x: number, ceilingY: number, z: number, bulb
       [0.172, -0.15],
       [0.166, -0.155],
     ].map(([r, y]) => new T.Vector2(r * k, y));
-  m.mesh(new T.LatheGeometry(shade(1), 18), outer, pivot, 0, shadeTop, 0, opts);
-  m.mesh(new T.LatheGeometry(shade(0.985).slice(0, 5), 18), innerMat, pivot, 0, shadeTop - 0.002, 0, opts);
+  m.mesh(new T.LatheGeometry(shade(1).reverse(), 18), outer, pivot, 0, shadeTop, 0, opts);
+  m.mesh(new T.LatheGeometry(shade(0.985).slice(0, 5).reverse(), 18), innerMat, pivot, 0, shadeTop - 0.002, 0, opts);
   // soquete e lâmpada
   m.mesh(new T.CylinderGeometry(0.02, 0.022, 0.045, 10), bakelite, pivot, 0, shadeTop - 0.03, 0, opts);
   const bulbMesh = m.mesh(new T.SphereGeometry(0.032, 10, 8), bulb, pivot, 0, -drop, 0, { cast: false, recv: false });

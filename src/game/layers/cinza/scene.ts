@@ -15,8 +15,8 @@ import * as tx from "./textures";
 /** Luzes do protótipo 7 recalibradas na T6 (luz física do 0.186; ver render/shots/psxRef.ts). */
 const LEGACY = Math.PI;
 export const CINZA_LIGHTS = {
-  ambient: { color: 0x1e1c1a, intensity: 0.2 * LEGACY },
-  hemi: { sky: 0x3a4250, ground: 0x221a12, intensity: 0.14 * LEGACY },
+  ambient: { color: 0x1e1c1a, intensity: 0.15 * LEGACY },
+  hemi: { sky: 0x3a4048, ground: 0x241a10, intensity: 0.1 * LEGACY },
   lamp: { color: 0xffb062, intensity: 1.64 * LEGACY, distance: 6.5, angle: 0.88, penumbra: 0.65, decay: 0.75 },
   fill: { color: 0xffa860, intensity: 0.23 * LEGACY, distance: 4.6, decay: 1 },
 } as const;

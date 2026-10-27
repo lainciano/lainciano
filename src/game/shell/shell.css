@@ -18,6 +18,8 @@
 [data-game-stage] {
   position: absolute;
   inset: 0;
+  /* toque: arrastar olha (sem rolar nem dar zoom na página) */
+  touch-action: none;
 }
 
 /* O renderer dimensiona o buffer (setSize sem estilo); o CSS estica o canvas ao palco. */
@@ -123,9 +125,76 @@
   color: var(--breu);
 }
 
+/* Lista de lugares (L): só aparece quando chamada (bíblia 12b.1); botões nativos, foco visível. */
+[data-game-places] {
+  position: absolute;
+  z-index: var(--z-game-ui);
+  top: var(--space-sm);
+  left: var(--space-sm);
+  max-width: min(20rem, calc(100% - 2 * var(--space-sm)));
+  padding: var(--space-tick);
+  border: var(--frame-w) solid var(--linha);
+  background: var(--poco);
+}
+
+[data-game-places] ul {
+  display: grid;
+  gap: var(--space-tick);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-game-places] button {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0 var(--space-sm);
+  border: 0;
+  background: transparent;
+  color: var(--osso);
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 0.875rem;
+  letter-spacing: 0.04em;
+  text-align: left;
+  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+}
+
+:root[data-game="open"] [data-game-places] button:not(:disabled) {
+  cursor: pointer;
+}
+
+[data-game-places] button:not(:disabled):hover,
+[data-game-places] button:not(:disabled):focus-visible {
+  background: var(--osso);
+  color: var(--breu);
+}
+
+[data-game-places] button:disabled {
+  color: var(--cinza);
+}
+
+/* Fala e "pausado": serifa no terço de baixo (a legenda completa, palavra a palavra, é da T10). */
+[data-game-subtitles] p {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-instrument-serif), serif;
+  font-size: clamp(1.3rem, 2.2vw, 1.9rem);
+  line-height: 1.25;
+  color: var(--osso);
+  text-shadow: 0 0 var(--space-tick) var(--poco);
+}
+
+[data-game-subtitles] [data-game-paused] {
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 0.875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-game-fallback] button,
-  [data-game-exit] {
+  [data-game-exit],
+  [data-game-places] button {
     transition: none;
   }
 }

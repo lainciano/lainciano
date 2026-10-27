@@ -26,7 +26,5 @@ export type Action =
 /** Em que o jogo está: andar, um dos painéis (exame, leitura, celular) ou um menu (lista de lugares). */
 export type InputMode = "walk" | "examine" | "read" | "phone" | "menu";
 
-/** Modos que não são andar: abri-los solta o mouse e fechá-los o trava de novo se estava travado. */
-export const PANEL_MODES: readonly InputMode[] = ["examine", "read", "phone", "menu"];
 
 export const isPanel = (mode: InputMode): boolean => mode !== "walk";

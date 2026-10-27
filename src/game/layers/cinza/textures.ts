@@ -264,7 +264,7 @@ function plasterChip(g: CanvasRenderingContext2D, cx: number, cy: number, rad: n
   g.fillStyle = under;
   jagged(g, cx, cy, rad, mulberry(seed), 11, 1.4, 0.8);
   g.fill();
-  g.strokeStyle = "rgba(255,250,236,.28)";
+  g.strokeStyle = "rgba(255,250,236,.16)";
   g.lineWidth = 0.6;
   jagged(g, cx - 0.4, cy - 0.4, rad, mulberry(seed), 11, 1.4, 0.8);
   g.stroke();
@@ -292,9 +292,9 @@ export function drawWall(seed: number, width: number, feats: readonly WallFeatur
     const py = (m: number) => h - (m / H) * h;
     const px = (m: number) => (m / width) * w;
     const split = py(WALL_BAND);
-    g.fillStyle = "#a9a59b";
+    g.fillStyle = "#aca594";
     g.fillRect(0, 0, w, split);
-    g.fillStyle = "#666865";
+    g.fillStyle = "#636760";
     g.fillRect(0, split, w, h - split);
     g.save();
     g.beginPath();
@@ -383,10 +383,11 @@ export function drawWall(seed: number, width: number, feats: readonly WallFeatur
         }
       }
     }
-    for (let i = 0; i < 6; i++) {
+    // poucas lascas, no tom de baixo da tinta (não "manchas brancas": o reboco por baixo é só um pouco mais claro)
+    for (let i = 0; i < 5; i++) {
       const up = r() < 0.6;
       const cy = up ? 18 + r() * (split - 30) : split + 6 + r() * (h - split) * 0.6;
-      plasterChip(g, r() * w, cy, 2.2 + r() * 4, r, up ? (r() < 0.5 ? "#8f8b82" : "#c3bfb3") : r() < 0.6 ? "#9a9b96" : "#b9b4a6");
+      plasterChip(g, r() * w, cy, 1.6 + r() * 3, r, up ? (r() < 0.5 ? "#99938a" : "#b4ad9e") : r() < 0.6 ? "#76786f" : "#86837a");
     }
     for (let i = 0; i < 5; i++) plasterChip(g, r() * w, split + (r() - 0.3) * 4, 1.1 + r() * 1.5, r, "#a39f95");
     grain(g, w, h, r, 12);
@@ -536,7 +537,7 @@ export function drawWornEdge(seed: number, base: string): Draw {
 /** Imbuia escura em folha (veio largo, "flamejado"), com sujeira de mão em volta dos puxadores. */
 export const drawVeneer: Draw = (g, w, h) => {
   const r = mulberry(720);
-  g.fillStyle = "#3a2416";
+  g.fillStyle = "#4c301d";
   g.fillRect(0, 0, w, h);
   // veio flamejado: arcos encaixados que sobem
   for (let i = 0; i < 34; i++) {
@@ -890,7 +891,7 @@ export const drawFringe: Draw = (g, w, h) => {
  */
 export const drawNote: Draw = (g, w, h) => {
   const r = mulberry(830);
-  g.fillStyle = "#ddd5bf";
+  g.fillStyle = "#c8bfa6";
   g.fillRect(0, 0, w, h);
   blotches(g, w, h, r, 6, [170, 150, 110], 1.6, 0.25);
   for (let y = h * 0.14; y < h; y += h / 18) {
@@ -1039,50 +1040,4 @@ export const drawEnamelIn: Draw = (g, w, h) => {
   g.fillStyle = heat;
   g.fillRect(0, 0, w, h);
   grain(g, w, h, r, 8);
-};
-
-/* ------------------------------------------------------------------ mãos */
-
-/** Manga do casaco: sarja cinza-escura com trama diagonal e punho mais gasto. */
-export const drawSleeve: Draw = (g, w, h) => {
-  const r = mulberry(890);
-  g.fillStyle = "#2b2c28";
-  g.fillRect(0, 0, w, h);
-  for (let y = 0; y < h; y += 2) {
-    for (let x = 0; x < w; x += 2) {
-      const k = ((x >> 1) + (y >> 1)) % 4 < 2 ? 1 : -1;
-      g.fillStyle = k > 0 ? "rgba(255,255,255,.035)" : "rgba(0,0,0,.08)";
-      g.fillRect(x, y, 2, 2);
-    }
-  }
-  blotches(g, w, h, r, 6, [0, 0, 0], 1.5, 0.3);
-  edgeWear(g, w, h, r, [86, 84, 78], 4, 0.35);
-  grain(g, w, h, r, 14);
-};
-
-/** Pele: tom quente com as dobras dos nós mais escuras (a textura corre ao longo do dedo). */
-export const drawSkin: Draw = (g, w, h) => {
-  const r = mulberry(900);
-  g.fillStyle = "#8c6652";
-  g.fillRect(0, 0, w, h);
-  blotches(g, w, h, r, 5, [120, 70, 56], 1.4, 0.3);
-  for (const y of [0.3, 0.62]) {
-    g.fillStyle = "rgba(70,40,30,.3)";
-    g.fillRect(0, h * y, w, 1.5);
-  }
-  grain(g, w, h, r, 8);
-};
-
-/** Corpo da lanterna: alumínio preto anodizado, com o recartilhado da empunhadura. */
-export const drawKnurl: Draw = (g, w, h) => {
-  g.fillStyle = "#1c1c1e";
-  g.fillRect(0, 0, w, h);
-  for (let y = 0; y < h; y += 3) {
-    for (let x = (y / 3) % 2 ? 0 : 1.5; x < w; x += 3) {
-      g.fillStyle = "rgba(120,120,126,.25)";
-      g.fillRect(x, y, 1, 1);
-    }
-  }
-  g.fillStyle = "rgba(200,200,206,.18)";
-  g.fillRect(0, 0, w, 1);
 };

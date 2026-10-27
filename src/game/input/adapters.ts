@@ -1,0 +1,330 @@
+import { isPanel, type Action, type InputMode } from "./actions";
+import { keyToAction, TURN_KEYS } from "./keymap";
+
+/**
+ * Adaptadores de entrada (contrato §3): teclado, mouse travado e toque viram as mesmas `Action`.
+ * - Teclado: `keyToAction` por `code`; o adaptador guarda o que está segurado (soma o `move`, solta tudo quando a
+ *   janela perde o foco ou quando um painel abre) e gira o olhar continuamente com as setas laterais/PageUp/Down.
+ *   Enter e espaço num botão ficam com o botão; nada é lido dentro de campos de texto.
+ * - Mouse (ponteiro fino): o clique na cena trava o ponteiro (`requestPointerLock`); travado, mover olha, o
+ *   botão esquerdo é `interact` e o direito, num painel, é `back`. Se o travamento falhar, arrastar olha.
+ *   Abrir um painel com o mouse travado solta o mouse e lembra; fechar (E, ⌫ ou botão direito) trava de novo no
+ *   MESMO gesto (bíblia 12b.5). Perder o travamento sem pedir (Esc do navegador) chama `onPause(true)`.
+ * - Toque: arrastar olha; tocar (sem arrastar) chama `onTap` (chão anda, objeto age); dois toques correm.
+ * - Tela cheia: prende o Esc (`navigator.keyboard.lock`) enquanto dura; solta ao sair.
+ */
+
+export type BindOptions = {
+  coarse: boolean;
+  /** Modo atual (quem manda é o shell). Sem ele, tudo é `walk`. */
+  mode?: () => InputMode;
+  /** Toque/clique sem arrastar no palco, em coordenadas de cliente; `run` = dois toques. */
+  onTap?: (clientX: number, clientY: number, run: boolean) => void;
+  /** Travamento do mouse perdido sem pedir (`true`) ou retomado (`false`). */
+  onPause?: (paused: boolean) => void;
+};
+
+/** Pixels de mouse equivalentes por segundo ao girar com as setas (≈ 1,9 rad/s com a sensibilidade 1). */
+const TURN_PX_PER_S = 1.9 / 0.0022;
+/** Arrastar no toque gira mais que o mouse (o dedo anda pouco): fator do protótipo (0,0055 / 0,0022). */
+const TOUCH_LOOK = 2.5;
+const TAP_SLOP = 9;
+const DOUBLE_TAP_MS = 330;
+
+type KeyboardLock = { lock?(keys?: string[]): Promise<void>; unlock?(): void };
+
+const isTextField = (el: EventTarget | null) =>
+  el instanceof HTMLElement && (el.isContentEditable || el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement);
+const isControl = (el: EventTarget | null) => el instanceof HTMLElement && !!el.closest("button, a[href], [role='button'], summary");
+
+export function bindInput(target: HTMLElement, onAction: (a: Action) => void, opts: BindOptions): () => void {
+  const mode = opts.mode ?? (() => "walk" as InputMode);
+  const doc = target.ownerDocument;
+  const win = doc.defaultView ?? window;
+  const listeners: (() => void)[] = [];
+  const on = <K extends string>(el: EventTarget, type: K, fn: (e: Event) => void, o?: AddEventListenerOptions) => {
+    el.addEventListener(type, fn, o);
+    listeners.push(() => el.removeEventListener(type, fn, o));
+  };
+
+  /* ------------------------------------------------ estado segurado */
+  const heldMove = new Map<string, { x: number; z: number }>();
+  const heldTurn = new Map<string, { yaw: number; pitch: number }>();
+  let held = { run: false, crouch: false, peek: 0 as -1 | 0 | 1, interact: false };
+  let lastMode: InputMode = mode();
+
+  const emitMove = () => {
+    let x = 0;
+    let z = 0;
+    for (const v of heldMove.values()) {
+      x += v.x;
+      z += v.z;
+    }
+    onAction({ type: "move", x: Math.max(-1, Math.min(1, x)), z: Math.max(-1, Math.min(1, z)) });
+  };
+
+  /** Solta tudo o que estava segurado (perdeu o foco, abriu painel). */
+  const releaseAll = () => {
+    if (heldMove.size) {
+      heldMove.clear();
+      emitMove();
+    }
+    heldTurn.clear();
+    if (held.run) onAction({ type: "run", on: false });
+    if (held.peek !== 0) onAction({ type: "peek", dir: 0 });
+    if (held.crouch) onAction({ type: "crouch", on: false });
+    if (held.interact) onAction({ type: "interact", down: false });
+    held = { run: false, crouch: false, peek: 0, interact: false };
+  };
+
+  /* ------------------------------------------------ ponteiro travado */
+  let locked = false;
+  let expectUnlock = false;
+  let relock = false;
+  let lockFailed = false;
+  const canLock = () => !opts.coarse && typeof target.requestPointerLock === "function";
+  const requestLock = () => {
+    if (!canLock() || locked) return;
+    try {
+      const r = target.requestPointerLock() as unknown;
+      if (r instanceof Promise) r.catch(() => (lockFailed = true));
+    } catch {
+      lockFailed = true;
+    }
+  };
+  const releaseLock = () => {
+    if (doc.pointerLockElement !== target) return;
+    expectUnlock = true;
+    doc.exitPointerLock();
+  };
+
+  /** Depois de cada ação: abrir painel solta o mouse (e lembra), fechar trava de novo no mesmo gesto. */
+  const afterAction = (closingGesture: boolean) => {
+    const now = mode();
+    if (now === lastMode) return;
+    const was = lastMode;
+    lastMode = now;
+    if (!isPanel(was) && isPanel(now)) {
+      releaseAll();
+      if (locked) {
+        relock = true;
+        releaseLock();
+      }
+    } else if (isPanel(was) && !isPanel(now)) {
+      if (relock && closingGesture) requestLock();
+      relock = false;
+    }
+  };
+
+  const dispatch = (a: Action, closingGesture = false) => {
+    lastMode = mode();
+    onAction(a);
+    afterAction(closingGesture);
+  };
+
+  /* ------------------------------------------------ teclado */
+  let turnRaf = 0;
+  let turnLast = 0;
+  const turnLoop = (now: number) => {
+    turnRaf = 0;
+    if (heldTurn.size === 0 || mode() !== "walk") return;
+    const dt = turnLast ? Math.min(0.05, (now - turnLast) / 1000) : 0;
+    turnLast = now;
+    let yaw = 0;
+    let pitch = 0;
+    for (const v of heldTurn.values()) {
+      yaw += v.yaw;
+      pitch += v.pitch;
+    }
+    if (dt > 0) onAction({ type: "look", dx: -yaw * TURN_PX_PER_S * dt, dy: -pitch * TURN_PX_PER_S * dt * 0.6 });
+    turnRaf = win.requestAnimationFrame(turnLoop);
+  };
+
+  on(win, "keydown", (ev) => {
+    const e = ev as KeyboardEvent;
+    if (isTextField(e.target)) return;
+    if (isControl(e.target) && (e.code === "Enter" || e.code === "NumpadEnter" || e.code === "Space")) return;
+    const m = mode();
+    const turn = TURN_KEYS[e.code];
+    if (turn && m === "walk") {
+      e.preventDefault();
+      if (!heldTurn.has(e.code)) {
+        heldTurn.set(e.code, turn);
+        turnLast = 0;
+        if (!turnRaf) turnRaf = win.requestAnimationFrame(turnLoop);
+      }
+      return;
+    }
+    const a = keyToAction(e.code, true, m);
+    if (!a) return;
+    if (a.type !== "phone") e.preventDefault();
+    if (e.repeat) return;
+    switch (a.type) {
+      case "move":
+        heldMove.set(e.code, { x: a.x, z: a.z });
+        emitMove();
+        return;
+      case "run":
+        held.run = true;
+        break;
+      case "crouch":
+        held.crouch = true;
+        break;
+      case "peek":
+        held.peek = a.dir;
+        break;
+      case "interact":
+        held.interact = a.down;
+        break;
+    }
+    dispatch(a, a.type === "back" || a.type === "places" || a.type === "phone" || a.type === "read");
+  });
+
+  on(win, "keyup", (ev) => {
+    const e = ev as KeyboardEvent;
+    if (heldTurn.delete(e.code)) return;
+    if (heldMove.delete(e.code)) {
+      emitMove();
+      return;
+    }
+    const m = mode();
+    if (m !== "walk") return;
+    const a = keyToAction(e.code, false, m);
+    if (!a || a.type === "move") return;
+    if (a.type === "run") {
+      if (!held.run) return;
+      held.run = false;
+    } else if (a.type === "crouch") {
+      if (!held.crouch) return;
+      held.crouch = false;
+    } else if (a.type === "peek") {
+      // soltar Z com X ainda apertado não volta ao centro
+      const dir = e.code === "KeyZ" ? -1 : 1;
+      if (held.peek !== dir) return;
+      held.peek = 0;
+    } else if (a.type === "interact") {
+      if (!held.interact) return;
+      held.interact = false;
+    }
+    onAction(a);
+  });
+
+  on(win, "blur", releaseAll);
+
+  /* ------------------------------------------------ mouse e toque */
+  type Down = { id: number; x: number; y: number; lx: number; ly: number; moved: boolean; touch: boolean };
+  let down: Down | null = null;
+  let lastTap = { t: 0, x: 0, y: 0 };
+
+  on(target, "pointerdown", (ev) => {
+    const e = ev as PointerEvent;
+    const m = mode();
+    const touch = e.pointerType !== "mouse" || opts.coarse;
+    if (e.button === 2) {
+      if (isPanel(m)) dispatch({ type: "back" }, true);
+      return;
+    }
+    if (e.button !== 0) return;
+    if (!touch && m === "walk" && canLock() && !lockFailed) {
+      if (!locked) {
+        requestLock();
+        return;
+      }
+      held.interact = true;
+      dispatch({ type: "interact", down: true });
+      return;
+    }
+    down = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, touch };
+    try {
+      target.setPointerCapture(e.pointerId);
+    } catch {
+      /* captura indisponível: segue sem ela */
+    }
+  });
+
+  on(doc, "pointermove", (ev) => {
+    const e = ev as PointerEvent;
+    if (locked) {
+      if (mode() === "walk" && (e.movementX || e.movementY)) onAction({ type: "look", dx: e.movementX, dy: e.movementY });
+      return;
+    }
+    if (!down || e.pointerId !== down.id) return;
+    if (!down.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) > TAP_SLOP) down.moved = true;
+    if (down.moved && mode() === "walk") {
+      const k = down.touch ? -TOUCH_LOOK : 1;
+      onAction({ type: "look", dx: (e.clientX - down.lx) * k, dy: (e.clientY - down.ly) * k });
+    }
+    down.lx = e.clientX;
+    down.ly = e.clientY;
+  });
+
+  const endDown = (ev: Event) => {
+    const e = ev as PointerEvent;
+    if (locked && e.type === "pointerup" && e.button === 0 && held.interact) {
+      held.interact = false;
+      onAction({ type: "interact", down: false });
+      return;
+    }
+    if (!down || e.pointerId !== down.id) return;
+    const d = down;
+    down = null;
+    if (e.type !== "pointerup" || d.moved || mode() !== "walk") return;
+    const now = performance.now();
+    const run = now - lastTap.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 44;
+    lastTap = { t: now, x: e.clientX, y: e.clientY };
+    opts.onTap?.(e.clientX, e.clientY, run);
+  };
+  on(doc, "pointerup", endDown);
+  on(doc, "pointercancel", endDown);
+  on(target, "contextmenu", (e) => e.preventDefault());
+
+  on(doc, "pointerlockchange", () => {
+    const now = doc.pointerLockElement === target;
+    if (now) {
+      locked = true;
+      lockFailed = false;
+      opts.onPause?.(false);
+      return;
+    }
+    if (!locked) return;
+    locked = false;
+    releaseAll();
+    if (expectUnlock) {
+      expectUnlock = false;
+      return;
+    }
+    // Esc do navegador (ou a aba perdeu o foco): "pausado · clique na cena para continuar"
+    if (mode() === "walk") opts.onPause?.(true);
+  });
+  on(doc, "pointerlockerror", () => {
+    lockFailed = true;
+  });
+
+  /* ------------------------------------------------ tela cheia: prende o Esc */
+  const keyboard = (win.navigator as Navigator & { keyboard?: KeyboardLock }).keyboard;
+  const syncKeyboardLock = () => {
+    try {
+      if (doc.fullscreenElement) void keyboard?.lock?.(["Escape"])?.catch(() => {});
+      else keyboard?.unlock?.();
+    } catch {
+      /* sem Keyboard Lock: o Esc segue do navegador */
+    }
+  };
+  on(doc, "fullscreenchange", syncKeyboardLock);
+  syncKeyboardLock();
+
+  return () => {
+    releaseAll();
+    if (turnRaf) win.cancelAnimationFrame(turnRaf);
+    for (const off of listeners.splice(0)) off();
+    if (doc.pointerLockElement === target) {
+      expectUnlock = true;
+      doc.exitPointerLock();
+    }
+    try {
+      keyboard?.unlock?.();
+    } catch {
+      /* nada a soltar */
+    }
+  };
+}

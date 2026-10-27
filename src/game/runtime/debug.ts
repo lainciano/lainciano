@@ -22,6 +22,20 @@ export type CriptaDebug = {
   setCamera(pose: CameraPose): void;
   /** Liga/desliga o tremor e muda a afinidade (teste de nado de textura). Só os campos passados mudam. */
   setPsx(o: { snap?: boolean; affine?: number }): void;
+  /** Fotos de perto: mostra/esconde as mãos do jogador. */
+  hands(visible: boolean): void;
+  /**
+   * Varredura de sombra (T8): muda o `normalBias`/`bias` da luz principal da sala (`userData.mainLight`).
+   * Devolve os valores em vigor.
+   */
+  setShadow(o: { normalBias?: number; bias?: number }): { normalBias: number; bias: number } | null;
+};
+
+/** Ganchos do jogador e da camada (T8): o `place` vivo e a câmera do controlador. */
+export type DebugHooks = {
+  place?(): string | null;
+  setCamera?(pose: CameraPose): void;
+  hands?(visible: boolean): void;
 };
 
 export type CameraPose = { x: number; y: number; z: number; yaw: number; pitch: number };
@@ -37,6 +51,28 @@ const SHOTS = {
   "psx-ref": () => import("../render/shots/psxRef").then((m) => m.buildPsxRef),
 } satisfies Record<string, () => Promise<(engine: Engine) => () => void>>;
 
+/**
+ * Fotos de referência montadas sobre uma camada de verdade (T8): o shell carrega a camada, põe o jogador no
+ * lugar pedido e prende o tempo. `?debug=1&shot=cinza-entrada`.
+ */
+const LAYER_SHOTS = {
+  "cinza-entrada": { place: "entrada" },
+} as const;
+
+/** A foto de camada pedida em `?shot=` (só com o debug ligado) ou null. */
+export function layerShot(search: string): { place: string } | null {
+  if (!debugEnabled(search)) return null;
+  const name = new URLSearchParams(search).get("shot");
+  return name && Object.hasOwn(LAYER_SHOTS, name) ? LAYER_SHOTS[name as keyof typeof LAYER_SHOTS] : null;
+}
+
+/** `?shot=` pede uma cena de referência própria (psx-ref), que substitui a camada. */
+export function standaloneShot(search: string): boolean {
+  if (!debugEnabled(search)) return false;
+  const name = new URLSearchParams(search).get("shot");
+  return !!name && Object.hasOwn(SHOTS, name);
+}
+
 /** Só em dev ou com `?debug=1` na URL de quando o jogo abriu. */
 export function debugEnabled(search: string): boolean {
   return process.env.NODE_ENV !== "production" || new URLSearchParams(search).get("debug") === "1";
@@ -46,14 +82,14 @@ export function debugEnabled(search: string): boolean {
  * Expõe `window.__cripta` (leituras ao vivo por getters). Devolve a remoção; fora de dev/`?debug=1` não faz nada.
  * Depois da perda de contexto o objeto continua, com `lost: true`, até o jogo fechar.
  */
-export function installDebug(engine: Engine, getLayer: () => string, getSave: () => SaveV1): () => void {
+export function installDebug(engine: Engine, getLayer: () => string, getSave: () => SaveV1, hooks: DebugHooks = {}): () => void {
   if (!debugEnabled(window.location.search)) return () => {};
   const api: CriptaDebug = {
     get layer() {
       return getLayer();
     },
     get place() {
-      return getSave().place;
+      return hooks.place ? hooks.place() : getSave().place;
     },
     get camera(): CriptaDebug["camera"] {
       const { position: p, rotation: r, fov } = engine.camera;
@@ -83,6 +119,8 @@ export function installDebug(engine: Engine, getLayer: () => string, getSave: ()
     onFrame: (fn) => engine.onFrame(fn),
     setCamera({ x, y, z, yaw, pitch }) {
       if (![x, y, z, yaw, pitch].every(Number.isFinite)) return;
+      // Com jogador, a câmera é dele (senão o próximo quadro a devolveria ao lugar).
+      if (hooks.setCamera) return hooks.setCamera({ x, y, z, yaw, pitch });
       engine.camera.position.set(x, y, z);
       engine.camera.rotation.set(pitch, yaw, 0, "YXZ");
       engine.camera.updateMatrixWorld();
@@ -90,6 +128,18 @@ export function installDebug(engine: Engine, getLayer: () => string, getSave: ()
     setPsx({ snap, affine }) {
       if (snap !== undefined) engine.psx.uSnap.value = snap ? 1 : 0;
       if (affine !== undefined && Number.isFinite(affine)) engine.psx.uAff.value = Math.min(1, Math.max(0, affine));
+    },
+    hands: (visible) => hooks.hands?.(visible),
+    setShadow({ normalBias, bias }) {
+      let light: { shadow: { normalBias: number; bias: number } } | null = null;
+      engine.scene.traverse((o) => {
+        if (!light && o.userData.mainLight === true && "shadow" in o) light = o as unknown as { shadow: { normalBias: number; bias: number } };
+      });
+      if (!light) return null;
+      const { shadow } = light as { shadow: { normalBias: number; bias: number } };
+      if (normalBias !== undefined && Number.isFinite(normalBias)) shadow.normalBias = normalBias;
+      if (bias !== undefined && Number.isFinite(bias)) shadow.bias = bias;
+      return { normalBias: shadow.normalBias, bias: shadow.bias };
     },
   };
   window.__cripta = api;
@@ -107,7 +157,7 @@ export async function loadShot(engine: Engine, search: string, signal?: AbortSig
   const name = new URLSearchParams(search).get("shot");
   if (!name) return null;
   if (!Object.hasOwn(SHOTS, name)) {
-    console.warn(`[jogo] cena de referência desconhecida: ${name}`);
+    if (!Object.hasOwn(LAYER_SHOTS, name)) console.warn(`[jogo] cena de referência desconhecida: ${name}`);
     return null;
   }
   const build = await SHOTS[name as keyof typeof SHOTS]();

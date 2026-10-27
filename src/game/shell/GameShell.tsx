@@ -1,36 +1,33 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { GameLabels } from "../labels";
-import type { Engine } from "../runtime/engine";
+import type { Line } from "../layers/types";
+import type { PlaceItem, Session, SessionStatus } from "../runtime/session";
 import "./shell.css";
 import { useGameSession } from "./useGameSession";
 
-type StageStatus = "loading" | "live" | "failed";
-
-// O save lê o localStorage a cada chamada (o store já trata a exceção de storage bloqueado).
-const lazyStorage = {
-  getItem: (key: string) => window.localStorage.getItem(key),
-  setItem: (key: string, value: string) => window.localStorage.setItem(key, value),
-  removeItem: (key: string) => window.localStorage.removeItem(key),
-  key: (index: number) => window.localStorage.key(index),
-  get length() {
-    return window.localStorage.length;
-  },
-};
+/** Tempo da fala na tela: cresce com o texto (bíblia 12b.2); a legenda completa é da T10. */
+const lineSeconds = (text: string) => Math.min(9, 2.2 + text.length * 0.055);
 
 /**
- * Casca do jogo: um painel fixo sobre o site (irmão do .page-shell, fora do template). O palco recebe o
- * canvas do runtime (three chega por import() dentro do engine); as camadas de UI (prompt, legendas, painéis)
- * ficam sobre ele. Sem WebGL, sem slot no orçamento ou com o contexto perdido: aviso e botão de voltar ao site,
- * e nenhum loop fica rodando.
+ * Casca do jogo: um painel fixo sobre o site (irmão do .page-shell, fora do template). A sessão (engine, camada,
+ * jogador, entrada) chega por import() junto com o three e só pede à casca o que mostrar: carregando, falha,
+ * "a porta emperrou", a lista de lugares (L), "pausado" e a fala. Sem WebGL, sem slot ou com o contexto perdido:
+ * aviso e botão de voltar ao site, e nenhum loop fica rodando.
  * Esc nunca fecha: o navegador reserva a tecla; sair é o botão (e, depois, o menu do jogo).
  */
 export default function GameShell({ labels, onExit }: { labels: GameLabels; onExit: () => void }) {
   const shellRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLButtonElement>(null);
-  const [status, setStatus] = useState<StageStatus>("loading");
+  const retryRef = useRef<HTMLButtonElement>(null);
+  const placesRef = useRef<HTMLUListElement>(null);
+  const sessionRef = useRef<Session | null>(null);
+  const [status, setStatus] = useState<SessionStatus>("loading");
+  const [places, setPlaces] = useState<PlaceItem[] | null>(null);
+  const [paused, setPaused] = useState(false);
+  const [line, setLine] = useState<Line | null>(null);
   useGameSession();
 
   // O site fica inerte: o foco vai para a casca (que não é tabulável) e o Tab segue dali para o botão.
@@ -43,78 +40,63 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
     if (!host) return;
     const controller = new AbortController();
     const { signal } = controller;
-    let engine: Engine | null = null;
-    let uninstallDebug = () => {};
-    let disposeShot = () => {};
-    let lost = false;
-    const fail = () => {
-      if (!signal.aborted) setStatus("failed");
+    let lineTimer = 0;
+    const ui = {
+      status: (s: SessionStatus) => {
+        if (!signal.aborted) setStatus(s);
+      },
+      places: (list: PlaceItem[] | null) => {
+        if (!signal.aborted) setPlaces(list);
+      },
+      paused: (on: boolean) => {
+        if (!signal.aborted) setPaused(on);
+      },
+      say: (l: Line) => {
+        if (signal.aborted) return;
+        setLine(l);
+        window.clearTimeout(lineTimer);
+        lineTimer = window.setTimeout(() => setLine(null), lineSeconds(l.text) * 1000);
+      },
     };
-
-    // Runtime, three, save (zod) e debug chegam juntos por import(): o chunk do shell (e a lista de chunks
-    // que o JS inicial guarda para ele) não cresce.
-    const boot = async () => {
-      const [{ createEngine }, { installDebug, loadShot }, { createSaveStore }] = await Promise.all([
-        import("../runtime/engine"),
-        import("../runtime/debug"),
-        import("../save/store"),
-      ]);
-      if (signal.aborted) return;
-      const save = createSaveStore(lazyStorage, Date.now);
-      const created = await createEngine(host, {
-        coarse: window.matchMedia("(pointer: coarse)").matches,
-        settings: save.get().settings,
-        signal,
-        // O loop já parou; o engine é descartado já (slot e canvas), o aviso fica até sair.
-        onLost: () => {
-          lost = true;
-          engine?.dispose();
-          fail();
-        },
+    // Sessão, runtime, three, save (zod) e camada chegam juntos por import(): o chunk do shell não cresce.
+    import("../runtime/session")
+      .then(({ startSession }) => startSession(host, ui, signal))
+      .then((session) => {
+        if (signal.aborted) session?.dispose();
+        else sessionRef.current = session;
+      })
+      .catch((error: unknown) => {
+        // import() falhou (rede) ou erro inesperado ao montar: aviso, e o erro fica no console.
+        console.error("[jogo] o runtime não abriu", error);
+        ui.status("failed");
       });
-      if (signal.aborted) {
-        // Desmontou enquanto o runtime chegava (StrictMode, sair rápido): o engine tardio morre aqui.
-        created?.dispose();
-        return;
-      }
-      if (!created) return fail();
-      engine = created;
-      uninstallDebug = installDebug(created, () => save.get().layer, save.get);
-      // Cena de referência de debug (`?debug=1&shot=psx-ref`): entra antes do start para ser compilada junto.
-      const shot = await loadShot(created, window.location.search, signal);
-      if (signal.aborted) {
-        // O cleanup já rodou: a cena montada no meio do caminho morre aqui.
-        shot?.();
-        return;
-      }
-      if (shot) disposeShot = shot;
-      // Compila cena e pós antes do primeiro quadro; o "carregando" fica na tela até aqui.
-      await created.start();
-      if (signal.aborted) return;
-      if (lost) {
-        created.dispose();
-        return fail();
-      }
-      setStatus("live");
-    };
-    boot().catch((error: unknown) => {
-      // import() falhou (rede) ou erro inesperado ao montar: aviso, e o erro fica no console.
-      console.error("[jogo] o runtime não abriu", error);
-      fail();
-    });
-
     return () => {
       controller.abort();
-      uninstallDebug();
-      disposeShot();
-      engine?.dispose();
-      engine = null;
+      window.clearTimeout(lineTimer);
+      sessionRef.current?.dispose();
+      sessionRef.current = null;
     };
   }, []);
 
   useEffect(() => {
     if (status === "failed") backRef.current?.focus({ preventScroll: true });
+    if (status === "stuck") retryRef.current?.focus({ preventScroll: true });
   }, [status]);
+
+  // Lista aberta: foco no primeiro lugar disponível; fechada: o foco volta à casca (o teclado segue no jogo).
+  useEffect(() => {
+    if (places) placesRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus({ preventScroll: true });
+    else if (shellRef.current?.contains(document.activeElement) || document.activeElement === document.body) shellRef.current?.focus({ preventScroll: true });
+  }, [places]);
+
+  const onPlacesKey = (e: KeyboardEvent<HTMLUListElement>) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const buttons = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"));
+    const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    const next = buttons[(i + (e.key === "ArrowDown" ? 1 : buttons.length - 1)) % buttons.length];
+    e.preventDefault();
+    next?.focus();
+  };
 
   return (
     <div ref={shellRef} data-game-shell role="region" aria-label={labels.region} tabIndex={-1}>
@@ -128,8 +110,33 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
           </button>
         </div>
       )}
+      {status === "stuck" && (
+        <div data-game-fallback role="alert">
+          <p>{labels.stuck}</p>
+          <button ref={retryRef} type="button" onClick={() => sessionRef.current?.retry()} className="focus-ring">
+            {labels.retry}
+          </button>
+        </div>
+      )}
+      {places && (
+        <nav data-game-places aria-label={labels.places}>
+          <ul ref={placesRef} onKeyDown={onPlacesKey}>
+            {places.map((p) => (
+              <li key={p.id}>
+                <button type="button" className="focus-ring" disabled={p.here} onClick={() => sessionRef.current?.choosePlace(p.id)}>
+                  {p.name}
+                  {p.here && <span data-game-here>{` · ${labels.here}`}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
       <div data-game-prompt />
-      <div data-game-subtitles aria-live="polite" />
+      <div data-game-subtitles aria-live="polite">
+        {paused && <p data-game-paused>{labels.paused}</p>}
+        {line && !paused && <p data-game-line>{line.text}</p>}
+      </div>
       <div data-game-overlay />
       <button type="button" data-game-exit onClick={onExit} className="focus-ring">
         {labels.exit}

@@ -362,4 +362,12 @@ export const game = {
   region: "Jogo",
   noWebgl: "O 3D não abriu neste aparelho (WebGL indisponível ou perdido). O site continua aqui.",
   back: "Voltar ao site",
+  /** Lista de lugares (L): título acessível e a marca do lugar onde se está. */
+  places: "Lugares",
+  here: "aqui",
+  /** O travamento do mouse caiu (Esc do navegador): nunca a sensação de ter saído do jogo (bíblia 12b.5). */
+  paused: "pausado · clique na cena para continuar",
+  /** A camada não carregou (contrato §3). */
+  stuck: "A porta emperrou.",
+  retry: "Tentar de novo",
 };
