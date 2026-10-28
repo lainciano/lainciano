@@ -28,3 +28,23 @@ export type InputMode = "walk" | "examine" | "read" | "phone" | "menu";
 
 
 export const isPanel = (mode: InputMode): boolean => mode !== "walk";
+
+/**
+ * Ação que só SOLTA algo segurado (parar de andar, de correr, de agachar, de espiar, soltar a interação). Chega ao
+ * jogador mesmo com um painel aberto: abrir a lista com W segurado não pode deixar o jogador andando sozinho.
+ */
+export function isRelease(a: Action): boolean {
+  switch (a.type) {
+    case "move":
+      return a.x === 0 && a.z === 0;
+    case "run":
+    case "crouch":
+      return !a.on;
+    case "peek":
+      return a.dir === 0;
+    case "interact":
+      return !a.down;
+    default:
+      return false;
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Action, InputMode } from "./actions";
+import { isRelease, type Action, type InputMode } from "./actions";
 import { bindInput } from "./adapters";
 
 // Sem DOM no Vitest (ambiente node): o adaptador roda sobre falsos feitos de EventTarget, com o mínimo que ele
@@ -11,10 +11,13 @@ type Fake = {
   win: EventTarget;
   actions: Action[];
   paused: boolean[];
+  taps: number;
   requestLock: ReturnType<typeof vi.fn>;
   setMode(m: InputMode): void;
-  /** Próximo `requestPointerLock`: trava, falha (evento `pointerlockerror`) ou não responde. */
+  /** Próximo `requestPointerLock`: trava, falha (evento `pointerlockerror`) ou não responde (resolve depois). */
   nextLock: "ok" | "error" | "silent";
+  /** Completa um pedido "silent" (o navegador trava num quadro seguinte). */
+  grantLock(): void;
   binding: ReturnType<typeof bindInput>;
 };
 
@@ -51,8 +54,19 @@ function setup(coarse = false): Fake {
   }) as unknown as HTMLElement;
   const actions: Action[] = [];
   const paused: boolean[] = [];
-  Object.assign(fake, { target, doc, win, actions, paused, requestLock, setMode: (m: InputMode) => (mode = m) });
-  fake.binding = bindInput(target, (a) => actions.push(a), { coarse, mode: () => mode, onPause: (p) => paused.push(p) });
+  const grantLock = () => {
+    doc.pointerLockElement = target;
+    doc.dispatchEvent(new Event("pointerlockchange"));
+  };
+  Object.assign(fake, { target, doc, win, actions, paused, taps: 0, requestLock, grantLock, setMode: (m: InputMode) => (mode = m) });
+  fake.binding = bindInput(target, (a) => actions.push(a), {
+    coarse,
+    mode: () => mode,
+    onPause: (p) => paused.push(p),
+    onTap: () => {
+      fake.taps += 1;
+    },
+  });
   return fake;
 }
 
@@ -189,6 +203,80 @@ describe("bindInput · teclado", () => {
       { type: "crouch", on: true },
       { type: "crouch", on: false },
     ]);
+  });
+});
+
+describe("bindInput · revisão 2", () => {
+  it("abrir a lista com W, Shift e C segurados solta tudo (e soltar as teclas no menu não deixa nada preso)", () => {
+    const f = setup();
+    setupMenuOnPlaces(f);
+    key(f, "keydown", "KeyW");
+    key(f, "keydown", "ShiftLeft", { shiftKey: true });
+    key(f, "keydown", "KeyC", { shiftKey: true });
+    key(f, "keydown", "KeyZ", { shiftKey: true });
+    f.actions.length = 0;
+    key(f, "keydown", "KeyL", { shiftKey: true });
+    // as solturas vêm depois do places (já com o modo em menu): quem recebe deve aplicá-las mesmo assim
+    expect(f.actions[0]).toEqual({ type: "places" });
+    expect(f.actions).toContainEqual({ type: "move", x: 0, z: 0 });
+    expect(f.actions).toContainEqual({ type: "run", on: false });
+    expect(f.actions).toContainEqual({ type: "crouch", on: false });
+    expect(f.actions).toContainEqual({ type: "peek", dir: 0 });
+    f.actions.length = 0;
+    for (const code of ["KeyW", "ShiftLeft", "KeyC", "KeyZ"]) key(f, "keyup", code);
+    // nada pendente: nenhuma ação que ligue algo de volta
+    expect(f.actions.every((a) => isRelease(a))).toBe(true);
+  });
+
+  it("no menu, soltar uma tecla segurada desde antes solta (keyup não volta cedo)", () => {
+    const f = setup();
+    key(f, "keydown", "ShiftLeft", { shiftKey: true });
+    // o modo vira menu por fora (sem o adaptador ver o L): o keyup do Shift ainda solta a corrida
+    f.setMode("menu");
+    f.actions.length = 0;
+    key(f, "keyup", "ShiftLeft");
+    expect(f.actions).toContainEqual({ type: "run", on: false });
+  });
+
+  it("no arrastar-olha, o clique que consegue travar não vira toque (não anda)", async () => {
+    const f = setup();
+    f.nextLock = "error";
+    pointer(f, "pointerdown");
+    await tick();
+    pointer(f, "pointerup");
+    // modo arrastar ligado (no arrastar, clicar no chão anda: esse toque de preparo não conta)
+    f.taps = 0;
+    // o próximo clique pede o lock, que chega depois (assíncrono)
+    f.nextLock = "silent";
+    pointer(f, "pointerdown", { clientX: 50, clientY: 50 });
+    f.grantLock();
+    pointer(f, "pointerup", { clientX: 50, clientY: 50 });
+    expect(f.taps).toBe(0);
+  });
+
+  it("travar de novo ao fechar a lista e falhar (Esc não dá gesto) mostra o pausado", async () => {
+    const f = setup();
+    pointer(f, "pointerdown");
+    setupMenuOnPlaces(f);
+    key(f, "keydown", "KeyL");
+    expect(f.doc.pointerLockElement).toBeNull();
+    f.nextLock = "error";
+    key(f, "keydown", "Escape");
+    await tick();
+    expect(f.requestLock).toHaveBeenCalledTimes(2);
+    expect(f.paused.at(-1)).toBe(true);
+  });
+
+  it("o mesmo pelo panelClosed (clique na lista) quando o navegador recusa", async () => {
+    const f = setup();
+    pointer(f, "pointerdown");
+    setupMenuOnPlaces(f);
+    key(f, "keydown", "KeyL");
+    f.nextLock = "error";
+    f.setMode("walk");
+    f.binding.panelClosed();
+    await tick();
+    expect(f.paused.at(-1)).toBe(true);
   });
 });
 

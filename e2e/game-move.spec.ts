@@ -134,6 +134,23 @@ test.describe("teclado (desktop)", () => {
     expect(await place(page)).toBe("entrada");
   });
 
+  test("abrir a lista com W segurado para o jogador: depois de chegar ao lugar, ele não anda sozinho", async ({ page }) => {
+    await openGame(page);
+    await page.keyboard.down("KeyW");
+    await page.waitForTimeout(300);
+    await page.keyboard.press("KeyL");
+    const list = page.getByRole("navigation", { name: "Lugares" });
+    await expect(list).toBeVisible();
+    await page.keyboard.up("KeyW");
+    await list.getByRole("button", { name: "a mesa" }).press("Enter");
+    await expect.poll(() => place(page), { timeout: 40_000 }).toBe("mesa");
+    const arrived = await xz(page);
+    await page.waitForTimeout(1500);
+    const later = await xz(page);
+    expect(Math.hypot(later.x - arrived.x, later.z - arrived.z), "parado depois de chegar").toBeLessThan(0.01);
+    expect(await place(page)).toBe("mesa");
+  });
+
   test("WASD por 1 s muda a posição e não atravessa a mesa", async ({ page }) => {
     await openGame(page);
     await goByList(page, "a mesa", "mesa");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { InputMode } from "./actions";
+import { isRelease, type InputMode } from "./actions";
 import { isBrowserChord, keyToAction, TURN_KEYS } from "./keymap";
 
 const PANELS: InputMode[] = ["read", "examine", "phone"];
@@ -108,5 +108,24 @@ describe("keyToAction · menu (lista de lugares)", () => {
     for (const code of ["Tab", "Enter", "ArrowDown", "ArrowUp", "KeyE", "KeyW", "Space"]) {
       expect(keyToAction(code, true, "menu"), code).toBeNull();
     }
+  });
+});
+
+describe("isRelease · soltar chega ao jogador mesmo com painel aberto", () => {
+  it("move zero, correr/agachar desligados, espiar no centro e soltar a interação são solturas", () => {
+    expect(isRelease({ type: "move", x: 0, z: 0 })).toBe(true);
+    expect(isRelease({ type: "run", on: false })).toBe(true);
+    expect(isRelease({ type: "crouch", on: false })).toBe(true);
+    expect(isRelease({ type: "peek", dir: 0 })).toBe(true);
+    expect(isRelease({ type: "interact", down: false })).toBe(true);
+  });
+  it("o que liga ou age não é soltura", () => {
+    expect(isRelease({ type: "move", x: 0, z: -1 })).toBe(false);
+    expect(isRelease({ type: "run", on: true })).toBe(false);
+    expect(isRelease({ type: "crouch", on: true })).toBe(false);
+    expect(isRelease({ type: "peek", dir: 1 })).toBe(false);
+    expect(isRelease({ type: "interact", down: true })).toBe(false);
+    expect(isRelease({ type: "look", dx: 0, dy: 0 })).toBe(false);
+    expect(isRelease({ type: "places" })).toBe(false);
   });
 });

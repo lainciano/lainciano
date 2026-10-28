@@ -105,20 +105,28 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
   /** Um pedido em voo: a falha conta uma vez (a promessa rejeitada e o `pointerlockerror` são o mesmo pedido). */
   let lockPending = false;
   let dragLook = false;
+  /** O pedido em voo é um "travar de novo" (fechar painel): se falhar, o mouse fica solto e o aviso aparece. */
+  let relockRequest = false;
   const canLock = () => !opts.coarse && typeof target.requestPointerLock === "function";
   const lockFailed = () => {
     if (!lockPending) return;
     lockPending = false;
     lockFailures += 1;
+    const wasRelock = relockRequest;
+    relockRequest = false;
     if (!dragLook && (lockFailures >= LOCK_FAILURES_TO_DRAG || !everLocked)) {
       dragLook = true;
       // arrastar olha: nada de "clique na cena para continuar" preso na tela
       opts.onPause?.(false);
+    } else if (wasRelock && !dragLook && mode() === "walk") {
+      // fechar a lista com Esc (sem ativação) ou o navegador recusou: "pausado · clique na cena para continuar"
+      opts.onPause?.(true);
     }
   };
-  const requestLock = () => {
+  const requestLock = (relocking = false) => {
     if (!canLock() || locked) return;
     lockPending = true;
+    relockRequest = relocking;
     try {
       const r = target.requestPointerLock() as unknown;
       if (r instanceof Promise) r.catch(lockFailed);
@@ -145,7 +153,7 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
         releaseLock();
       }
     } else if (isPanel(was) && !isPanel(now)) {
-      if (relock && closingGesture) requestLock();
+      if (relock && closingGesture) requestLock(true);
       relock = false;
     }
   };
@@ -232,9 +240,8 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
       emitMove();
       return;
     }
-    const m = mode();
-    if (m !== "walk") return;
-    const a = keyToAction(e.code, false, m);
+    // Soltar vale em qualquer modo (a tecla foi apertada andando): o mapa de "andar" diz o que ela segurava.
+    const a = keyToAction(e.code, false, "walk");
     if (!a || a.type === "move") return;
     if (a.type === "run") {
       if (!held.run) return;
@@ -331,6 +338,9 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
       locked = true;
       everLocked = true;
       lockPending = false;
+      relockRequest = false;
+      // o clique que pediu o lock (no modo arrastar) não vira toque nem arrasto
+      down = null;
       lockFailures = 0;
       dragLook = false;
       opts.onPause?.(false);
@@ -381,7 +391,7 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
       const was = lastMode;
       const now = mode();
       lastMode = now;
-      if (isPanel(was) && !isPanel(now) && relock) requestLock();
+      if (isPanel(was) && !isPanel(now) && relock) requestLock(true);
       relock = false;
     },
   });

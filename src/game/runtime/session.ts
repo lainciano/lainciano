@@ -1,6 +1,6 @@
 import type { GameAudio } from "../audio/types";
 import { bindInput, type InputBinding } from "../input/adapters";
-import type { Action, InputMode } from "../input/actions";
+import { isRelease, type Action, type InputMode } from "../input/actions";
 import { cinzaLayer } from "../layers/cinza";
 import { createLayerRunner, type LayerRunner } from "../layers/loader";
 import type { ActApi, GameCtx, Layer, LayerInstance, Line } from "../layers/types";
@@ -159,6 +159,9 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     if (!player) return;
     if (mode === "menu") {
       if (a.type === "places" || a.type === "back") closePlaces();
+      // Soltar (parar, deixar de correr/agachar/espiar) chega sempre ao jogador: abrir a lista com W segurado
+      // não deixa o jogador andando sozinho depois.
+      else if (isRelease(a)) player.apply(a);
       return;
     }
     if (a.type === "places") return openPlaces();
