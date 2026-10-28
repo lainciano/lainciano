@@ -285,15 +285,17 @@ test("objeto baixo: o caderno (1,8 cm) tem sombra encostada nele, e a métrica p
   expect(r.detached.touching, "controle: com o bias do protótipo a métrica acusa").toBeLessThan(MIN_TOUCHING);
 });
 
-// Mãos (rodada 4): fotos que discriminam a mão. Em estúdio (mão no meio da tela, ângulo fixo, `still`), recortadas
-// na mão e com limiar de cor baixo (0,05): a mão escura sobre fundo escuro não escapa como no quadro inteiro.
-const STUDIO_CLIP = { x: 240, y: 100, width: 800, height: 600 } as const;
+// Mãos (rodadas 4–5): fotos que discriminam a mão. Em estúdio (mão no meio da tela, ângulo fixo, `still`), a sala
+// some (fundo liso neutro, sem névoa): mudar arte ou luz da sala não invalida a referência da mão. Recorte apertado
+// na mão e na lanterna (caixa medida contra o mesmo quadro sem as mãos: frente 452–735 × 325–695; os lados
+// passam disso só com a manga) e limiar de cor baixo (0,05).
+const STUDIO_CLIP = { x: 370, y: 310, width: 540, height: 400 } as const;
 for (const angle of ["front", "left", "right"] as const) {
   test(`mão direita em estúdio (${angle}): empunhadura de referência`, async ({ page }) => {
     await openShot(page);
     await page.evaluate((a) => (window as unknown as CriptaWindow).__cripta?.handsDebug({ still: true, view: { hand: "right", angle: a } }), angle);
     await nextFrames(page);
-    await expect(page).toHaveScreenshot(`maos-direita-${angle}.png`, { clip: STUDIO_CLIP, threshold: 0.05, maxDiffPixelRatio: 0.01, animations: "disabled" });
+    await expect(page).toHaveScreenshot(`maos-direita-${angle}.png`, { clip: STUDIO_CLIP, threshold: 0.05, maxDiffPixelRatio: 0.002, animations: "disabled" });
   });
 }
 
@@ -326,6 +328,10 @@ test("a mão aparece no quadro do jogo: com e sem mãos diferem bastante no cant
     },
     { a: withHands.toString("base64"), b: without.toString("base64"), region: [780, 520, 500, 280] },
   );
-  // a silhueta da mão com a lanterna ocupa dezenas de milhares de pixels nessa região; sem ela, nada muda
-  expect(changed).toBeGreaterThan(8000);
+  await testInfo.attach("com-sem-maos.json", { body: JSON.stringify({ changed }), contentType: "application/json" });
+  // medido na T8 (rodada 5): 40 087 px; o limite é a metade disso (sem mãos dá 0; a mão encolher pela metade falha)
+  expect(changed).toBeGreaterThan(HANDS_CHANGED / 2);
 });
+
+/** Pixels que mudam no canto de baixo à direita com e sem as mãos (medido na rodada 5 da T8). */
+const HANDS_CHANGED = 40_087;

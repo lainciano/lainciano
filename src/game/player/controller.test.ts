@@ -174,3 +174,30 @@ describe("controlador · mira e ajustes (rodada 4)", () => {
     p.dispose();
   });
 });
+
+describe("controlador · preferência do sistema (rodada 5)", () => {
+  it("mudar prefers-reduced-motion com o jogo aberto chega às mãos (e o ouvinte sai no dispose)", async () => {
+    const { engine, layer } = await world();
+    const mq = Object.assign(new EventTarget(), { matches: false });
+    const g = globalThis as unknown as { window?: unknown };
+    const had = "window" in g;
+    const prev = g.window;
+    g.window = { matchMedia: () => mq };
+    try {
+      const p = createPlayer(engine, layer, DEFAULT_SETTINGS);
+      expect(p.hands.state().reduced).toBe(false);
+      mq.matches = true;
+      mq.dispatchEvent(Object.assign(new Event("change"), { matches: true }));
+      expect(p.hands.state().reduced).toBe(true);
+      mq.dispatchEvent(Object.assign(new Event("change"), { matches: false }));
+      expect(p.hands.state().reduced).toBe(false);
+      p.dispose();
+      // depois do dispose o ouvinte não age mais
+      mq.dispatchEvent(Object.assign(new Event("change"), { matches: true }));
+      expect(p.hands.state().reduced).toBe(false);
+    } finally {
+      if (had) g.window = prev;
+      else delete g.window;
+    }
+  });
+});

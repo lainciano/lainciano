@@ -9,7 +9,7 @@ import { nearestPlace, pathBetween, type Place } from "../world/places";
 import { inReach } from "../world/reach";
 import { surfaceAt } from "../world/surfaces";
 import { createAim, stepAim } from "./aim";
-import { createHands, type Hands } from "./hands";
+import { createHands, type Hands, type HandsUpdate } from "./hands";
 
 /**
  * Jogador em primeira pessoa (valores do brief da T8, verbatim):
@@ -323,6 +323,8 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
   let panel = false;
   let aiming = false;
   let aim = createAim();
+  /** Entrada das mãos, reaproveitada a cada quadro. */
+  const handsIn: HandsUpdate = { moving: false, run: false, bob: 0, crouch: false, panel: false, aiming: false };
   const saveState = () => opts.save?.();
   let aimClock = 0;
   const center = new T.Vector2(0, 0);
@@ -424,7 +426,13 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
         aim = stepAim(aim, panel ? null : aimingAt());
         aiming = !panel && aim.current !== null;
       }
-      hands.update(dt, { moving, run: isRunning() || !!route?.run, bob, crouch, panel, aiming });
+      handsIn.moving = moving;
+      handsIn.run = isRunning() || !!route?.run;
+      handsIn.bob = bob;
+      handsIn.crouch = crouch;
+      handsIn.panel = panel;
+      handsIn.aiming = aiming;
+      hands.update(dt, handsIn);
     },
     apply(a) {
       if (disposed) return;

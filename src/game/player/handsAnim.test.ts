@@ -448,3 +448,27 @@ describe("mãos · revisão (rodada 4)", () => {
 
 /** Instante de pico de cada ociosa (onde a interrupção mais estalaria). */
 const IDLE_PEAK = { regrip: 0.22, sway: 0.4, adjust: 0.7 } as const;
+
+describe("mãos · F enquanto saca (rodada 5)", () => {
+  it("F durante o saque é aceito e o polegar clica assim que a lanterna volta à posição", () => {
+    const anim = createHandsAnim({ seed: 1, reduced: false, still: false, flashOn: true });
+    play(anim, 0.6, { panel: true });
+    anim.step(1 / 60, STILL);
+    expect(anim.state().mode).toBe("drawing");
+    expect(anim.toggleFlash()).toBe(true);
+    const { poses, events } = play(anim, 0.8);
+    expect(events.filter((e) => e === "click")).toHaveLength(1);
+    // o polegar só desce depois de a lanterna voltar (holster 0)
+    const pressAt = poses.findIndex((p) => p.thumb > 0);
+    expect(poses[pressAt].holster).toBe(0);
+    expect(anim.state().flashOn).toBe(false);
+  });
+  it("um segundo F no meio do saque não clica duas vezes", () => {
+    const anim = createHandsAnim({ seed: 1, reduced: false, still: false, flashOn: true });
+    play(anim, 0.6, { panel: true });
+    anim.step(1 / 60, STILL);
+    anim.toggleFlash();
+    expect(anim.toggleFlash()).toBe(false);
+    expect(play(anim, 0.8).events.filter((e) => e === "click")).toHaveLength(1);
+  });
+});

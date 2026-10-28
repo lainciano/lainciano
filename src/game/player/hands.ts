@@ -12,7 +12,8 @@ import { createHandsAnim, MAX_PRESSES, type HandsInput, type HandsPose, type Idl
  * por baixo e sobem pelo lado esquerdo; o polegar sai da base carnuda (tenar), passa por cima em duas falanges e
  * pousa no botão de borracha; a cabeça (sino, aro, refletor e lente) fica à frente do indicador e a tampa de trás,
  * com a argola do cordão, passa do mindinho; pulso afilando para o antebraço, na manga com dobras e costura.
- * Cada falange é tangente ao tubo (polígono circunscrito, com folga para o nó): abraça sem atravessar. Apertar a
+ * Cada falange segue um polígono circunscrito ao tubo, afastado dele pela folga do nó (1,06·r0 + 0,4 mm: a pele
+ * fica a 2,4–3,6 mm da superfície, não encostada): abraça sem atravessar (teste geométrico). Apertar a
  * pegada não fecha mais as juntas (só afrouxar abre); o aperto aparece no polegar.
  * - A `SpotLight` (sombra 512²) sai da cabeça; apagada, intensidade 0 e o mapa de sombra não é redesenhado.
  * - A animação é toda do `handsAnim.ts` (puro); aqui só se aplica a pose (sem alocar por quadro).
@@ -294,7 +295,7 @@ function sleeveGeo(T: typeof THREE, r0: number, r1: number, len: number): THREE.
 
 const triangles = (g: THREE.BufferGeometry) => (g.index ? g.index.count : g.getAttribute("position").count) / 3;
 
-export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE.Camera, scene: THREE.Object3D, o: HandsOptions): Hands {
+export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE.Camera, scene: THREE.Scene, o: HandsOptions): Hands {
   const T = three;
   const geometries: THREE.BufferGeometry[] = [];
   const g = <G extends THREE.BufferGeometry>(geo: G): G => {
@@ -602,6 +603,7 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   let visible = true;
   let lastLight = -1;
   let studio: StudioView | null = null;
+  let studioScene: { hidden: THREE.Object3D[]; fog: THREE.Scene["fog"]; background: THREE.Scene["background"] } | null = null;
   const STUDIO_ROT: Record<StudioView["angle"], [number, number]> = { front: [0.15, Math.PI], left: [0.1, Math.PI / 2], right: [0.1, -Math.PI / 2], top: [1.25, 0] };
   const lensOn = protoColor(T, 0xfff4dc);
   const lensOff = protoColor(T, 0x4a4740);
@@ -694,6 +696,25 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
         for (let t = 0; t < seconds - 1e-9; t += 1 / 60) apply(anim.step(1 / 60, inp).pose);
       },
       view(v) {
+        // Estúdio: só a mão sobre fundo liso neutro, sem névoa (a sala não entra na foto de referência: arte e
+        // luz da sala podem mudar nas próximas tarefas sem invalidar a referência da mão). As luzes ficam.
+        if (v && !studioScene) {
+          const hidden: THREE.Object3D[] = [];
+          scene.traverse((obj) => {
+            if (!(obj as THREE.Mesh).isMesh || !obj.visible) return;
+            for (let p: THREE.Object3D | null = obj; p; p = p.parent) if (p === camera || p === body) return;
+            obj.visible = false;
+            hidden.push(obj);
+          });
+          studioScene = { hidden, fog: scene.fog, background: scene.background };
+          scene.fog = null;
+          scene.background = protoColor(T, 0x262626);
+        } else if (!v && studioScene) {
+          for (const obj of studioScene.hidden) obj.visible = true;
+          scene.fog = studioScene.fog;
+          scene.background = studioScene.background;
+          studioScene = null;
+        }
         studio = v;
         apply(anim.step(0, inp).pose);
         if (!v) for (const m of meshes) m.visible = visible;

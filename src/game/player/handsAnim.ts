@@ -100,6 +100,13 @@ export function createHandsAnim(o: HandsAnimOptions) {
   let toggleTarget = flashOn;
   let clicked = false;
   let lastPanel = false;
+  let pendingToggle = false;
+  const startToggle = () => {
+    toggleT = 0;
+    clicked = false;
+    toggleTarget = !flashOn;
+    flashOn = toggleTarget;
+  };
   // ociosa: tipo em curso, tempo, se está ativa (a mistura decai depois de interrompida) e a mistura
   let idle: Exclude<IdleKind, "none"> | null = null;
   let idleT = 0;
@@ -140,11 +147,13 @@ export function createHandsAnim(o: HandsAnimOptions) {
   return {
     /** Polegar clica o botão. Devolve se aceitou (barrado com painel/celular aberto ou fora da posição). */
     toggleFlash(): boolean {
-      if (toggleT >= 0 || lastPanel || phoneTarget !== null || mode !== "held") return false;
-      toggleT = 0;
-      clicked = false;
-      toggleTarget = !flashOn;
-      flashOn = toggleTarget;
+      if (toggleT >= 0 || pendingToggle || lastPanel || phoneTarget !== null || mode === "holstering" || mode === "holstered") return false;
+      // sacando: aceita e clica assim que a lanterna voltar à posição
+      if (mode === "drawing") {
+        pendingToggle = true;
+        return true;
+      }
+      startToggle();
       return true;
     },
     reach(seconds = 0.6) {
@@ -240,8 +249,14 @@ export function createHandsAnim(o: HandsAnimOptions) {
         if (holster <= 1e-9) {
           holster = 0;
           mode = "held";
+          if (pendingToggle) {
+            pendingToggle = false;
+            startToggle();
+          }
         }
       }
+      // voltou ao painel antes de terminar de sacar: o F pendente é descartado (barrado com painel)
+      if (mode === "holstering") pendingToggle = false;
 
       // ligar / apagar
       let thumb = 0;
