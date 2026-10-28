@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createHandsAnim, HANDS_TIMING, type HandsInput, type HandsPose } from "./handsAnim";
 
+/** Profundidade do aperto de uma tecla na pose (0 se não está sendo apertada). */
+const depthOf = (pose: HandsPose, key: string) => pose.phone.presses.find((p) => p.key === key)?.depth ?? 0;
+
 const STILL: HandsInput = { moving: false, run: false, crouch: false, panel: false, aiming: false, bob: 0 };
 
 /** Roda `seconds` em passos de `dt` e devolve as poses e os eventos. */
@@ -9,7 +12,8 @@ function play(anim: ReturnType<typeof createHandsAnim>, seconds: number, input: 
   const events: string[] = [];
   for (let t = 0; t < seconds - 1e-9; t += dt) {
     const out = anim.step(dt, { ...STILL, ...input });
-    poses.push(out.pose);
+    // a pose devolvida é reaproveitada a cada quadro: copiar para guardar
+    poses.push(structuredClone(out.pose));
     events.push(...out.events);
   }
   return { poses, events, last: poses[poses.length - 1] };
@@ -50,7 +54,7 @@ describe("mãos · guardar e sacar", () => {
   it("abrir painel guarda a lanterna (desce e sai do quadro); voltar a andar saca de novo", () => {
     const anim = createHandsAnim({ seed: 2, reduced: false, still: false, flashOn: true });
     play(anim, 0.2);
-    const held = anim.step(1 / 60, STILL).pose;
+    const held = structuredClone(anim.step(1 / 60, STILL).pose);
     const down = play(anim, 0.8, { panel: true });
     expect(anim.state().mode).toBe("holstered");
     expect(down.last.holster).toBe(1);
@@ -257,7 +261,7 @@ describe("mãos · celular (rig para a T11)", () => {
       const events: string[] = [];
       for (let i = 0; i < 30; i++) {
         const out = anim.step(1 / 60, STILL);
-        depth.push(out.pose.phone.key === key ? out.pose.phone.press : 0);
+        depth.push(depthOf(out.pose, key));
         events.push(...out.events);
       }
       return { depth, events };
@@ -306,8 +310,141 @@ describe("mãos · celular (rig para a T11)", () => {
       anim.phone("open");
       play(anim, 1.2);
       anim.press("7");
-      return play(anim, 0.5).poses.map((p) => p.phone.press.toFixed(4)).join(",");
+      return play(anim, 0.5).poses.map((p) => depthOf(p, "7").toFixed(4)).join(",");
     };
     expect(run()).toBe(run());
   });
 });
+
+describe("mãos · revisão (rodada 4)", () => {
+  /** Maior salto entre quadros consecutivos de um canal. */
+  const maxJump = (poses: HandsPose[], f: (p: HandsPose) => number) => poses.slice(1).reduce((m, p, i) => Math.max(m, Math.abs(f(p) - f(poses[i]))), 0);
+
+  for (const [name, interrupt] of [
+    ["andar", { moving: true }],
+    ["mirar", { aiming: true }],
+    ["agachar", { crouch: true }],
+    ["painel", { panel: true }],
+  ] as const) {
+    it(`interromper a ociosa (${name}) não dá estalo: nenhum salto além do da própria transição`, () => {
+      // mesma sequência com e sem a ociosa em curso: a diferença de salto por quadro é o "estalo"
+      const run = (kind: "regrip" | "sway" | "adjust" | null) => {
+        const anim = createHandsAnim({ seed: 5, reduced: false, still: false, flashOn: true });
+        play(anim, 0.2);
+        if (kind) anim.forceIdle(kind);
+        const before = play(anim, kind ? IDLE_PEAK[kind] : 0.4).poses;
+        const after = play(anim, 0.3, interrupt).poses;
+        expect(anim.state().idle).toBe("none");
+        return [before[before.length - 1], ...after];
+      };
+      const plain = run(null);
+      for (const kind of ["regrip", "sway", "adjust"] as const) {
+        const seq = run(kind);
+        expect(maxJump(seq, (p) => p.grip), `${kind}: pegada`).toBeLessThan(maxJump(plain, (p) => p.grip) + 0.2);
+        // zerar de uma vez saltaria a amplitude inteira (pegada 0,9; giro ~0,045 rad; mão esquerda ~0,46 m): a
+        // margem é bem menor que isso e cobre o decaimento suave em ~7 quadros
+        expect(maxJump(seq, (p) => p.right.ry), `${kind}: giro`).toBeLessThan(maxJump(plain, (p) => p.right.ry) + 0.012);
+        expect(maxJump(seq, (p) => p.right.rz), `${kind}: rolagem`).toBeLessThan(maxJump(plain, (p) => p.right.rz) + 0.012);
+        expect(maxJump(seq, (p) => p.left.y), `${kind}: mão esquerda`).toBeLessThan(maxJump(plain, (p) => p.left.y) + 0.07);
+      }
+    });
+  }
+
+  it("F com a ociosa no meio também não dá estalo", () => {
+    const anim = createHandsAnim({ seed: 5, reduced: false, still: false, flashOn: true });
+    anim.forceIdle("regrip");
+    const before = play(anim, 0.22).poses;
+    anim.toggleFlash();
+    const after = play(anim, 0.3).poses;
+    expect(maxJump([before[before.length - 1], ...after], (p) => p.grip)).toBeLessThan(0.2);
+  });
+
+  it("movimento reduzido ligado em execução: o balanço e a respiração somem (suaves) e não voltam", () => {
+    const anim = createHandsAnim({ seed: 9, reduced: false, still: false, flashOn: true });
+    let bob = 0;
+    const walk = () => anim.step(1 / 60, { ...STILL, moving: true, bob: (bob += 0.14) }).pose.right.y;
+    for (let i = 0; i < 120; i++) walk();
+    anim.setReduced(true);
+    expect(anim.state().reduced).toBe(true);
+    const ys: number[] = [];
+    let prev = walk();
+    let jump = 0;
+    for (let i = 0; i < 240; i++) {
+      const y = walk();
+      jump = Math.max(jump, Math.abs(y - prev));
+      prev = y;
+      if (i > 120) ys.push(y);
+    }
+    expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(1e-6);
+    expect(jump).toBeLessThan(0.004);
+  });
+
+  it("ligar/apagar com painel ou celular aberto é barrado: sem animação nem clique", () => {
+    const anim = createHandsAnim({ seed: 1, reduced: false, still: false, flashOn: true });
+    anim.step(1 / 60, { ...STILL, panel: true });
+    expect(anim.toggleFlash()).toBe(false);
+    const a = play(anim, 0.5, { panel: true });
+    expect(a.events).toEqual([]);
+    expect(a.poses.every((p) => p.thumb === 0)).toBe(true);
+    expect(anim.state().flashOn).toBe(true);
+    play(anim, 0.6);
+    anim.phone("open");
+    play(anim, 0.2);
+    expect(anim.toggleFlash()).toBe(false);
+    anim.phone("close");
+    play(anim, 1.2);
+    expect(anim.toggleFlash()).toBe(true);
+  });
+
+  it("reverter no meio de guardar e de sacar continua de onde estava", () => {
+    const anim = createHandsAnim({ seed: 2, reduced: false, still: false, flashOn: true });
+    const down = play(anim, 0.15, { panel: true }).poses;
+    const back = play(anim, 0.4).poses;
+    const seq = [...down, ...back];
+    expect(down[down.length - 1].holster).toBeGreaterThan(0.2);
+    expect(down[down.length - 1].holster).toBeLessThan(0.8);
+    // o fator anda no máximo dt/0,3 por quadro (≈ 0,056): sem volta ao começo nem salto
+    expect(maxJump(seq, (p) => p.holster)).toBeLessThan(0.06);
+    expect(maxJump(seq, (p) => p.right.y)).toBeLessThan(0.06);
+    expect(anim.state().mode).toBe("held");
+    const again = [...play(anim, 0.12, { panel: true }).poses, ...play(anim, 0.12).poses];
+    expect(maxJump(again, (p) => p.holster)).toBeLessThan(0.06);
+  });
+
+  it("celular: fechar no meio da abertura (e abrir no meio do fechamento) continua de onde está", () => {
+    const anim = createHandsAnim({ seed: 21, reduced: false, still: false, flashOn: true });
+    anim.phone("open");
+    const opening = play(anim, 0.2).poses;
+    anim.phone("close");
+    const closing = play(anim, 0.15).poses;
+    let seq = [...opening, ...closing];
+    // a subida anda no máximo ~0,04 m por quadro; reiniciar do zero pularia ~0,3 m
+    expect(maxJump(seq, (p) => p.left.y)).toBeLessThan(0.05);
+    expect(anim.state().phone).toBe("closing");
+    anim.phone("open");
+    const reopen = play(anim, 1.0).poses;
+    seq = [...closing, ...reopen];
+    expect(maxJump(seq, (p) => p.left.y)).toBeLessThan(0.05);
+    expect(maxJump(seq, (p) => p.phone.lid)).toBeLessThan(0.08);
+    expect(anim.state().phone).toBe("holding");
+  });
+
+  it("apertos sobrepostos: cada tecla afunda e volta sozinha, sem perder nem pular a anterior", () => {
+    const anim = createHandsAnim({ seed: 21, reduced: false, still: false, flashOn: true });
+    anim.phone("open");
+    play(anim, 1.2);
+    anim.press("1");
+    const first = play(anim, 0.07).poses;
+    anim.press("2");
+    const rest = play(anim, 0.5);
+    const seq = [...first, ...rest.poses];
+    expect(Math.max(...seq.map((p) => depthOf(p, "1")))).toBe(1);
+    expect(Math.max(...seq.map((p) => depthOf(p, "2")))).toBe(1);
+    expect(maxJump(seq, (p) => depthOf(p, "1"))).toBeLessThan(0.5);
+    expect(rest.events.filter((e) => e === "key:2")).toHaveLength(1);
+    expect([...first, ...rest.poses].length).toBeGreaterThan(0);
+  });
+});
+
+/** Instante de pico de cada ociosa (onde a interrupção mais estalaria). */
+const IDLE_PEAK = { regrip: 0.22, sway: 0.4, adjust: 0.7 } as const;

@@ -8,6 +8,7 @@ import { moveWithCollision, segmentClear, type Box2, type Vec2 } from "../world/
 import { nearestPlace, pathBetween, type Place } from "../world/places";
 import { inReach } from "../world/reach";
 import { surfaceAt } from "../world/surfaces";
+import { createAim, stepAim } from "./aim";
 import { createHands, type Hands } from "./hands";
 
 /**
@@ -74,6 +75,10 @@ export type Player = {
   /** Painel aberto (lista, leitor, exame, celular): a lanterna é guardada; ao voltar a andar, sacada. */
   setPanel(open: boolean): void;
   readonly hands: Hands;
+  /** Mirando um objeto ao alcance (com histerese). */
+  readonly aiming: boolean;
+  /** Ajustes mudaram (balanço): as mãos e a câmera seguem na hora. */
+  updateSettings(s: Settings): void;
 };
 
 const prefersReducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
@@ -104,18 +109,31 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
   const { three: T, camera, kit, scene } = engine;
   const graph = layer.places;
   const boxes = layer.colliders;
-  const reduced = prefersReducedMotion();
+  // Movimento reduzido reativo: a preferência do sistema pode mudar com o jogo aberto, e o ajuste de balanço
+  // chega por `updateSettings`. `reduced` vale para a câmera e as viagens; as mãos recebem `reduced || !bob`.
+  let reduced = prefersReducedMotion();
+  let bobSetting = settings.bob;
   // A lanterna começa acesa, como no protótipo 7 aprovado (F apaga). Balanço desligado nos ajustes conta como
   // movimento reduzido para as mãos (sem ociosa nem balanço).
   const hands = createHands(T, kit, camera, scene, {
     seed: 7,
-    reduced: reduced || !settings.bob,
+    reduced: reduced || !bobSetting,
     still: opts.still === true,
     flashOn: true,
     onClick: opts.onFlashClick,
   });
   const still = opts.still === true;
-  const sway = settings.bob && !reduced && !still;
+  let sway = bobSetting && !reduced && !still;
+  const refreshMotion = () => {
+    sway = bobSetting && !reduced && !still;
+    hands.setReduced(reduced || !bobSetting);
+  };
+  const media = typeof window !== "undefined" ? window.matchMedia?.("(prefers-reduced-motion: reduce)") : undefined;
+  const onMedia = (e: MediaQueryListEvent) => {
+    reduced = e.matches;
+    refreshMotion();
+  };
+  media?.addEventListener?.("change", onMedia);
   const sens = PLAYER.sensitivity * settings.sensitivity;
 
   let pos: Vec2 = { x: 0, z: 0 };
@@ -304,17 +322,26 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
 
   let panel = false;
   let aiming = false;
+  let aim = createAim();
+  const saveState = () => opts.save?.();
   let aimClock = 0;
   const center = new T.Vector2(0, 0);
   /** Há um objeto ao alcance no centro da tela? */
-  const aimingAt = () => {
+  /** Id do objeto ao alcance no centro da tela (só os habilitados no estado atual), ou null. */
+  const aimingAt = (): string | null => {
     raycaster.setFromCamera(center, camera);
     let best: THREE.Intersection | null = null;
+    let bestId: string | null = null;
+    const state = saveState();
     for (const o of layer.objects) {
+      if (state && !o.enabled(state)) continue;
       const hits = raycaster.intersectObjects(o.roots, true);
-      if (hits[0] && (!best || hits[0].distance < best.distance)) best = hits[0];
+      if (hits[0] && (!best || hits[0].distance < best.distance)) {
+        best = hits[0];
+        bestId = o.id;
+      }
     }
-    return !!best && inReach(pos, { x: best.point.x, z: best.point.z, distance: best.distance });
+    return best && inReach(pos, { x: best.point.x, z: best.point.z, distance: best.distance }) ? bestId : null;
   };
 
   const applyCamera = () => {
@@ -348,6 +375,13 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       return { ...pos };
     },
     hands,
+    get aiming() {
+      return aiming;
+    },
+    updateSettings(next) {
+      bobSetting = next.bob;
+      refreshMotion();
+    },
     goTo(id) {
       const p = graph.places[id];
       if (!p || !isOpen(id) || disposed) return Promise.resolve(false);
@@ -386,7 +420,9 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       aimClock -= dt;
       if (aimClock <= 0) {
         aimClock = 0.1;
-        aiming = !panel && aimingAt();
+        // histerese: o alvo só troca depois de 3 leituras seguidas iguais (a mão não oscila na borda)
+        aim = stepAim(aim, panel ? null : aimingAt());
+        aiming = !panel && aim.current !== null;
       }
       hands.update(dt, { moving, run: isRunning() || !!route?.run, bob, crouch, panel, aiming });
     },
@@ -455,12 +491,16 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
     },
     setPanel(open) {
       panel = open;
-      if (open) aiming = false;
+      if (open) {
+        aiming = false;
+        aim = createAim();
+      }
     },
     dispose() {
       if (disposed) return;
       cancelRoute();
       disposed = true;
+      media?.removeEventListener?.("change", onMedia);
       hands.dispose();
     },
   };

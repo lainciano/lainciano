@@ -34,7 +34,10 @@ async function world() {
     new AbortController().signal,
     own,
   );
-  return { engine, layer, camera };
+  // a sala na cena (o raycast da mira usa as matrizes do mundo)
+  layer.enter(save.get());
+  scene.updateMatrixWorld(true);
+  return { engine, layer, camera, save };
 }
 
 /** Anda `seconds` em passos de 50 ms (o teto de dt do relógio). */
@@ -125,6 +128,49 @@ describe("controlador · foto de referência", () => {
     const first = camera.position.y;
     for (let i = 0; i < 20; i++) p.update(0.05);
     expect(camera.position.y).not.toBe(first);
+    p.dispose();
+  });
+});
+
+describe("controlador · mira e ajustes (rodada 4)", () => {
+  /** Da mesa, olhando para o tampo (pitch −0,8). */
+  async function atTable() {
+    const w = await world();
+    const p = createPlayer(w.engine, w.layer, DEFAULT_SETTINGS, { save: w.save.get });
+    p.placeAt("mesa");
+    p.apply({ type: "look", dx: 0, dy: (0.8 - 0.42) / 0.0022 });
+    return { ...w, p };
+  }
+
+  it("mirando um objeto habilitado ao alcance, a mão levanta depois das leituras da histerese; abrir painel baixa", async () => {
+    const { p } = await atTable();
+    p.update(0.05);
+    expect(p.aiming).toBe(false);
+    run(p, 0.5);
+    expect(p.aiming).toBe(true);
+    p.setPanel(true);
+    expect(p.aiming).toBe(false);
+    run(p, 0.5);
+    expect(p.aiming).toBe(false);
+    p.dispose();
+  });
+
+  it("objeto desabilitado no estado atual não conta como alvo", async () => {
+    const { p, layer } = await atTable();
+    for (const o of layer.objects) o.enabled = () => false;
+    run(p, 0.6);
+    expect(p.aiming).toBe(false);
+    p.dispose();
+  });
+
+  it("desligar o balanço nos ajustes vale na hora para as mãos (movimento reduzido)", async () => {
+    const { engine, layer } = await world();
+    const p = createPlayer(engine, layer, DEFAULT_SETTINGS);
+    expect(p.hands.state().reduced).toBe(false);
+    p.updateSettings({ ...DEFAULT_SETTINGS, bob: false });
+    expect(p.hands.state().reduced).toBe(true);
+    p.updateSettings({ ...DEFAULT_SETTINGS, bob: true });
+    expect(p.hands.state().reduced).toBe(false);
     p.dispose();
   });
 });
