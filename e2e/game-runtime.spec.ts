@@ -173,6 +173,26 @@ test("perder o contexto mostra o aviso, para o loop, solta o canvas e volta ao s
   expect(errors).toEqual([]);
 });
 
+test("erro depois que o engine nasce (jogador): a sessão descarta tudo, solta o contexto e mostra o aviso", async ({ page }) => {
+  const errors = collectErrors(page);
+  // `?falha=jogador` (só debug) lança logo depois de criar o jogador, com a camada já carregada e as mãos na câmera.
+  await page.goto("/?jogo=1&debug=1&falha=jogador");
+  await hydrated(page);
+  await expect(page.getByText(NO_WEBGL)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "Voltar ao site" })).toBeFocused();
+  // engine descartado: canvas fora do palco, o contexto que nasceu foi solto, o debug saiu
+  await expect(page.locator("[data-game-stage] canvas")).toHaveCount(0);
+  const gl = await page.evaluate(() => (window as unknown as CriptaWindow).__gl);
+  expect(gl.created).toBe(1);
+  await expect.poll(() => page.evaluate(() => (window as unknown as CriptaWindow).__gl.lost)).toBe(1);
+  expect(await page.evaluate(() => (window as unknown as CriptaWindow).__cripta)).toBeUndefined();
+  // o erro de teste aparece no console uma vez (é o esperado); nada além dele
+  expect(errors.filter((e) => !e.includes("falha de teste (?falha=jogador)"))).toEqual([]);
+  // e o botão leva de volta ao site
+  await page.getByRole("button", { name: "Voltar ao site" }).click();
+  await expect(page.locator("[data-game-shell]")).toHaveCount(0);
+});
+
 test("sem WebGL no aparelho: aviso, botão de voltar e nenhum canvas", async ({ page }) => {
   await page.addInitScript(() => {
     const original = HTMLCanvasElement.prototype.getContext;

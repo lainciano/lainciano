@@ -47,7 +47,12 @@ export type Hands = {
 export const FLASH = { color: 0xfff0d8, intensity: 0.7 * Math.PI, distance: 8, angle: 0.42, penumbra: 0.55, decay: 1.2 } as const;
 /**
  * Receptores típicos a 1–3 m: texel ≈ 2·d·tan 0,42/512 ≈ 1,7–5,2 mm; `normalBias` 0,005 ≈ 1–1,5 texel a 2–3 m
- * (o 0,03 do protótipo descolava a sombra do objeto, peter-panning). `near` 0,1: as mãos ficam atrás da lente.
+ * (o 0,03 do protótipo descolava a sombra do objeto, peter-panning). Medido na T8: a lanterna varrendo as paredes
+ * oeste e norte de raspão dá diferença 0 contra normalBias 0,2 (sem acne).
+ * `near` 0,1, e não o 0,5 da pendente: lá o 0,5 tira a cúpula e a lâmpada do mapa; aqui não há nada atrás da lente
+ * (as mãos estão atrás dela). Com 0,5, o que fica a menos de 0,5 m da lente deixa de barrar a luz: com o olho a
+ * 0,6 m do caderno, o tampo da mesa deixa o facho passar e acende a parede atrás (diferença média 0,74; 1,5 % dos
+ * pixels > 12 níveis; a 0,75 m, 0,40; a 1,1 m, 0). Imagem: `t8-lanterna-near-e-acne.png` no relatório.
  */
 export const FLASH_SHADOW = { mapSize: 512, near: 0.1, far: 8, bias: -0.0005, normalBias: 0.005 } as const;
 

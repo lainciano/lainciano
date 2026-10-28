@@ -9,7 +9,10 @@ type CriptaWindow = Window & {
     place: string | null;
     camera: { position: [number, number, number]; rotation: [number, number, number] };
     renderer: { frames: number; frameErrors: number };
+    onFrame(fn: (dt: number, t: number) => void): () => void;
   };
+  /** Tempo simulado somado pelos quadros (o dt que o jogador recebe). */
+  __simT?: number;
 };
 
 async function hydrated(page: Page) {
@@ -64,6 +67,38 @@ async function holdFor(page: Page, keys: string[], ms: number) {
   await page.waitForTimeout(200);
 }
 
+/** Liga um relógio de tempo simulado (soma dos dt dos quadros), para medir velocidade sem depender do fps. */
+const startSimClock = (page: Page) =>
+  page.evaluate(() => {
+    const w = window as unknown as CriptaWindow;
+    w.__simT = 0;
+    w.__cripta?.onFrame((dt) => {
+      w.__simT = (w.__simT ?? 0) + dt;
+    });
+  });
+/** Posição e tempo simulado lidos juntos (nenhum quadro entre um e outro). */
+const snapshot = (page: Page) =>
+  page.evaluate(() => {
+    const w = window as unknown as CriptaWindow;
+    const p = w.__cripta?.camera.position;
+    return { x: p?.[0] ?? NaN, z: p?.[2] ?? NaN, t: w.__simT ?? 0 };
+  });
+
+/**
+ * Segura as teclas e devolve a velocidade em m por segundo SIMULADO: as duas leituras ficam entre o apertar e o
+ * soltar, então todo quadro contado teve as teclas seguradas (independe do fps do SwiftShader).
+ */
+async function speedWhile(page: Page, keys: string[], ms: number) {
+  for (const k of keys) await page.keyboard.down(k);
+  await page.waitForTimeout(250);
+  const a = await snapshot(page);
+  await page.waitForTimeout(ms);
+  const b = await snapshot(page);
+  for (const k of [...keys].reverse()) await page.keyboard.up(k);
+  await page.waitForTimeout(200);
+  return Math.hypot(b.x - a.x, b.z - a.z) / Math.max(1e-6, b.t - a.t);
+}
+
 test.describe("teclado (desktop)", () => {
   test.skip(({ isMobile }) => isMobile, "só teclado no desktop");
 
@@ -110,24 +145,23 @@ test.describe("teclado (desktop)", () => {
     const after = await xz(page);
     expect(Math.hypot(forward.x - before.x, forward.z - before.z), "andou").toBeGreaterThan(0.1);
     expect(Math.hypot(after.x - forward.x, after.z - forward.z), "deslizou").toBeGreaterThan(0.05);
-    // Borda da frente da mesa + raio do jogador (folga de 2 cm para o balanço da câmera).
-    for (const p of [forward, after]) expect(p.z, "não atravessa a mesa").toBeGreaterThan(TABLE.z1 + PLAYER_RADIUS - 0.02);
+    // Borda da frente da mesa + raio do jogador (folga de 2 cm para o balanço da câmera); e encostado nela (até
+    // 15 cm), o que prova que andou até o contato em vez de parar antes.
+    for (const p of [forward, after]) {
+      expect(p.z, "não atravessa a mesa").toBeGreaterThan(TABLE.z1 + PLAYER_RADIUS - 0.02);
+      expect(p.z, "chegou a encostar na mesa").toBeLessThan(TABLE.z1 + PLAYER_RADIUS + 0.15);
+    }
   });
 
-  test("Shift corre: em 1 s, mais longe do que andando", async ({ page }) => {
+  test("Shift corre: 2,6 m/s contra 1,4 m/s andando (por segundo simulado, não por quadro)", async ({ page }) => {
     await openGame(page);
-    const a = await xz(page);
-    await holdFor(page, ["KeyW"], 1000);
-    const b = await xz(page);
-    const walked = Math.hypot(b.x - a.x, b.z - a.z);
+    await startSimClock(page);
+    const walk = await speedWhile(page, ["KeyW"], 1200);
     await goByList(page, "a entrada", "entrada");
-    const c = await xz(page);
-    await holdFor(page, ["ShiftLeft", "KeyW"], 1000);
-    const d = await xz(page);
-    const ran = Math.hypot(d.x - c.x, d.z - c.z);
-    expect(walked, "andou").toBeGreaterThan(0.2);
-    // 2,6 / 1,4 ≈ 1,86; a folga cobre a diferença de quadros entre as duas medições no SwiftShader.
-    expect(ran / walked, `correu ${ran.toFixed(2)} m, andou ${walked.toFixed(2)} m`).toBeGreaterThan(1.4);
+    const run = await speedWhile(page, ["ShiftLeft", "KeyW"], 900);
+    // Valores do brief (1,4 e 2,6 m/s); 5 % de folga para o balanço lateral da câmera (±1 cm) sobre ~0,5 m.
+    expect(Math.abs(walk - 1.4) / 1.4, `andou a ${walk.toFixed(3)} m/s`).toBeLessThan(0.05);
+    expect(Math.abs(run - 2.6) / 2.6, `correu a ${run.toFixed(3)} m/s`).toBeLessThan(0.05);
   });
 
   test("a porta emperrou: a carga que falha mostra o aviso e “tentar de novo” carrega a sala", async ({ page }) => {

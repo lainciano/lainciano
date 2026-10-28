@@ -233,6 +233,9 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
           }
         },
         hands: (v) => player?.setHandsVisible(v),
+        objectVisible: (id, v) => {
+          for (const root of runner?.current()?.objects.find((o) => o.id === id)?.roots ?? []) root.visible = v;
+        },
       }),
     );
     cleanups.push(

@@ -25,17 +25,22 @@ export type CriptaDebug = {
   /** Fotos de perto: mostra/esconde as mãos do jogador. */
   hands(visible: boolean): void;
   /**
-   * Varredura de sombra (T8): muda o `normalBias`/`bias` da luz principal da sala (`userData.mainLight`).
-   * Devolve os valores em vigor.
+   * Varredura de sombra (T8): muda `normalBias`/`bias`/`near` da luz principal da sala (`userData.mainLight`, padrão)
+   * ou da lanterna (`light: "flash"`). Devolve os valores em vigor.
    */
-  setShadow(o: { normalBias?: number; bias?: number }): { normalBias: number; bias: number } | null;
+  setShadow(o: { light?: "main" | "flash"; normalBias?: number; bias?: number; near?: number }): ShadowInfo | null;
+  /** Fotos de contato: esconde/mostra um objeto interativo da camada pelo id. */
+  setVisible(id: string, visible: boolean): void;
 };
+
+export type ShadowInfo = { normalBias: number; bias: number; near: number };
 
 /** Ganchos do jogador e da camada (T8): o `place` vivo e a câmera do controlador. */
 export type DebugHooks = {
   place?(): string | null;
   setCamera?(pose: CameraPose): void;
   hands?(visible: boolean): void;
+  objectVisible?(id: string, visible: boolean): void;
 };
 
 export type CameraPose = { x: number; y: number; z: number; yaw: number; pitch: number };
@@ -130,17 +135,24 @@ export function installDebug(engine: Engine, getLayer: () => string, getSave: ()
       if (affine !== undefined && Number.isFinite(affine)) engine.psx.uAff.value = Math.min(1, Math.max(0, affine));
     },
     hands: (visible) => hooks.hands?.(visible),
-    setShadow({ normalBias, bias }) {
-      let light: { shadow: { normalBias: number; bias: number } } | null = null;
+    setShadow({ light = "main", normalBias, bias, near }) {
+      type Shadowed = { shadow: { normalBias: number; bias: number; camera: { near: number; updateProjectionMatrix(): void } } };
+      let found: Shadowed | null = null;
       engine.scene.traverse((o) => {
-        if (!light && o.userData.mainLight === true && "shadow" in o) light = o as unknown as { shadow: { normalBias: number; bias: number } };
+        const match = light === "flash" ? o.name === "lanterna" : o.userData.mainLight === true;
+        if (!found && match && "shadow" in o) found = o as unknown as Shadowed;
       });
-      if (!light) return null;
-      const { shadow } = light as { shadow: { normalBias: number; bias: number } };
+      if (!found) return null;
+      const { shadow } = found as Shadowed;
       if (normalBias !== undefined && Number.isFinite(normalBias)) shadow.normalBias = normalBias;
       if (bias !== undefined && Number.isFinite(bias)) shadow.bias = bias;
-      return { normalBias: shadow.normalBias, bias: shadow.bias };
+      if (near !== undefined && Number.isFinite(near) && near > 0) {
+        shadow.camera.near = near;
+        shadow.camera.updateProjectionMatrix();
+      }
+      return { normalBias: shadow.normalBias, bias: shadow.bias, near: shadow.camera.near };
     },
+    setVisible: (id, visible) => hooks.objectVisible?.(id, visible),
   };
   window.__cripta = api;
   return () => {
