@@ -46,6 +46,8 @@ export type Hands = {
     setStill(v: boolean): void;
     forceIdle(kind: Exclude<IdleKind, "none">): void;
     step(seconds: number, input: Partial<HandsUpdate>): void;
+    /** Fotos: mostra a mão direita no meio da tela, de frente (lente) ou de um lado; `null` volta ao normal. */
+    view(v: "front" | "side-left" | "side-right" | null): void;
   };
   dispose(): void;
 };
@@ -433,10 +435,17 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   const anim = createHandsAnim({ seed: o.seed, reduced: o.reduced, still: o.still, flashOn: o.flashOn });
   let visible = true;
   let lastLight = -1;
+  let studio: "front" | "side-left" | "side-right" | null = null;
+  const STUDIO = { front: [0, -0.02, -0.3, 0.15, Math.PI, 0], "side-left": [0, -0.02, -0.3, 0.1, Math.PI / 2, 0], "side-right": [0, -0.02, -0.3, 0.1, -Math.PI / 2, 0] } as const;
   const apply = (pose: HandsPose) => {
     const r = pose.right;
     right.position.set(r.x, r.y, r.z);
     right.rotation.set(r.rx, r.ry, r.rz);
+    if (studio) {
+      const [x, y, z, rx, ry, rz] = STUDIO[studio];
+      right.position.set(x, y, z);
+      right.rotation.set(rx, ry, rz, "YXZ");
+    } else right.rotation.order = "XYZ";
     // apertar fecha um pouco as juntas; afrouxar abre (nunca atravessa o tubo: só abre mais que o encaixe)
     const k = pose.grip >= 0 ? 1 + 0.04 * pose.grip : 1 + 0.35 * pose.grip;
     for (const c of chains) c.joints.forEach((j, i) => (j.rotation.z = c.bends[i] * k));
@@ -502,6 +511,10 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
       step(seconds, s) {
         const inp = input(s);
         for (let t = 0; t < seconds - 1e-9; t += 1 / 60) apply(anim.step(1 / 60, inp).pose);
+      },
+      view(v) {
+        studio = v;
+        apply(anim.step(0, lastInput).pose);
       },
     },
     dispose() {

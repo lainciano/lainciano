@@ -248,6 +248,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
           if (o.phone) h.phone(o.phone);
           if (o.press) h.press(o.press);
           if (o.step) h.debug.step(o.step, o.input ?? {});
+          if (o.view !== undefined) h.debug.view(o.view);
         },
         objectVisible: (id, v) => {
           for (const root of runner?.current()?.objects.find((o) => o.id === id)?.roots ?? []) root.visible = v;

@@ -10,6 +10,7 @@ type CriptaWindow = Window & {
     camera: { position: [number, number, number]; rotation: [number, number, number] };
     renderer: { frames: number; frameErrors: number };
     onFrame(fn: (dt: number, t: number) => void): () => void;
+    handsState: { mode: string; flashOn: boolean; holster: number; light: number; phone: string } | null;
   };
   /** Tempo simulado somado pelos quadros (o dt que o jogador recebe). */
   __simT?: number;
@@ -132,6 +133,24 @@ test.describe("teclado (desktop)", () => {
     }
     // Fechada a lista, o jogo continua no lugar e com o teclado.
     expect(await place(page)).toBe("entrada");
+  });
+
+  test("mãos: abrir a lista guarda a lanterna, fechar saca de novo; F liga/apaga pelo polegar", async ({ page }) => {
+    await openGame(page);
+    const hands = () => page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.handsState ?? null);
+    expect(await hands()).toMatchObject({ mode: "held", flashOn: true, light: 1, holster: 0, phone: "none" });
+    await page.keyboard.press("KeyL");
+    await expect(page.getByRole("navigation", { name: "Lugares" })).toBeVisible();
+    await expect.poll(async () => (await hands())?.mode, { timeout: 10_000 }).toBe("holstered");
+    expect((await hands())?.holster).toBe(1);
+    await page.keyboard.press("KeyL");
+    await expect.poll(async () => (await hands())?.mode, { timeout: 10_000 }).toBe("held");
+    expect((await hands())?.holster).toBe(0);
+    await page.keyboard.press("KeyF");
+    await expect.poll(async () => (await hands())?.light, { timeout: 10_000 }).toBe(0);
+    expect((await hands())?.flashOn).toBe(false);
+    await page.keyboard.press("KeyF");
+    await expect.poll(async () => (await hands())?.light, { timeout: 10_000 }).toBe(1);
   });
 
   test("abrir a lista com W segurado para o jogador: depois de chegar ao lugar, ele não anda sozinho", async ({ page }) => {

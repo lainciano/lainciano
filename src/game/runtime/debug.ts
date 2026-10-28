@@ -45,6 +45,7 @@ export type HandsDebugInput = {
   phone?: "open" | "close";
   press?: string;
   step?: number;
+  view?: "front" | "side-left" | "side-right" | null;
   input?: Partial<{ moving: boolean; run: boolean; bob: number; crouch: boolean; panel: boolean; aiming: boolean }>;
 };
 

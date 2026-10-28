@@ -56,13 +56,15 @@ export const HANDS_TIMING = {
 /** Balanço do passo por canal (m ou rad por unidade de amplitude; andar = 1, correr = 2, agachado = 0,5). */
 const SWAY = { y: 0.0055, x: 0.008, rz: 0.022, rx: 0.01, left: 0.5 } as const;
 
-const HELD: Pose6 = { x: 0.15, y: -0.165, z: -0.34, rx: 0.07, ry: 0.1, rz: 0.04 };
+/** Segurando: o facho cai um pouco abaixo do centro da tela, como no protótipo. */
+const HELD: Pose6 = { x: 0.14, y: -0.15, z: -0.34, rx: -0.03, ry: 0.06, rz: 0.04 };
 const HOLSTERED: Pose6 = { x: 0.2, y: -0.6, z: -0.22, rx: -0.9, ry: 0.25, rz: 0.2 };
 const AIM: Partial<Pose6> = { y: 0.035, z: 0.05, rx: 0.06 };
 const CROUCH: Partial<Pose6> = { x: -0.03, y: 0.012, z: 0.04 };
 const LEFT_REST = { x: -0.3, y: -0.62, z: -0.25, rx: 0.4, ry: -0.3, rz: 0, curl: 0.35 };
 const LEFT_REACH = { x: -0.08, y: -0.14, z: -0.42, rx: 0.12, ry: -0.18, rz: 0.15, curl: 0.2 };
-const LEFT_ADJUST = { x: -0.19, y: -0.29, z: -0.33, rx: 0.3, ry: -0.2, rz: 0.25, curl: 0.55 };
+/** Ajeitar: a mão esquerda entra pelo canto de baixo à esquerda (dentro do FOV 62°: |y| < z·tan 31°). */
+const LEFT_ADJUST = { x: -0.16, y: -0.16, z: -0.33, rx: 0.3, ry: -0.2, rz: 0.25, curl: 0.55 };
 /** Celular à frente do olho, um pouco abaixo e à esquerda do centro. */
 const LEFT_PHONE = { x: -0.06, y: -0.085, z: -0.27, rx: 0.35, ry: 0.15, rz: 0.1, curl: 0.72 };
 const IDLE_SECONDS: Record<Exclude<IdleKind, "none">, number> = { regrip: 0.9, sway: 1.6, adjust: 1.4 };
