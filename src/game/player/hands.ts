@@ -2,41 +2,63 @@ import type * as THREE from "three";
 import { protoColor, type MaterialKit } from "../render/materials";
 import { blotches, edgeWear, grain, mulberry, type Draw } from "../render/paint";
 import { chamferBox } from "../render/shapes";
+import { createHandsAnim, type HandsInput, type HandsPose, type IdleKind, type PhoneState } from "./handsAnim";
 
 /**
- * Mãos e antebraços low-poly presos à câmera (como o protótipo 7) e o corpo que só projeta sombra.
- * - Direita: segura a lanterna (dedos fechados em volta do corpo dela); a `SpotLight` da lanterna tem sombra
- *   512² e mora na mão, então a luz segue o balanço. Desligada, a intensidade vai a 0 e o mapa de sombra para de
- *   ser redesenhado (`autoUpdate` falso): ligar não troca o programa de nenhum material (sem engasgo).
- * - Esquerda: fica abaixo do quadro e sobe quando a pessoa age (`reach`).
- * - Balanço (passo, respiração): desligável por `settings.bob` e pelo movimento reduzido (quem decide é o
- *   controlador, que passa `sway`).
- * - Corpo: tronco, braços e pernas com `colorWrite` e `depthWrite` desligados: não aparece na imagem, mas a luz
- *   pendente projeta a sombra dele no chão (o jogador "existe" na sala).
- * Tudo que nasce aqui é descartado em `dispose`; os materiais e texturas vêm do kit (compartilhados).
+ * Mãos presas à câmera e o corpo que só projeta sombra (rodada 3 da T8: a lanterna fica NA mão).
+ *
+ * Empunhadura (mão direita, lanterna apontada para a frente, eixo −z no grupo `grip`): o dorso e a fileira dos
+ * nós ficam do lado de fora (direita) do tubo; os quatro dedos, em três falanges cada, dão a volta por baixo e
+ * sobem pelo lado esquerdo, com as pontas perto do polegar; o polegar passa por cima e pousa no botão de borracha
+ * do corpo; a cabeça (sino, aro e lente) fica à frente do indicador e a tampa de trás, com a argola do cordão,
+ * passa do mindinho; o pulso e o antebraço ficam atrás, abaixo e à direita, sem encostar no tubo.
+ * Os dedos são polígonos circunscritos ao tubo (cada falange tangente a ele): abraçam sem atravessar; apertar e
+ * afrouxar só mudam as dobras das juntas.
+ * - A `SpotLight` (sombra 512²) sai da cabeça da lanterna, na mão. Apagada: intensidade 0 e o mapa de sombra não
+ *   é redesenhado (`autoUpdate` falso), sem trocar programa de material.
+ * - Toda a animação é da máquina pura `handsAnim.ts`; aqui só se aplica a pose a grupos montados uma vez.
+ * - Corpo: tronco, braços e pernas com `colorWrite`/`depthWrite` desligados (só a sombra aparece).
  */
 
-export type HandsState = {
-  moving: boolean;
-  run: boolean;
-  /** Fase do passo (rad); o balanço da mão acompanha a câmera. */
-  bob: number;
-  /** Balanço ligado (settings.bob e sem movimento reduzido). */
-  sway: boolean;
-  crouch: boolean;
-};
+export type HandsUpdate = { moving: boolean; run: boolean; bob: number; crouch: boolean; panel: boolean; aiming: boolean };
 
 export type Hands = {
   flash: THREE.SpotLight;
   /** Corpo de sombra: o controlador posiciona (pés do jogador, yaw). */
   body: THREE.Group;
-  setFlash(on: boolean): void;
+  /** Polegar clica o botão; a luz troca logo depois. */
+  toggleFlash(): void;
   flashOn(): boolean;
   /** A mão esquerda sobe para alcançar por `seconds`. */
   reach(seconds?: number): void;
   setVisible(visible: boolean): void;
-  update(dt: number, t: number, s: HandsState): void;
+  update(dt: number, s: HandsUpdate): void;
+  state(): { mode: string; flashOn: boolean; idle: IdleKind; holster: number; light: number; phone: PhoneState };
+  /**
+   * Rig do celular (para a T11): `open` sobe a mão esquerda com o aparelho fechado e o polegar abre a tampa;
+   * `close` fecha e desce; `press(tecla)` afunda a tecla e volta. Na 1A o aparelho é um proxy (caixa chanfrada
+   * com tampa articulada e teclado), criado só no primeiro uso e alcançável só pelo debug.
+   */
+  phone(action: "open" | "close"): void;
+  press(key: string): void;
+  /** Debug (fotos): solta o `still`, força uma ociosa ou avança a animação com entradas dadas. */
+  debug: {
+    setStill(v: boolean): void;
+    forceIdle(kind: Exclude<IdleKind, "none">): void;
+    step(seconds: number, input: Partial<HandsUpdate>): void;
+  };
   dispose(): void;
+};
+
+export type HandsOptions = {
+  seed: number;
+  /** Movimento reduzido (ou balanço desligado nos ajustes): sem ociosa nem balanço, trocas em ≤ 120 ms. */
+  reduced: boolean;
+  /** Foto de referência: nada anda sozinho. */
+  still: boolean;
+  flashOn: boolean;
+  /** Tique do botão (som). Opcional: sem ele, nada toca. */
+  onClick?: () => void;
 };
 
 /**
@@ -50,16 +72,37 @@ export const FLASH = { color: 0xfff0d8, intensity: 0.7 * Math.PI, distance: 8, a
  * (o 0,03 do protótipo descolava a sombra do objeto, peter-panning). Medido na T8: a lanterna varrendo as paredes
  * oeste e norte de raspão dá diferença 0 contra normalBias 0,2 (sem acne).
  * `near` 0,1, e não o 0,5 da pendente: lá o 0,5 tira a cúpula e a lâmpada do mapa; aqui não há nada atrás da lente
- * (as mãos estão atrás dela). Com 0,5, o que fica a menos de 0,5 m da lente deixa de barrar a luz: com o olho a
+ * (a mão está atrás dela). Com 0,5, o que fica a menos de 0,5 m da lente deixa de barrar a luz: com o olho a
  * 0,6 m do caderno, o tampo da mesa deixa o facho passar e acende a parede atrás (diferença média 0,74; 1,5 % dos
  * pixels > 12 níveis; a 0,75 m, 0,40; a 1,1 m, 0). Imagem: `t8-lanterna-near-e-acne.png` no relatório.
  */
 export const FLASH_SHADOW = { mapSize: 512, near: 0.1, far: 8, bias: -0.0005, normalBias: 0.005 } as const;
 
-type Pose = { x: number; y: number; z: number; rx: number; ry: number; rz: number; c: number };
-const REST_R: Pose = { x: 0.17, y: -0.19, z: -0.3, rx: 0.06, ry: 0.09, rz: 0.05, c: 1 };
-const REST_L: Pose = { x: -0.32, y: -0.6, z: -0.22, rx: 0.4, ry: -0.3, rz: 0, c: 0.3 };
-const REACH_L: Pose = { x: -0.07, y: -0.13, z: -0.42, rx: 0.12, ry: -0.18, rz: 0.15, c: 0.2 };
+/** Lanterna no grupo `grip` (eixo −z para a frente), em metros. */
+const TORCH = {
+  r: 0.0165,
+  /** Corpo recartilhado: do botão para trás, onde os dedos fecham. */
+  knurl: [-0.02, 0.045],
+  /** Faixa lisa do botão. */
+  band: [-0.046, -0.02],
+  /** Cabeça em sino até o aro. */
+  head: [-0.092, -0.046],
+  headR: 0.024,
+  /** Tampa de trás. */
+  tail: [0.045, 0.058],
+  /** Botão no alto da faixa, um pouco para a esquerda (onde o polegar pousa). */
+  button: { angle: 1.75, z: -0.033 },
+} as const;
+
+/** Dedos: posição ao longo do tubo, espessura e as três falanges (proximal, média, distal). */
+const FINGERS = [
+  { z: -0.012, t: 0.0175, l: [0.04, 0.024, 0.02] },
+  { z: 0.006, t: 0.018, l: [0.044, 0.027, 0.021] },
+  { z: 0.023, t: 0.017, l: [0.041, 0.025, 0.02] },
+  { z: 0.038, t: 0.015, l: [0.032, 0.02, 0.017] },
+] as const;
+/** Ângulo (rad, no plano xy do tubo; 0 = direita, π/2 = cima) onde a fileira dos nós começa. */
+const KNUCKLE_ANGLE = -0.7;
 
 const drawSleeve: Draw = (g, w, h) => {
   const r = mulberry(890);
@@ -76,39 +119,71 @@ const drawSleeve: Draw = (g, w, h) => {
   grain(g, w, h, r, 14);
 };
 
+/** Pele: tom quente, mais escuro nas dobras (a textura corre ao longo do dedo). */
 const drawSkin: Draw = (g, w, h) => {
   const r = mulberry(900);
   g.fillStyle = "#8c6652";
   g.fillRect(0, 0, w, h);
   blotches(g, w, h, r, 5, [120, 70, 56], 1.4, 0.3);
+  for (const y of [0.18, 0.82]) {
+    g.fillStyle = "rgba(70,40,30,.28)";
+    g.fillRect(0, h * y, w, 1.5);
+  }
   grain(g, w, h, r, 8);
 };
 
+/** Corpo da lanterna: alumínio anodizado preto recartilhado, gasto onde a mão pega. */
 const drawKnurl: Draw = (g, w, h) => {
+  const r = mulberry(910);
   g.fillStyle = "#1c1c1e";
   g.fillRect(0, 0, w, h);
   for (let y = 0; y < h; y += 3) {
     for (let x = (y / 3) % 2 ? 0 : 1.5; x < w; x += 3) {
-      g.fillStyle = "rgba(120,120,126,.25)";
+      g.fillStyle = `rgba(150,150,156,${0.18 + r() * 0.16})`;
       g.fillRect(x, y, 1, 1);
     }
   }
+  // brilho do alumínio onde o anodizado gastou
+  for (let i = 0; i < 18; i++) {
+    g.fillStyle = `rgba(170,170,176,${0.12 + r() * 0.2})`;
+    g.fillRect(r() * w, r() * h, 1 + r() * 4, 1);
+  }
 };
 
-export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE.Camera, scene: THREE.Object3D): Hands {
+/** Anodizado liso com arranhões finos e a borda do aro gasta até o metal. */
+const drawAnodized: Draw = (g, w, h) => {
+  const r = mulberry(920);
+  g.fillStyle = "#202024";
+  g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 26; i++) {
+    g.strokeStyle = `rgba(170,170,178,${0.1 + r() * 0.22})`;
+    g.lineWidth = 0.5;
+    const x = r() * w;
+    const y = r() * h;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + (r() - 0.5) * 18, y + (r() - 0.5) * 3);
+    g.stroke();
+  }
+  edgeWear(g, w, h, r, [120, 120, 126], 3, 0.6);
+};
+
+export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE.Camera, scene: THREE.Object3D, o: HandsOptions): Hands {
   const T = three;
   const geometries: THREE.BufferGeometry[] = [];
   const g = <G extends THREE.BufferGeometry>(geo: G): G => {
     geometries.push(geo);
     return geo;
   };
-  const mesh = (geo: THREE.BufferGeometry, mat: THREE.Material, parent: THREE.Object3D, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0) => {
+  const meshes: THREE.Mesh[] = [];
+  const mesh = (geo: THREE.BufferGeometry, mat: THREE.Material, parent: THREE.Object3D, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
     const m = new T.Mesh(g(geo), mat);
     m.position.set(x, y, z);
     m.rotation.set(rx, ry, rz);
     m.castShadow = false;
     m.receiveShadow = true;
     parent.add(m);
+    meshes.push(m);
     return m;
   };
   const cbox = (w: number, h: number, d: number, c: number) => chamferBox(T, w, h, d, { chamfer: c, seg: 20, uv: { mode: "face" } });
@@ -117,90 +192,58 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   const cuff = kit.phong({ color: 0x3a3a35, shininess: 4 });
   const skin = kit.phong({ map: kit.texture("jogador:pele", drawSkin, 64), shininess: 14, specular: 0x140c08 });
   const nail = kit.phong({ color: 0xb08878, shininess: 40 });
-
-  type Finger = { base: THREE.Group; tip: THREE.Group };
-  const makeHand = (side: 1 | -1) => {
-    const root = new T.Group();
-    // antebraço na manga (cônico, 8 lados) e o punho dobrado, mais gasto
-    mesh(new T.CylinderGeometry(0.043, 0.05, 0.34, 8), sleeve, root, 0, -0.004, 0.2, Math.PI / 2);
-    mesh(new T.CylinderGeometry(0.048, 0.048, 0.035, 8), cuff, root, 0, -0.004, 0.035, Math.PI / 2);
-    // pulso e dorso: o dorso é mais largo nos nós e afina para o pulso
-    mesh(new T.CylinderGeometry(0.026, 0.03, 0.03, 8), skin, root, 0, -0.002, 0.005, Math.PI / 2);
-    mesh(cbox(0.074, 0.03, 0.082, 0.009), skin, root, 0, 0, -0.035);
-    const fingers: Finger[] = [];
-    for (let i = 0; i < 4; i++) {
-      const spread = (i - 1.5) * 0.0185 * side;
-      const len = 0.05 - Math.abs(i - 1.5) * 0.007 - (i === 3 ? 0.006 : 0);
-      const base = new T.Group();
-      base.position.set(spread, 0.002, -0.074);
-      root.add(base);
-      mesh(cbox(0.0165, 0.018, len * 0.55, 0.004), skin, base, 0, 0, -len * 0.27);
-      const tip = new T.Group();
-      tip.position.set(0, 0, -len * 0.55);
-      base.add(tip);
-      mesh(cbox(0.0152, 0.0158, len * 0.48, 0.0045), skin, tip, 0, -0.0005, -len * 0.23);
-      mesh(cbox(0.011, 0.0025, 0.009, 0.001), nail, tip, 0, 0.0075, -len * 0.4);
-      fingers.push({ base, tip });
-    }
-    const thumb = new T.Group();
-    thumb.position.set(0.036 * side, -0.006, -0.028);
-    thumb.rotation.y = 0.6 * side;
-    root.add(thumb);
-    mesh(cbox(0.019, 0.018, 0.028, 0.005), skin, thumb, 0, 0, -0.012);
-    const thumbTip = new T.Group();
-    thumbTip.position.set(0, 0, -0.026);
-    thumb.add(thumbTip);
-    mesh(cbox(0.017, 0.016, 0.024, 0.005), skin, thumbTip, 0, 0, -0.011);
-    mesh(cbox(0.012, 0.0025, 0.009, 0.001), nail, thumbTip, 0, 0.0075, -0.017);
-    const curl = (k: number) => {
-      for (const f of fingers) {
-        f.base.rotation.x = -k * 1.05;
-        f.tip.rotation.x = -k * 1.1;
-      }
-      thumb.rotation.x = -k * 0.5;
-      thumbTip.rotation.x = -k * 0.6;
-    };
-    return { root, curl };
-  };
-
-  const right = new T.Group();
-  const left = new T.Group();
-  camera.add(right, left);
-  const rHand = makeHand(1);
-  const lHand = makeHand(-1);
-  right.add(rHand.root);
-  left.add(lHand.root);
-
-  // lanterna: corpo recartilhado, cabeça em sino (o −y da lathe vira −z: a boca larga encontra o anel), anel e lente,
-  // botão de borracha e a tampa de trás
-  const flashG = new T.Group();
-  flashG.position.set(0, 0.016, -0.05);
-  rHand.root.add(flashG);
   const knurl = kit.phong({ map: kit.texture("jogador:lanterna", drawKnurl, 64), shininess: 30 });
-  const black = kit.phong({ color: 0x1b1b1d, shininess: 40 });
+  const anodized = kit.phong({ map: kit.texture("jogador:anodizado", drawAnodized, 64), shininess: 45, specular: 0x202024 });
   const rubber = kit.phong({ color: 0x0e0e0e, shininess: 4 });
-  const bezel = kit.phong({ color: 0x6a6a70, specular: 0x404040, shininess: 60 });
+  const bezel = kit.phong({ color: 0x77777e, specular: 0x404040, shininess: 70 });
+  const reflector = kit.phong({ color: 0xb8b4a8, specular: 0x606060, shininess: 90 });
   const lens = kit.basic({ color: 0x4a4740 });
-  mesh(new T.CylinderGeometry(0.016, 0.016, 0.15, 10, 3), knurl, flashG, 0, 0, -0.02, Math.PI / 2);
-  const bell = [
-    [0.016, 0],
-    [0.017, -0.012],
-    [0.022, -0.03],
-    [0.023, -0.042],
-    [0.0001, -0.042],
-  ].map(([r, y]) => new T.Vector2(r, y)).reverse();
-  mesh(new T.LatheGeometry(bell, 12), black, flashG, 0, 0, -0.095, Math.PI / 2);
-  mesh(new T.TorusGeometry(0.021, 0.0025, 6, 14), bezel, flashG, 0, 0, -0.137);
-  mesh(new T.CircleGeometry(0.019, 12), lens, flashG, 0, 0, -0.1375, 0, Math.PI);
-  mesh(new T.CylinderGeometry(0.017, 0.017, 0.012, 10), black, flashG, 0, 0, 0.061, Math.PI / 2);
-  mesh(cbox(0.009, 0.006, 0.014, 0.002), rubber, flashG, 0, 0.0165, -0.045);
 
+  /* ------------------------------------------------ mão direita com a lanterna */
+  const right = new T.Group();
+  right.name = "mao-direita";
+  camera.add(right);
+  const grip = new T.Group();
+  right.add(grip);
+
+  // lanterna (cilindros com o eixo y girado para z)
+  const along = Math.PI / 2;
+  const tube = (r0: number, r1: number, z0: number, z1: number, mat: THREE.Material, seg = 12, hs = 1) =>
+    mesh(new T.CylinderGeometry(r1, r0, z1 - z0, seg, hs), mat, grip, 0, 0, (z0 + z1) / 2, along);
+  tube(TORCH.r, TORCH.r, TORCH.knurl[0], TORCH.knurl[1], knurl, 12, 3);
+  tube(TORCH.r, TORCH.r, TORCH.band[0], TORCH.band[1], anodized, 12, 2);
+  // sino da cabeça: perfil de baixo para cima (a lathe olha para fora) e girado para a boca larga ir à frente
+  const bell = [
+    [TORCH.r, 0],
+    [TORCH.r + 0.0008, 0.012],
+    [TORCH.headR - 0.001, 0.034],
+    [TORCH.headR, TORCH.head[1] - TORCH.head[0]],
+  ].map(([r, y]) => new T.Vector2(r, y));
+  mesh(new T.LatheGeometry(bell, 14), anodized, grip, 0, 0, TORCH.head[1], -along);
+  mesh(new T.TorusGeometry(TORCH.headR - 0.0015, 0.0022, 6, 18), bezel, grip, 0, 0, TORCH.head[0]);
+  // refletor (anel metálico) e a lente por dentro do aro
+  mesh(new T.RingGeometry(0.0075, TORCH.headR - 0.003, 16), reflector, grip, 0, 0, TORCH.head[0] + 0.0012, 0, Math.PI);
+  mesh(new T.CircleGeometry(0.0078, 12), lens, grip, 0, 0, TORCH.head[0] + 0.0008, 0, Math.PI);
+  // tampa de trás com a argola do cordão
+  tube(TORCH.r + 0.001, TORCH.r + 0.001, TORCH.tail[0], TORCH.tail[1], anodized, 12, 1);
+  mesh(new T.TorusGeometry(0.0055, 0.0013, 5, 10), bezel, grip, 0, -0.004, TORCH.tail[1] + 0.004, 0, Math.PI / 2);
+  // botão: base chanfrada e a cúpula de borracha, no alto da faixa
+  const btn = new T.Group();
+  const ba = TORCH.button.angle;
+  btn.position.set(Math.cos(ba) * TORCH.r, Math.sin(ba) * TORCH.r, TORCH.button.z);
+  btn.rotation.z = ba - Math.PI / 2;
+  grip.add(btn);
+  mesh(cbox(0.013, 0.004, 0.02, 0.0012), anodized, btn, 0, 0.0015, 0);
+  const dome = mesh(new T.SphereGeometry(0.0055, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), rubber, btn, 0, 0.0034, 0);
+  dome.scale.set(1, 0.55, 1.25);
+
+  // a luz sai da cabeça
   const flash = new T.SpotLight(protoColor(T, FLASH.color), 0, FLASH.distance, FLASH.angle, FLASH.penumbra, FLASH.decay);
   flash.name = "lanterna";
-  flash.position.set(0, 0, -0.15);
+  flash.position.set(0, 0, TORCH.head[0] - 0.005);
   const flashTarget = new T.Object3D();
   flashTarget.position.set(0, 0, -3);
-  flashG.add(flash, flashTarget);
+  grip.add(flash, flashTarget);
   flash.target = flashTarget;
   flash.castShadow = true;
   flash.shadow.mapSize.set(FLASH_SHADOW.mapSize, FLASH_SHADOW.mapSize);
@@ -210,7 +253,157 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   flash.shadow.camera.far = FLASH_SHADOW.far;
   flash.shadow.autoUpdate = false;
 
-  // corpo de sombra
+  // dorso e palma do lado de fora do tubo
+  const handR = new T.Group();
+  grip.add(handR);
+  const palmAngle = 0.05;
+  const palmR = TORCH.r + 0.0145;
+  const palm = mesh(cbox(0.028, 0.046, 0.088, 0.008), skin, handR, Math.cos(palmAngle) * palmR, Math.sin(palmAngle) * palmR, 0.008, 0, 0, palmAngle);
+  palm.name = "palma";
+
+  // dedos: polígono circunscrito ao tubo (cada falange tangente a ele no meio)
+  type Chain = { root: THREE.Group; joints: THREE.Group[]; bends: number[] };
+  const chains: Chain[] = [];
+  for (const f of FINGERS) {
+    const d = TORCH.r + f.t / 2 + 0.0004;
+    const alphas = f.l.map((l) => 2 * Math.atan(l / (2 * d)));
+    const k0 = KNUCKLE_ANGLE;
+    const kr = d / Math.cos(alphas[0] / 2);
+    const root = new T.Group();
+    root.position.set(Math.cos(k0) * kr, Math.sin(k0) * kr, f.z);
+    // direção da 1ª falange: tangente no meio dela, girando no sentido horário (para baixo e para a esquerda)
+    root.rotation.z = k0 - alphas[0] / 2 - Math.PI / 2;
+    handR.add(root);
+    // nó do dedo (articulação saliente)
+    mesh(cbox(0.016, f.t + 0.004, f.t + 0.002, 0.005), skin, root, 0.004, 0.002, 0);
+    const joints: THREE.Group[] = [];
+    let parent: THREE.Object3D = root;
+    f.l.forEach((l, i) => {
+      if (i > 0) {
+        const joint = new T.Group();
+        joint.position.set(f.l[i - 1], 0, 0);
+        parent.add(joint);
+        joints.push(joint);
+        parent = joint;
+      }
+      mesh(cbox(l, f.t * (1 - i * 0.05), f.t * (1 - i * 0.06), 0.0045), skin, parent, l / 2, 0, 0);
+      if (i === 2) mesh(cbox(l * 0.55, 0.0022, f.t * 0.62, 0.0008), nail, parent, l * 0.62, -f.t / 2 + 0.0008, 0);
+    });
+    const bends = alphas.slice(1).map((a, i) => -(alphas[i] + a) / 2);
+    chains.push({ root, joints, bends });
+  }
+
+  // polegar: da base (eminência tenar, alto da palma) por cima do tubo até o botão
+  const thumbBase = new T.Vector3(Math.cos(0.75) * (TORCH.r + 0.016), Math.sin(0.75) * (TORCH.r + 0.016), 0.012);
+  const thumbProx = mesh(cbox(0.02, 0.018, 1, 0.006), skin, handR);
+  const thumbDist = mesh(cbox(0.018, 0.016, 1, 0.006), skin, handR);
+  const thumbNail = mesh(cbox(0.012, 0.0022, 0.01, 0.0008), nail, thumbDist);
+  const v2 = new T.Vector3();
+  const thumbMid = new T.Vector3(Math.cos(1.2) * (TORCH.r + 0.017), Math.sin(1.2) * (TORCH.r + 0.017), -0.012);
+  const thumbTip = new T.Vector3();
+  /** Liga dois pontos com uma falange (caixa ao longo de z, centrada, olhando para o fim). */
+  const bone = (m: THREE.Mesh, a: THREE.Vector3, b: THREE.Vector3) => {
+    m.position.copy(a).add(b).multiplyScalar(0.5);
+    m.scale.set(1, 1, a.distanceTo(b));
+    m.lookAt(v2.copy(b).applyMatrix4(handR.matrixWorld));
+  };
+  const placeThumb = (press: number) => {
+    // ponta sobre a cúpula do botão; apertar desce 2 mm
+    const tipR = TORCH.r + 0.0062 + 0.008 - press * 0.002;
+    thumbTip.set(Math.cos(ba) * tipR, Math.sin(ba) * tipR, TORCH.button.z - 0.004);
+    handR.updateWorldMatrix(true, false);
+    bone(thumbProx, thumbBase, thumbMid);
+    bone(thumbDist, thumbMid, thumbTip);
+    thumbNail.position.set(0, 0.0085, 0.3);
+    thumbNail.scale.set(1, 1, 1 / Math.max(1e-3, thumbDist.scale.z));
+    dome.position.y = 0.0034 - press * 0.0015;
+  };
+
+  // pulso e antebraço: atrás, abaixo e à direita (sem encostar na tampa de trás)
+  const wrist = new T.Group();
+  wrist.position.set(0.044, -0.026, 0.064);
+  wrist.lookAt(0.044 + 0.25, -0.026 - 0.38, 0.064 + 1);
+  handR.add(wrist);
+  mesh(new T.CylinderGeometry(0.023, 0.026, 0.05, 10), skin, wrist, 0, 0, 0.0, along);
+  mesh(new T.CylinderGeometry(0.047, 0.047, 0.035, 10), cuff, wrist, 0, 0, 0.042, along);
+  mesh(new T.CylinderGeometry(0.043, 0.05, 0.32, 10), sleeve, wrist, 0, 0, 0.2, along);
+
+  /* ------------------------------------------------ mão esquerda (livre, relaxada) */
+  const left = new T.Group();
+  left.name = "mao-esquerda";
+  camera.add(left);
+  const handL = new T.Group();
+  left.add(handL);
+  mesh(new T.CylinderGeometry(0.043, 0.05, 0.34, 10), sleeve, handL, 0, -0.004, 0.2, along);
+  mesh(new T.CylinderGeometry(0.048, 0.048, 0.035, 10), cuff, handL, 0, -0.004, 0.035, along);
+  mesh(new T.CylinderGeometry(0.026, 0.03, 0.03, 10), skin, handL, 0, -0.002, 0.005, along);
+  mesh(cbox(0.074, 0.03, 0.082, 0.009), skin, handL, 0, 0, -0.035);
+  const leftFingers: THREE.Group[][] = [];
+  for (let i = 0; i < 4; i++) {
+    const f = FINGERS[i];
+    const base = new T.Group();
+    base.position.set((i - 1.5) * -0.0185, 0.002, -0.074);
+    handL.add(base);
+    const chain: THREE.Group[] = [base];
+    let parent: THREE.Object3D = base;
+    f.l.forEach((l, k) => {
+      if (k > 0) {
+        const joint = new T.Group();
+        joint.position.set(0, 0, -f.l[k - 1] * 0.85);
+        parent.add(joint);
+        chain.push(joint);
+        parent = joint;
+      }
+      const len = l * 0.85;
+      mesh(cbox(f.t * 0.95, f.t, len, 0.0045), skin, parent, 0, 0, -len / 2);
+      if (k === 2) mesh(cbox(f.t * 0.6, 0.0022, len * 0.5, 0.0008), nail, parent, 0, f.t / 2 - 0.0006, -len * 0.62);
+    });
+    leftFingers.push(chain);
+  }
+  const lThumb = new T.Group();
+  // mão esquerda com a palma para baixo: o polegar fica do lado de dentro (+x)
+  lThumb.position.set(0.036, -0.004, -0.028);
+  lThumb.rotation.y = -0.6;
+  handL.add(lThumb);
+  mesh(cbox(0.019, 0.018, 0.028, 0.005), skin, lThumb, 0, 0, -0.012);
+  const curlLeft = (k: number, thumb: number) => {
+    for (const chain of leftFingers) chain.forEach((j, i) => (j.rotation.x = -k * [0.6, 0.9, 0.7][i]));
+    // polegar: abre a tampa (empurra para cima e para a frente) ou aperta a tecla
+    lThumb.rotation.x = -k * 0.4 + thumb * 0.55;
+    lThumb.rotation.z = -thumb * 0.25;
+  };
+
+  /* ------------------------------------------------ celular (proxy da T11, nasce no primeiro uso) */
+  const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
+  type PhoneRig = { root: THREE.Group; hinge: THREE.Group; keys: Map<string, THREE.Mesh> };
+  let phoneRig: PhoneRig | null = null;
+  const buildPhone = (): PhoneRig => {
+    const plastic = kit.phong({ color: 0x3a3d43, shininess: 30 });
+    const keyMat = kit.phong({ color: 0x8a9096, shininess: 20 });
+    const screen = kit.basic({ color: 0x1a2a28 });
+    const root = new T.Group();
+    root.name = "celular-proxy";
+    // na palma, teclado para cima, girado para a cara ficar de frente para o olho
+    root.position.set(0.004, 0.026, -0.07);
+    root.rotation.x = 1.0;
+    handL.add(root);
+    mesh(cbox(0.046, 0.012, 0.086, 0.003), plastic, root, 0, 0.006, 0);
+    const keys = new Map<string, THREE.Mesh>();
+    KEYS.forEach((k, i) => {
+      const key = mesh(cbox(0.01, 0.003, 0.0065, 0.001), keyMat, root, (i % 3 - 1) * 0.013, 0.0135, 0.008 + Math.floor(i / 3) * 0.011);
+      keys.set(k, key);
+    });
+    // tampa articulada na borda de cima: fechada deita sobre o teclado; aberta gira ~165° para a frente
+    const hinge = new T.Group();
+    hinge.position.set(0, 0.012, -0.043);
+    root.add(hinge);
+    mesh(cbox(0.046, 0.009, 0.064, 0.003), plastic, hinge, 0, 0.0045, 0.032);
+    mesh(cbox(0.036, 0.0012, 0.044, 0.0004), screen, hinge, 0, -0.0006, 0.03);
+    mesh(new T.CylinderGeometry(0.0045, 0.0045, 0.03, 8), plastic, hinge, 0, 0, 0, 0, 0, Math.PI / 2);
+    return { root, hinge, keys };
+  };
+
+  /* ------------------------------------------------ corpo de sombra */
   const ghost = kit.basic({ colorWrite: false, depthWrite: false });
   const body = new T.Group();
   body.name = "corpo-sombra";
@@ -236,56 +429,80 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     legs.push(leg);
   }
 
-  const hr: Pose = { ...REST_R };
-  const hl: Pose = { ...REST_L };
-  let flashOn = false;
-  let reachLeft = 0;
-  const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
+  /* ------------------------------------------------ aplicar a pose */
+  const anim = createHandsAnim({ seed: o.seed, reduced: o.reduced, still: o.still, flashOn: o.flashOn });
+  let visible = true;
+  let lastLight = -1;
+  const apply = (pose: HandsPose) => {
+    const r = pose.right;
+    right.position.set(r.x, r.y, r.z);
+    right.rotation.set(r.rx, r.ry, r.rz);
+    // apertar fecha um pouco as juntas; afrouxar abre (nunca atravessa o tubo: só abre mais que o encaixe)
+    const k = pose.grip >= 0 ? 1 + 0.04 * pose.grip : 1 + 0.35 * pose.grip;
+    for (const c of chains) c.joints.forEach((j, i) => (j.rotation.z = c.bends[i] * k));
+    placeThumb(pose.thumb);
+    const l = pose.left;
+    left.position.set(l.x, l.y, l.z);
+    left.rotation.set(l.rx, l.ry, l.rz);
+    curlLeft(l.curl, pose.phone.thumb);
+    if (pose.phone.visible && !phoneRig) phoneRig = buildPhone();
+    if (phoneRig) {
+      phoneRig.root.visible = pose.phone.visible;
+      phoneRig.hinge.rotation.x = -pose.phone.lid * 2.88;
+      for (const [k, key] of phoneRig.keys) key.position.y = 0.0135 - (k === pose.phone.key ? pose.phone.press * 0.0018 : 0);
+    }
+    left.visible = visible && l.y > -0.52;
+    if (pose.light !== lastLight) {
+      lastLight = pose.light;
+      flash.intensity = FLASH.intensity * pose.light;
+      flash.shadow.autoUpdate = pose.light > 0;
+      flash.shadow.needsUpdate = pose.light > 0;
+      lens.color.copy(protoColor(T, pose.light > 0 ? 0xfff4dc : 0x4a4740));
+    }
+  };
+  const input = (s: Partial<HandsUpdate>): HandsInput => ({
+    moving: s.moving ?? false,
+    run: s.run ?? false,
+    crouch: s.crouch ?? false,
+    panel: s.panel ?? false,
+    aiming: s.aiming ?? false,
+    bob: s.bob ?? 0,
+  });
+  let lastInput: HandsInput = input({});
+  apply(anim.step(0, lastInput).pose);
 
   return {
     flash,
     body,
-    setFlash(on) {
-      flashOn = on;
-      flash.intensity = on ? FLASH.intensity : 0;
-      flash.shadow.autoUpdate = on;
-      flash.shadow.needsUpdate = on;
-      lens.color.setHex(on ? 0xfff4dc : 0x4a4740);
-    },
-    flashOn: () => flashOn,
-    reach(seconds = 0.6) {
-      reachLeft = Math.max(reachLeft, seconds);
-    },
+    toggleFlash: () => anim.toggleFlash(),
+    phone: (action) => anim.phone(action),
+    press: (key) => anim.press(key),
+    flashOn: () => anim.state().flashOn,
+    reach: (seconds) => anim.reach(seconds),
     setVisible(v) {
-      // Esconde só as malhas: a lanterna (filha da mão direita) continua acesa nas fotos de perto.
-      for (const hand of [rHand.root, lHand.root]) hand.traverse((o) => {
-        if ((o as THREE.Mesh).isMesh) o.visible = v;
-      });
+      // Esconde só as malhas: a lanterna continua acesa nas fotos de perto.
+      visible = v;
+      for (const m of meshes) m.visible = v;
     },
-    update(dt, t, s) {
-      reachLeft = Math.max(0, reachLeft - dt);
-      const tl = reachLeft > 0 ? REACH_L : REST_L;
-      const k = Math.min(1, dt * 10);
-      for (const key of Object.keys(hr) as (keyof Pose)[]) {
-        hr[key] = lerp(hr[key], REST_R[key], k);
-        hl[key] = lerp(hl[key], tl[key], k);
-      }
-      const sw = s.sway ? 1 : 0;
-      const bk = s.sway && s.moving ? (s.run ? 2 : 1) : 0;
-      const by = Math.abs(Math.sin(s.bob)) * 0.009 * bk;
-      const bx = Math.cos(s.bob) * 0.008 * bk;
-      right.position.set(hr.x + bx + Math.sin(t * 1.1) * 0.0025 * sw, hr.y - by + Math.sin(t * 1.7) * 0.0025 * sw, hr.z);
-      right.rotation.set(hr.rx + Math.sin(s.bob) * 0.015 * bk, hr.ry, hr.rz);
-      left.position.set(hl.x - bx, hl.y - by, hl.z);
-      left.rotation.set(hl.rx, hl.ry, hl.rz);
-      rHand.curl(hr.c);
-      lHand.curl(hl.c);
-      left.visible = hl.y > -0.52;
+    update(dt, s) {
+      lastInput = input(s);
+      const out = anim.step(dt, lastInput);
+      if (out.events.includes("click")) o.onClick?.();
+      apply(out.pose);
       // corpo: o controlador põe a posição; aqui só o balanço das pernas e o agachar
-      const swing = s.moving && s.sway ? Math.sin(s.bob) * (s.run ? 0.5 : 0.32) : 0;
+      const swing = s.moving && !o.reduced && !o.still ? Math.sin(s.bob) * (s.run ? 0.5 : 0.32) : 0;
       legs[0].rotation.x = swing;
       legs[1].rotation.x = -swing;
-      body.scale.y = lerp(body.scale.y, s.crouch ? 0.64 : 1, Math.min(1, dt * 6));
+      body.scale.y += ((s.crouch ? 0.64 : 1) - body.scale.y) * Math.min(1, dt * 6);
+    },
+    state: () => anim.state(),
+    debug: {
+      setStill: (v) => anim.setStill(v),
+      forceIdle: (kind) => anim.forceIdle(kind),
+      step(seconds, s) {
+        const inp = input(s);
+        for (let t = 0; t < seconds - 1e-9; t += 1 / 60) apply(anim.step(1 / 60, inp).pose);
+      },
     },
     dispose() {
       right.removeFromParent();

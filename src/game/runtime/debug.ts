@@ -31,6 +31,21 @@ export type CriptaDebug = {
   setShadow(o: { light?: "main" | "flash"; normalBias?: number; bias?: number; near?: number }): ShadowInfo | null;
   /** Fotos de contato: esconde/mostra um objeto interativo da camada pelo id. */
   setVisible(id: string, visible: boolean): void;
+  /** Estado das mãos (guardada/sacada, lanterna, ociosa, celular). */
+  readonly handsState: HandsDebugState | null;
+  /** Fotos das poses e testes: solta o `still`, liga/apaga, força ociosa, celular, e avança a animação. */
+  handsDebug(o: HandsDebugInput): void;
+};
+
+export type HandsDebugState = { mode: string; flashOn: boolean; idle: string; holster: number; light: number; phone: string };
+export type HandsDebugInput = {
+  still?: boolean;
+  toggle?: boolean;
+  idle?: "regrip" | "sway" | "adjust";
+  phone?: "open" | "close";
+  press?: string;
+  step?: number;
+  input?: Partial<{ moving: boolean; run: boolean; bob: number; crouch: boolean; panel: boolean; aiming: boolean }>;
 };
 
 export type ShadowInfo = { normalBias: number; bias: number; near: number };
@@ -41,6 +56,8 @@ export type DebugHooks = {
   setCamera?(pose: CameraPose): void;
   hands?(visible: boolean): void;
   objectVisible?(id: string, visible: boolean): void;
+  handsState?(): HandsDebugState | null;
+  handsDebug?(o: HandsDebugInput): void;
 };
 
 export type CameraPose = { x: number; y: number; z: number; yaw: number; pitch: number };
@@ -153,6 +170,10 @@ export function installDebug(engine: Engine, getLayer: () => string, getSave: ()
       return { normalBias: shadow.normalBias, bias: shadow.bias, near: shadow.camera.near };
     },
     setVisible: (id, visible) => hooks.objectVisible?.(id, visible),
+    get handsState() {
+      return hooks.handsState?.() ?? null;
+    },
+    handsDebug: (o) => hooks.handsDebug?.(o),
   };
   window.__cripta = api;
   return () => {

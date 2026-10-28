@@ -141,6 +141,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   const closePlaces = () => {
     if (mode !== "menu") return;
     mode = "walk";
+    player?.setPanel(false);
     ui.places(null);
   };
   const openPlaces = () => {
@@ -152,6 +153,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
       .filter((p) => !p.hidden && !(p.locked && p.locked(state)))
       .map((p) => ({ id: p.id, name: p.name, here: p.id === here }));
     mode = "menu";
+    player.setPanel(true);
     ui.places(list);
   };
 
@@ -236,6 +238,17 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
           }
         },
         hands: (v) => player?.setHandsVisible(v),
+        handsState: () => player?.hands.state() ?? null,
+        handsDebug: (o) => {
+          const h = player?.hands;
+          if (!h) return;
+          if (o.still !== undefined) h.debug.setStill(o.still);
+          if (o.toggle) h.toggleFlash();
+          if (o.idle) h.debug.forceIdle(o.idle);
+          if (o.phone) h.phone(o.phone);
+          if (o.press) h.press(o.press);
+          if (o.step) h.debug.step(o.step, o.input ?? {});
+        },
         objectVisible: (id, v) => {
           for (const root of runner?.current()?.objects.find((o) => o.id === id)?.roots ?? []) root.visible = v;
         },

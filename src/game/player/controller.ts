@@ -52,6 +52,8 @@ export type PlayerOptions = {
   onAct?: (object: InteractiveObject) => void;
   /** Foto de referência: sem balanço, respiração nem relógio próprio (o quadro sai igual a cada execução). */
   still?: boolean;
+  /** Tique do botão da lanterna (som, quando houver). */
+  onFlashClick?: () => void;
 };
 
 export type Player = {
@@ -69,6 +71,8 @@ export type Player = {
   debugPose(pose: CameraPose | null): void;
   /** Debug/fotos: esconde as mãos. */
   setHandsVisible(v: boolean): void;
+  /** Painel aberto (lista, leitor, exame, celular): a lanterna é guardada; ao voltar a andar, sacada. */
+  setPanel(open: boolean): void;
   readonly hands: Hands;
 };
 
@@ -100,10 +104,16 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
   const { three: T, camera, kit, scene } = engine;
   const graph = layer.places;
   const boxes = layer.colliders;
-  const hands = createHands(T, kit, camera, scene);
-  // A lanterna começa acesa, como no protótipo 7 aprovado (F apaga).
-  hands.setFlash(true);
   const reduced = prefersReducedMotion();
+  // A lanterna começa acesa, como no protótipo 7 aprovado (F apaga). Balanço desligado nos ajustes conta como
+  // movimento reduzido para as mãos (sem ociosa nem balanço).
+  const hands = createHands(T, kit, camera, scene, {
+    seed: 7,
+    reduced: reduced || !settings.bob,
+    still: opts.still === true,
+    flashOn: true,
+    onClick: opts.onFlashClick,
+  });
   const still = opts.still === true;
   const sway = settings.bob && !reduced && !still;
   const sens = PLAYER.sensitivity * settings.sensitivity;
@@ -292,6 +302,21 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
   const hit = new T.Vector3();
   const ndc = new T.Vector2();
 
+  let panel = false;
+  let aiming = false;
+  let aimClock = 0;
+  const center = new T.Vector2(0, 0);
+  /** Há um objeto ao alcance no centro da tela? */
+  const aimingAt = () => {
+    raycaster.setFromCamera(center, camera);
+    let best: THREE.Intersection | null = null;
+    for (const o of layer.objects) {
+      const hits = raycaster.intersectObjects(o.roots, true);
+      if (hits[0] && (!best || hits[0].distance < best.distance)) best = hits[0];
+    }
+    return !!best && inReach(pos, { x: best.point.x, z: best.point.z, distance: best.distance });
+  };
+
   const applyCamera = () => {
     if (pose) {
       camera.position.set(pose.x, pose.y, pose.z);
@@ -357,7 +382,13 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       // o corpo de sombra fica nos pés, virado para onde se olha
       hands.body.position.set(pos.x, 0, pos.z);
       hands.body.rotation.y = yaw;
-      hands.update(dt, time, { moving, run: isRunning() || !!route?.run, bob, sway, crouch });
+      // mirar: a cada 100 ms, o centro da tela num objeto ao alcance levanta a lanterna (a mira de verdade é da T9)
+      aimClock -= dt;
+      if (aimClock <= 0) {
+        aimClock = 0.1;
+        aiming = !panel && aimingAt();
+      }
+      hands.update(dt, { moving, run: isRunning() || !!route?.run, bob, crouch, panel, aiming });
     },
     apply(a) {
       if (disposed) return;
@@ -381,7 +412,7 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
           peekTarget = a.dir;
           return;
         case "flash":
-          hands.setFlash(!hands.flashOn());
+          hands.toggleFlash();
           return;
         case "interact":
           if (a.down) hands.reach();
@@ -421,6 +452,10 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
     },
     setHandsVisible(v) {
       hands.setVisible(v);
+    },
+    setPanel(open) {
+      panel = open;
+      if (open) aiming = false;
     },
     dispose() {
       if (disposed) return;
