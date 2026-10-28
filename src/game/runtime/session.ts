@@ -87,8 +87,9 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     // O loop já parou; o engine é descartado já (slot e canvas), o aviso fica até sair.
     onLost: () => {
       lost = true;
-      teardown();
+      // O aviso antes do descarte: `fail` não fala com uma sessão já descartada.
       fail();
+      teardown();
     },
   });
   if (signal.aborted) {

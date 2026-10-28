@@ -39,8 +39,12 @@ export type Hands = {
   dispose(): void;
 };
 
-/** Lanterna (valores do protótipo, luz física recalibrada) e a receita de sombra da T6 para um mapa de 512². */
-export const FLASH = { color: 0xfff0d8, intensity: 1.1 * Math.PI, distance: 8, angle: 0.42, penumbra: 0.55, decay: 1.2 } as const;
+/**
+ * Lanterna (valores do protótipo, luz física recalibrada) e a receita de sombra da T6 para um mapa de 512². A
+ * intensidade 1,1π do protótipo estourava o círculo em branco a menos de 1 m (foto de perto da porta e do armário):
+ * 0,7π mantém o círculo legível de perto e ainda ilumina a 3 m.
+ */
+export const FLASH = { color: 0xfff0d8, intensity: 0.7 * Math.PI, distance: 8, angle: 0.42, penumbra: 0.55, decay: 1.2 } as const;
 /**
  * Receptores típicos a 1–3 m: texel ≈ 2·d·tan 0,42/512 ≈ 1,7–5,2 mm; `normalBias` 0,005 ≈ 1–1,5 texel a 2–3 m
  * (o 0,03 do protótipo descolava a sombra do objeto, peter-panning). `near` 0,1: as mãos ficam atrás da lente.
@@ -162,7 +166,8 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   right.add(rHand.root);
   left.add(lHand.root);
 
-  // lanterna: corpo recartilhado, cabeça em sino, anel e lente, botão de borracha e a tampa de trás
+  // lanterna: corpo recartilhado, cabeça em sino (o −y da lathe vira −z: a boca larga encontra o anel), anel e lente,
+  // botão de borracha e a tampa de trás
   const flashG = new T.Group();
   flashG.position.set(0, 0.016, -0.05);
   rHand.root.add(flashG);
@@ -179,7 +184,7 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     [0.023, -0.042],
     [0.0001, -0.042],
   ].map(([r, y]) => new T.Vector2(r, y)).reverse();
-  mesh(new T.LatheGeometry(bell, 12), black, flashG, 0, 0, -0.095, -Math.PI / 2);
+  mesh(new T.LatheGeometry(bell, 12), black, flashG, 0, 0, -0.095, Math.PI / 2);
   mesh(new T.TorusGeometry(0.021, 0.0025, 6, 14), bezel, flashG, 0, 0, -0.137);
   mesh(new T.CircleGeometry(0.019, 12), lens, flashG, 0, 0, -0.1375, 0, Math.PI);
   mesh(new T.CylinderGeometry(0.017, 0.017, 0.012, 10), black, flashG, 0, 0, 0.061, Math.PI / 2);
@@ -230,7 +235,6 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   const hl: Pose = { ...REST_L };
   let flashOn = false;
   let reachLeft = 0;
-  let visible = true;
   const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 
   return {
@@ -249,7 +253,6 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     },
     setVisible(v) {
       // Esconde só as malhas: a lanterna (filha da mão direita) continua acesa nas fotos de perto.
-      visible = v;
       for (const hand of [rHand.root, lHand.root]) hand.traverse((o) => {
         if ((o as THREE.Mesh).isMesh) o.visible = v;
       });

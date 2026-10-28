@@ -4,6 +4,10 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  // Um worker: o jogo agora abre a sala cinza de verdade (T8) e, no SwiftShader desta máquina (4 núcleos), um quadro
+  // 1280×800 custa ~160 ms sozinho; com duas páginas WebGL em paralelo passa dos 250 ms que o runtime trata como
+  // pausa e os testes de ciclo de vida (fps, navegação por trás) estouram o tempo. Medido na T8; ver o relatório.
+  workers: 1,
   retries: 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
