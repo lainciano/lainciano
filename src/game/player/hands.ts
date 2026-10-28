@@ -28,6 +28,8 @@ export type HandsRig = {
   /** Falanges, nós e pontas dos dedos que abraçam o tubo. */
   fingers: THREE.Mesh[];
   thumbTip: THREE.Object3D;
+  /** Tenar, falanges, nó, ponta e unha do polegar. */
+  thumb: THREE.Mesh[];
   button: THREE.Object3D;
   flash: THREE.SpotLight;
   /** z (no `grip`) da frente da cabeça. */
@@ -423,8 +425,9 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   const thumbBase = new T.Vector3(Math.cos(0.75) * (TORCH.r + 0.016), Math.sin(0.75) * (TORCH.r + 0.016), 0.012);
   const thenar = mesh(knob(T, 0.013), skin, handR, thumbBase.x + 0.004, thumbBase.y - 0.004, thumbBase.z + 0.008);
   thenar.scale.set(1.25, 0.95, 1.6);
+  // comprimento 1 ao longo de +z (o `bone` estica só em z): o arco tem de ser absoluto (~1,5 mm), não 5 % de 1 m
   const thumbGeo = (r0: number, r1: number) => {
-    const geo = phalanx(T, 1, r0, r1, 0.05);
+    const geo = phalanx(T, 1, r0, r1, 0.0015);
     geo.rotateY(-Math.PI / 2);
     return geo;
   };
@@ -695,7 +698,7 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
         apply(anim.step(0, inp).pose);
         if (!v) for (const m of meshes) m.visible = visible;
       },
-      rig: () => ({ grip, tubeR: TORCH.r, fingers: fingerMeshes, thumbTip, button: dome, flash, headFront: TORCH.head[0], triangles: { ...tri } }),
+      rig: () => ({ grip, tubeR: TORCH.r, fingers: fingerMeshes, thumbTip, thumb: [thenar, thumbProx, thumbDist, thumbJoint, thumbTip, thumbNail], button: dome, flash, headFront: TORCH.head[0], triangles: { ...tri } }),
     },
     dispose() {
       right.removeFromParent();

@@ -108,3 +108,20 @@ describe("mãos · descarte", () => {
     expect(materialDisposes).toBe(0);
   });
 });
+
+describe("mãos · polegar", () => {
+  it("o polegar fica junto do tubo (nenhum vértice a mais de 5,5 cm do eixo; o tenar chega a 4,6): sem falange torta para fora", () => {
+    const { hands } = setup();
+    const rig = hands.debug.rig();
+    rig.grip.updateWorldMatrix(true, true);
+    const inv = new THREE.Matrix4().copy(rig.grip.matrixWorld).invert();
+    const v = new THREE.Vector3();
+    let max = 0;
+    for (const m of rig.thumb) {
+      m.updateWorldMatrix(true, false);
+      const pos = m.geometry.getAttribute("position");
+      for (let i = 0; i < pos.count; i++) max = Math.max(max, Math.hypot(...v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld).applyMatrix4(inv).toArray().slice(0, 2)));
+    }
+    expect(max).toBeLessThan(0.055);
+  });
+});

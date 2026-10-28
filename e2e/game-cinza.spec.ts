@@ -11,9 +11,10 @@ type CriptaWindow = Window & {
     renderer: { frames: number; frameErrors: number; quality: number; autoQuality: boolean; render: { triangles: number } };
     setCamera(p: Pose): void;
     setPsx(o: { snap?: boolean; affine?: number }): void;
-    hands(visible: boolean): void;
     setShadow(o: { light?: "main" | "flash"; normalBias?: number; bias?: number; near?: number }): { normalBias: number; bias: number; near: number } | null;
     setVisible(id: string, visible: boolean): void;
+    hands(visible: boolean): void;
+    handsDebug(o: { still?: boolean; view?: { hand: "right" | "left"; angle: "front" | "left" | "right" | "top" } | null }): void;
   };
 };
 
@@ -282,4 +283,49 @@ test("objeto baixo: o caderno (1,8 cm) tem sombra encostada nele, e a métrica p
   expect(r.recipe.touching, "pixels de sombra encostados no caderno").toBeGreaterThanOrEqual(MIN_TOUCHING);
   expect(r.recipe.touching / Math.max(1, r.recipe.shadow), "a sombra é colada, não solta").toBeGreaterThanOrEqual(0.6);
   expect(r.detached.touching, "controle: com o bias do protótipo a métrica acusa").toBeLessThan(MIN_TOUCHING);
+});
+
+// Mãos (rodada 4): fotos que discriminam a mão. Em estúdio (mão no meio da tela, ângulo fixo, `still`), recortadas
+// na mão e com limiar de cor baixo (0,05): a mão escura sobre fundo escuro não escapa como no quadro inteiro.
+const STUDIO_CLIP = { x: 240, y: 100, width: 800, height: 600 } as const;
+for (const angle of ["front", "left", "right"] as const) {
+  test(`mão direita em estúdio (${angle}): empunhadura de referência`, async ({ page }) => {
+    await openShot(page);
+    await page.evaluate((a) => (window as unknown as CriptaWindow).__cripta?.handsDebug({ still: true, view: { hand: "right", angle: a } }), angle);
+    await nextFrames(page);
+    await expect(page).toHaveScreenshot(`maos-direita-${angle}.png`, { clip: STUDIO_CLIP, threshold: 0.05, maxDiffPixelRatio: 0.01, animations: "disabled" });
+  });
+}
+
+test("a mão aparece no quadro do jogo: com e sem mãos diferem bastante no canto de baixo à direita", async ({ page }, testInfo) => {
+  await openShot(page);
+  const withHands = await page.screenshot();
+  await page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.hands(false));
+  await nextFrames(page);
+  const without = await page.screenshot();
+  await page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.hands(true));
+  await testInfo.attach("com-maos.png", { body: withHands, contentType: "image/png" });
+  const changed = await page.evaluate(
+    async ({ a, b, region }) => {
+      const load = async (s: string) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${s}`;
+        await img.decode();
+        const c = document.createElement("canvas");
+        c.width = img.width;
+        c.height = img.height;
+        const g = c.getContext("2d");
+        if (!g) throw new Error("sem 2D");
+        g.drawImage(img, 0, 0);
+        return g.getImageData(region[0], region[1], region[2], region[3]).data;
+      };
+      const [pa, pb] = await Promise.all([load(a), load(b)]);
+      let n = 0;
+      for (let i = 0; i < pa.length; i += 4) if ((Math.abs(pa[i] - pb[i]) + Math.abs(pa[i + 1] - pb[i + 1]) + Math.abs(pa[i + 2] - pb[i + 2])) / 3 > 12) n += 1;
+      return n;
+    },
+    { a: withHands.toString("base64"), b: without.toString("base64"), region: [780, 520, 500, 280] },
+  );
+  // a silhueta da mão com a lanterna ocupa dezenas de milhares de pixels nessa região; sem ela, nada muda
+  expect(changed).toBeGreaterThan(8000);
 });
