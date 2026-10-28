@@ -50,6 +50,8 @@ export type PlayerOptions = {
   onPlace?: (place: string | null) => void;
   /** Toque num objeto ao alcance: agir (a interação completa é da T9). */
   onAct?: (object: InteractiveObject) => void;
+  /** Foto de referência: sem balanço, respiração nem relógio próprio (o quadro sai igual a cada execução). */
+  still?: boolean;
 };
 
 export type Player = {
@@ -102,7 +104,8 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
   // A lanterna começa acesa, como no protótipo 7 aprovado (F apaga).
   hands.setFlash(true);
   const reduced = prefersReducedMotion();
-  const sway = settings.bob && !reduced;
+  const still = opts.still === true;
+  const sway = settings.bob && !reduced && !still;
   const sens = PLAYER.sensitivity * settings.sensitivity;
 
   let pos: Vec2 = { x: 0, z: 0 };
@@ -111,8 +114,10 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
   let eye: number = PLAYER.eye;
   let place: string | null = null;
   let move = { x: 0, z: 0 };
-  let running = false;
+  /** Shift segurado; correr de fato é `runHeld && !crouch` (soltar o C com Shift ainda apertado volta a correr). */
+  let runHeld = false;
   let crouch = false;
+  const isRunning = () => runHeld && !crouch;
   let peekTarget = 0;
   let peek = 0;
   let bob = 0;
@@ -259,7 +264,7 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
   const stepFree = (dt: number): boolean => {
     const len = Math.hypot(move.x, move.z);
     if (len < 1e-6) return false;
-    const speed = crouch ? PLAYER.crouchSpeed : running ? PLAYER.run : PLAYER.walk;
+    const speed = crouch ? PLAYER.crouchSpeed : isRunning() ? PLAYER.run : PLAYER.walk;
     const mx = move.x / Math.max(1, len);
     const mz = move.z / Math.max(1, len);
     const sy = Math.sin(yaw);
@@ -294,7 +299,7 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       camera.updateMatrixWorld();
       return;
     }
-    const amp = sway && moving ? (crouch ? 0.012 : running || route?.run ? 0.04 : 0.022) : 0;
+    const amp = sway && moving ? (crouch ? 0.012 : isRunning() || route?.run ? 0.04 : 0.022) : 0;
     const bobY = -Math.abs(Math.sin(bob)) * amp;
     const bobX = Math.cos(bob) * amp * 0.45;
     const breath = sway ? Math.sin(time * 1.4) * 0.003 : 0;
@@ -338,13 +343,13 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
     },
     update(dt) {
       if (disposed) return;
-      time += dt;
+      if (!still) time += dt;
       const fromRoute = route ? stepRoute(dt) : false;
       const fromFree = route ? false : stepFree(dt);
       moving = fromRoute || fromFree;
       eye += ((crouch ? PLAYER.crouchEye : PLAYER.eye) - eye) * Math.min(1, dt * 5);
       peek += (peekTarget - peek) * Math.min(1, dt * 8);
-      if (moving) bob += dt * (crouch ? 6 : running || route?.run ? 12 : 8.5);
+      if (moving) bob += dt * (crouch ? 6 : isRunning() || route?.run ? 12 : 8.5);
       const s = Math.sin(bob);
       if (moving && lastSin !== 0 && Math.sign(s) !== Math.sign(lastSin)) opts.audio?.step(surfaceAt(pos, layer.surfaces, "granilite"));
       lastSin = s;
@@ -352,7 +357,7 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       // o corpo de sombra fica nos pés, virado para onde se olha
       hands.body.position.set(pos.x, 0, pos.z);
       hands.body.rotation.y = yaw;
-      hands.update(dt, time, { moving, run: running || !!route?.run, bob, sway, crouch });
+      hands.update(dt, time, { moving, run: isRunning() || !!route?.run, bob, sway, crouch });
     },
     apply(a) {
       if (disposed) return;
@@ -367,11 +372,10 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
           pitch = clamp(pitch - a.dy * sens, PLAYER.pitchMin, PLAYER.pitchMax);
           return;
         case "run":
-          running = a.on && !crouch;
+          runHeld = a.on;
           return;
         case "crouch":
           crouch = a.on;
-          if (crouch) running = false;
           return;
         case "peek":
           peekTarget = a.dir;

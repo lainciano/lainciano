@@ -5,7 +5,8 @@ import type { Action, InputMode } from "./actions";
  * está segurado. Regras:
  * - andando, Esc e ⌫ não fazem nada (o Esc é do navegador: solta o mouse e sai da tela cheia, bíblia 12b.5);
  * - nos painéis (exame, leitura, celular), E e ⌫ voltam; Esc também, por tolerância, sem rótulo na tela;
- * - no menu (lista de lugares), Tab, setas, Enter e espaço ficam com o foco e os botões nativos; L fecha como abriu.
+ * - no menu (lista de lugares), Tab, setas, Enter e espaço ficam com o foco e os botões nativos; L fecha como abriu;
+ * - agachar é segurar C (Ctrl é do navegador: ver `isBrowserChord`).
  */
 
 const MOVE: Record<string, { x: number; z: number }> = {
@@ -30,6 +31,14 @@ export const TURN_KEYS: Readonly<Record<string, { yaw: -1 | 0 | 1; pitch: -1 | 0
 
 const BACK_KEYS = new Set(["KeyE", "Backspace", "Escape"]);
 
+/**
+ * Atalho do navegador ou do sistema (Ctrl, ⌘ ou Alt junto): o jogo não lê nem impede (Ctrl+W, Ctrl+L, Ctrl+F
+ * seguem funcionando). Shift sozinho é do jogo (correr).
+ */
+export function isBrowserChord(e: { ctrlKey: boolean; metaKey: boolean; altKey: boolean }): boolean {
+  return e.ctrlKey || e.metaKey || e.altKey;
+}
+
 function walkKey(code: string, down: boolean): Action | null {
   const move = MOVE[code];
   if (move) return down ? { type: "move", ...move } : { type: "move", x: 0, z: 0 };
@@ -41,8 +50,6 @@ function walkKey(code: string, down: boolean): Action | null {
     case "ShiftRight":
       return { type: "run", on: down };
     case "KeyC":
-    case "ControlLeft":
-    case "ControlRight":
       return { type: "crouch", on: down };
     case "KeyZ":
       return { type: "peek", dir: down ? -1 : 0 };

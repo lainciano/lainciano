@@ -1,5 +1,5 @@
 import type { GameAudio } from "../audio/types";
-import { bindInput } from "../input/adapters";
+import { bindInput, type InputBinding } from "../input/adapters";
 import type { Action, InputMode } from "../input/actions";
 import { cinzaLayer } from "../layers/cinza";
 import { createLayerRunner, type LayerRunner } from "../layers/loader";
@@ -16,6 +16,8 @@ import { createEngine, type Engine } from "./engine";
  * Fluxo: engine → debug → (foto de referência `psx-ref`, que substitui a camada) ou camada pelo runner →
  * jogador no lugar salvo (ou na entrada) → entrada ligada → `engine.start()` (compileAsync com a sala e as mãos já
  * na cena) → "live". Falha de carga: "a porta emperrou" + tentar de novo (`retry`), sem derrubar o engine.
+ * Qualquer erro depois que o engine existe (jogador, entrada, debug, compile) descarta TUDO antes de subir: o
+ * contexto WebGL e o slot do orçamento nunca ficam presos.
  */
 
 export type SessionStatus = "loading" | "live" | "failed" | "stuck";
@@ -31,6 +33,7 @@ export type SessionUi = {
 
 export type Session = {
   retry(): void;
+  /** Escolha na lista (clique/Enter num botão: é gesto, então o mouse pode travar de novo aqui). */
   choosePlace(id: string): void;
   closePlaces(): void;
   dispose(): void;
@@ -68,14 +71,42 @@ function failingOnce(layer: Layer): Layer {
   };
 }
 
+/** Debug: `?debug=1&falha=<nome>` (só o nome pedido). */
+const debugFailure = (search: string, name: string) => debugEnabled(search) && new URLSearchParams(search).get("falha") === name;
+
 export async function startSession(host: HTMLElement, ui: SessionUi, signal: AbortSignal): Promise<Session | null> {
   const search = window.location.search;
   const save: SaveApi = createSaveStore(lazyStorage, Date.now);
   const coarse = window.matchMedia("(pointer: coarse)").matches;
+  const shot = layerShot(search);
+
   let engine: Engine | null = null;
+  let runner: LayerRunner | null = null;
+  let player: Player | null = null;
+  let input: InputBinding | null = null;
+  let mode: InputMode = "walk";
   let lost = false;
   let disposed = false;
+  let enteredOnce = false;
   const cleanups: (() => void)[] = [];
+
+  /** Descarta tudo o que nasceu, na ordem inversa. Idempotente: pode vir do erro, da perda, do abort e do shell. */
+  const teardown = () => {
+    if (disposed) return;
+    disposed = true;
+    const steps = [() => input?.(), () => player?.dispose(), () => runner?.dispose(), ...cleanups.splice(0).reverse(), () => engine?.dispose()];
+    for (const step of steps) {
+      try {
+        step();
+      } catch (error) {
+        console.error("[jogo] erro ao fechar a sessão", error);
+      }
+    }
+    input = null;
+    player = null;
+    runner = null;
+    engine = null;
+  };
   const fail = () => {
     if (!signal.aborted && !disposed) ui.status("failed");
   };
@@ -103,51 +134,9 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   engine = created;
   const eng = created;
 
-  let runner: LayerRunner | null = null;
-  let player: Player | null = null;
-  let unbind: (() => void) | null = null;
-  let mode: InputMode = "walk";
-  const shot = layerShot(search);
-
-  function teardown() {
-    if (disposed) return;
-    disposed = true;
-    unbind?.();
-    unbind = null;
-    player?.dispose();
-    player = null;
-    runner?.dispose();
-    runner = null;
-    for (const fn of cleanups.splice(0).reverse()) {
-      try {
-        fn();
-      } catch (error) {
-        console.error("[jogo] erro ao fechar a sessão", error);
-      }
-    }
-    engine?.dispose();
-    engine = null;
-  }
-
-  cleanups.push(
-    installDebug(eng, () => save.get().layer, save.get, {
-      place: () => player?.place ?? save.get().place,
-      setCamera: (pose) => {
-        if (player) player.debugPose(pose);
-        else {
-          eng.camera.position.set(pose.x, pose.y, pose.z);
-          eng.camera.rotation.set(pose.pitch, pose.yaw, 0, "YXZ");
-          eng.camera.updateMatrixWorld();
-        }
-      },
-      hands: (v) => player?.setHandsVisible(v),
-    }),
-  );
-
   const say = (line: Line) => ui.say(line);
   const actApi: ActApi = { save, say, sfx: () => {}, examine: () => {} };
   const ctx: GameCtx = { three: eng.three, scene: eng.scene, camera: eng.camera, kit: eng.kit, audio: silentAudio, say, save };
-  let enteredOnce = false;
 
   const closePlaces = () => {
     if (mode !== "menu") return;
@@ -179,7 +168,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   /** Entra na camada; em sucesso cria o jogador e liga a entrada. Devolve se deu certo. */
   const enterLayer = async (): Promise<boolean> => {
     runner ??= createLayerRunner(ctx);
-    const layer = debugEnabled(search) && new URLSearchParams(search).get("falha") === "camada" && !enteredOnce ? failingOnce(cinzaLayer) : cinzaLayer;
+    const layer = debugFailure(search, "camada") && !enteredOnce ? failingOnce(cinzaLayer) : cinzaLayer;
     enteredOnce = true;
     const result = await runner.enter(layer, save.get());
     if (signal.aborted || disposed) return false;
@@ -194,11 +183,15 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     player = createPlayer(eng, inst, save.get().settings, {
       save: save.get,
       audio: ctx.audio,
+      // Foto de referência: sem balanço nem respiração, quadro igual a cada execução.
+      still: !!shot,
       onPlace: (id) => {
         if (id) save.patch({ place: id });
       },
       onAct: (o) => o.act(actApi),
     });
+    // Debug: erro depois do jogador nascer (prova que nada vaza: engine, contexto, mãos).
+    if (debugFailure(search, "jogador")) throw new Error("falha de teste (?falha=jogador)");
     const saved = save.get().place;
     const start = shot?.place ?? (saved && inst.places.places[saved] ? saved : "entrada");
     player.placeAt(start);
@@ -207,25 +200,17 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
       // As fotos comparam pixel a pixel: a qualidade do aparelho fica presa.
       eng.setQuality(eng.info().quality);
     }
-    const stage = host;
-    unbind = bindInput(stage, onAction, {
+    input = bindInput(host, onAction, {
       coarse,
       mode: () => mode,
       onPause: (on) => ui.paused(on),
       onTap: (cx, cy, run) => {
-        const r = stage.getBoundingClientRect();
+        const r = host.getBoundingClientRect();
         player?.tap(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1, run);
       },
     });
     return true;
   };
-
-  cleanups.push(
-    eng.onFrame((dt, t) => {
-      runner?.current()?.update(dt, t);
-      player?.update(dt);
-    }),
-  );
 
   const startLoop = async () => {
     await eng.start();
@@ -234,17 +219,39 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     ui.status("live");
   };
 
-  if (standaloneShot(search)) {
-    // Cena de referência de debug (`psx-ref`): entra antes do start para ser compilada junto, sem camada.
-    const disposeShot = await loadShot(eng, search, signal);
-    if (signal.aborted) {
-      disposeShot?.();
-      return null;
+  try {
+    cleanups.push(
+      installDebug(eng, () => save.get().layer, save.get, {
+        // Em viagem o jogador não está em lugar nenhum: `null`, não o lugar salvo de antes.
+        place: () => (player ? player.place : save.get().place),
+        setCamera: (pose) => {
+          if (player) player.debugPose(pose);
+          else {
+            eng.camera.position.set(pose.x, pose.y, pose.z);
+            eng.camera.rotation.set(pose.pitch, pose.yaw, 0, "YXZ");
+            eng.camera.updateMatrixWorld();
+          }
+        },
+        hands: (v) => player?.setHandsVisible(v),
+      }),
+    );
+    cleanups.push(
+      eng.onFrame((dt, t) => {
+        runner?.current()?.update(dt, t);
+        player?.update(dt);
+      }),
+    );
+    if (standaloneShot(search)) {
+      // Cena de referência de debug (`psx-ref`): entra antes do start para ser compilada junto, sem camada.
+      const disposeShot = await loadShot(eng, search, signal);
+      if (disposeShot) cleanups.push(disposeShot);
+      if (!signal.aborted) await startLoop();
+    } else if (await enterLayer()) {
+      await startLoop();
     }
-    if (disposeShot) cleanups.push(disposeShot);
-    await startLoop();
-  } else if (await enterLayer()) {
-    await startLoop();
+  } catch (error) {
+    teardown();
+    throw error;
   }
   if (signal.aborted) {
     teardown();
@@ -255,13 +262,24 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     retry() {
       if (disposed || player) return;
       ui.status("loading");
-      void enterLayer().then((ok) => (ok ? startLoop() : undefined));
+      enterLayer()
+        .then((ok) => (ok ? startLoop() : undefined))
+        .catch((error: unknown) => {
+          console.error("[jogo] a sessão caiu ao tentar de novo", error);
+          ui.status("failed");
+          teardown();
+        });
     },
     choosePlace(id) {
       closePlaces();
+      // Ainda dentro do clique/Enter no botão: o adaptador pode travar o mouse de novo (bíblia 12b.5).
+      input?.panelClosed();
       void player?.goTo(id);
     },
-    closePlaces,
+    closePlaces() {
+      closePlaces();
+      input?.panelClosed();
+    },
     dispose: teardown,
   };
 }

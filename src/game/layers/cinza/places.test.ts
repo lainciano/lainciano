@@ -8,7 +8,7 @@ import { pathBetween } from "../../world/places";
 import { placesWithinReach, REACH_FLOOR } from "../../world/reach";
 import { surfaceAt } from "../../world/surfaces";
 import type { GameCtx, LayerInstance, Own } from "../types";
-import { cinzaLayer } from "./index";
+import { cinzaLayer, objectPoint } from "./index";
 import { CINZA_PLACES, DOOR_FLAG, PLAYER_RADIUS } from "./places";
 
 // O teste carrega a camada de verdade (geometria three em Node) com um kit falso: sem canvas, as texturas são
@@ -60,15 +60,11 @@ async function load() {
   return { ctx, instance, owned };
 }
 
-/** Ruling 4: centro XZ da caixa que envolve todos os `roots` do objeto. */
-function pointOf(roots: THREE.Object3D[]) {
+/** Os roots têm geometria de verdade (a caixa não é vazia). */
+function hasGeometry(roots: THREE.Object3D[]) {
   const box = new THREE.Box3();
-  for (const root of roots) {
-    root.updateWorldMatrix(true, true);
-    box.expandByObject(root);
-  }
-  const c = box.getCenter(new THREE.Vector3());
-  return { x: c.x, z: c.z, empty: box.isEmpty() };
+  for (const root of roots) box.expandByObject(root);
+  return !box.isEmpty();
 }
 
 const openWithDoor = (instance: LayerInstance, doorOpen: boolean) => {
@@ -88,10 +84,10 @@ describe("sala cinza · lugares e alcance", () => {
   it("todo objeto tem o ponto (centro XZ dos roots) a ≤ REACH_FLOOR do seu lugar", async () => {
     const { instance } = await load();
     expect(instance.objects.length).toBeGreaterThanOrEqual(5);
+    // Ruling 4: o ponto é o centro XZ da caixa dos roots (`objectPoint`, o mesmo que a interação da T9 usa).
     const objects = instance.objects.map((o) => {
-      const p = pointOf(o.roots);
-      expect(p.empty, `${o.id}: roots vazios`).toBe(false);
-      return { id: o.id, place: o.place, point: { x: p.x, z: p.z } };
+      expect(hasGeometry(o.roots), `${o.id}: roots vazios`).toBe(true);
+      return { id: o.id, place: o.place, point: objectPoint(THREE, o.roots) };
     });
     const reach = placesWithinReach(instance.places, objects);
     for (const r of reach) expect(r.distance, `${r.id} a ${r.distance.toFixed(2)} m`).toBeLessThanOrEqual(REACH_FLOOR);

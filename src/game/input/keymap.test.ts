@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { InputMode } from "./actions";
-import { keyToAction, TURN_KEYS } from "./keymap";
+import { isBrowserChord, keyToAction, TURN_KEYS } from "./keymap";
 
 const PANELS: InputMode[] = ["read", "examine", "phone"];
 
@@ -35,11 +35,19 @@ describe("keyToAction · andar", () => {
     expect(keyToAction("KeyX", true, "walk")).toEqual({ type: "peek", dir: 1 });
     expect(keyToAction("KeyX", false, "walk")).toEqual({ type: "peek", dir: 0 });
   });
-  it("Shift corre e C/Ctrl agacham enquanto seguradas", () => {
+  it("Shift corre e C agacha enquanto seguradas; Ctrl não é do jogo (Ctrl+W/L/F são do navegador)", () => {
     expect(keyToAction("ShiftLeft", true, "walk")).toEqual({ type: "run", on: true });
     expect(keyToAction("ShiftRight", false, "walk")).toEqual({ type: "run", on: false });
     expect(keyToAction("KeyC", true, "walk")).toEqual({ type: "crouch", on: true });
-    expect(keyToAction("ControlLeft", false, "walk")).toEqual({ type: "crouch", on: false });
+    expect(keyToAction("KeyC", false, "walk")).toEqual({ type: "crouch", on: false });
+    expect(keyToAction("ControlLeft", true, "walk")).toBeNull();
+    expect(keyToAction("ControlRight", false, "walk")).toBeNull();
+  });
+  it("atalhos com Ctrl, ⌘ ou Alt são do navegador; Shift sozinho é do jogo", () => {
+    expect(isBrowserChord({ ctrlKey: true, metaKey: false, altKey: false })).toBe(true);
+    expect(isBrowserChord({ ctrlKey: false, metaKey: true, altKey: false })).toBe(true);
+    expect(isBrowserChord({ ctrlKey: false, metaKey: false, altKey: true })).toBe(true);
+    expect(isBrowserChord({ ctrlKey: false, metaKey: false, altKey: false })).toBe(false);
   });
   it("Esc, ⌫ e R não fazem nada andando (o Esc é do navegador)", () => {
     expect(keyToAction("Escape", true, "walk")).toBeNull();

@@ -1,5 +1,5 @@
 import { isPanel, type Action, type InputMode } from "./actions";
-import { keyToAction, TURN_KEYS } from "./keymap";
+import { isBrowserChord, keyToAction, TURN_KEYS } from "./keymap";
 
 /**
  * Adaptadores de entrada (contrato §3): teclado, mouse travado e toque viram as mesmas `Action`.
@@ -7,9 +7,15 @@ import { keyToAction, TURN_KEYS } from "./keymap";
  *   janela perde o foco ou quando um painel abre) e gira o olhar continuamente com as setas laterais/PageUp/Down.
  *   Enter e espaço num botão ficam com o botão; nada é lido dentro de campos de texto.
  * - Mouse (ponteiro fino): o clique na cena trava o ponteiro (`requestPointerLock`); travado, mover olha, o
- *   botão esquerdo é `interact` e o direito, num painel, é `back`. Se o travamento falhar, arrastar olha.
- *   Abrir um painel com o mouse travado solta o mouse e lembra; fechar (E, ⌫ ou botão direito) trava de novo no
- *   MESMO gesto (bíblia 12b.5). Perder o travamento sem pedir (Esc do navegador) chama `onPause(true)`.
+ *   botão esquerdo é `interact` e o direito, num painel, é `back`. Cada clique tenta travar de novo; só depois de
+ *   3 falhas seguidas (ou de uma falha sem nunca ter travado: navegador sem pointer lock) arrastar também olha, e
+ *   o "pausado" sai da tela (`onPause(false)`). Travar de novo volta ao normal.
+ *   Abrir um painel com o mouse travado solta o mouse e lembra; fechar (E, ⌫, L ou botão direito) trava de novo
+ *   no MESMO gesto (bíblia 12b.5). Painel fechado fora do adaptador (clique num botão da lista): o shell chama
+ *   `panelClosed()` dentro do próprio handler do clique, que também é gesto. Toda entrada ressincroniza o modo:
+ *   um "travar de novo" pendente não sobrevive a uma troca de modo que o adaptador não viu.
+ *   Perder o travamento sem pedir (Esc do navegador) chama `onPause(true)`.
+ * - Atalhos com Ctrl, ⌘ ou Alt são do navegador: nem ação, nem `preventDefault`.
  * - Toque: arrastar olha; tocar (sem arrastar) chama `onTap` (chão anda, objeto age); dois toques correm.
  * - Tela cheia: prende o Esc (`navigator.keyboard.lock`) enquanto dura; solta ao sair.
  */
@@ -31,13 +37,26 @@ const TOUCH_LOOK = 2.5;
 const TAP_SLOP = 9;
 const DOUBLE_TAP_MS = 330;
 
+/** Falhas seguidas de `requestPointerLock` (depois de já ter travado) antes de arrastar também olhar. */
+const LOCK_FAILURES_TO_DRAG = 3;
+
 type KeyboardLock = { lock?(keys?: string[]): Promise<void>; unlock?(): void };
 
+/** Elemento do DOM (falso fora do navegador: os testes rodam sobre EventTarget). */
+const isElement = (el: EventTarget | null): el is HTMLElement => typeof HTMLElement !== "undefined" && el instanceof HTMLElement;
 const isTextField = (el: EventTarget | null) =>
-  el instanceof HTMLElement && (el.isContentEditable || el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement);
-const isControl = (el: EventTarget | null) => el instanceof HTMLElement && !!el.closest("button, a[href], [role='button'], summary");
+  isElement(el) && (el.isContentEditable || el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement);
+const isControl = (el: EventTarget | null) => isElement(el) && !!el.closest("button, a[href], [role='button'], summary");
 
-export function bindInput(target: HTMLElement, onAction: (a: Action) => void, opts: BindOptions): () => void {
+/** Chamar a binding desliga tudo (como antes); `panelClosed` é o aviso do shell de que fechou um painel por fora. */
+export type InputBinding = {
+  (): void;
+  dispose(): void;
+  /** O shell fechou um painel fora do adaptador (clique/Enter num botão da lista): trava de novo se estava travado. */
+  panelClosed(): void;
+};
+
+export function bindInput(target: HTMLElement, onAction: (a: Action) => void, opts: BindOptions): InputBinding {
   const mode = opts.mode ?? (() => "walk" as InputMode);
   const doc = target.ownerDocument;
   const win = doc.defaultView ?? window;
@@ -81,15 +100,30 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
   let locked = false;
   let expectUnlock = false;
   let relock = false;
-  let lockFailed = false;
+  let everLocked = false;
+  let lockFailures = 0;
+  /** Um pedido em voo: a falha conta uma vez (a promessa rejeitada e o `pointerlockerror` são o mesmo pedido). */
+  let lockPending = false;
+  let dragLook = false;
   const canLock = () => !opts.coarse && typeof target.requestPointerLock === "function";
+  const lockFailed = () => {
+    if (!lockPending) return;
+    lockPending = false;
+    lockFailures += 1;
+    if (!dragLook && (lockFailures >= LOCK_FAILURES_TO_DRAG || !everLocked)) {
+      dragLook = true;
+      // arrastar olha: nada de "clique na cena para continuar" preso na tela
+      opts.onPause?.(false);
+    }
+  };
   const requestLock = () => {
     if (!canLock() || locked) return;
+    lockPending = true;
     try {
       const r = target.requestPointerLock() as unknown;
-      if (r instanceof Promise) r.catch(() => (lockFailed = true));
+      if (r instanceof Promise) r.catch(lockFailed);
     } catch {
-      lockFailed = true;
+      lockFailed();
     }
   };
   const releaseLock = () => {
@@ -116,8 +150,17 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
     }
   };
 
+  /** O modo mudou sem o adaptador ver (o shell fechou algo): alinha e esquece um "travar de novo" velho. */
+  const sync = () => {
+    const now = mode();
+    if (now === lastMode) return;
+    if (isPanel(lastMode) && !isPanel(now)) relock = false;
+    if (!isPanel(lastMode) && isPanel(now)) releaseAll();
+    lastMode = now;
+  };
+
   const dispatch = (a: Action, closingGesture = false) => {
-    lastMode = mode();
+    sync();
     onAction(a);
     afterAction(closingGesture);
   };
@@ -142,7 +185,9 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
 
   on(win, "keydown", (ev) => {
     const e = ev as KeyboardEvent;
+    if (isBrowserChord(e)) return;
     if (isTextField(e.target)) return;
+    sync();
     if (isControl(e.target) && (e.code === "Enter" || e.code === "NumpadEnter" || e.code === "Space")) return;
     const m = mode();
     const turn = TURN_KEYS[e.code];
@@ -218,6 +263,7 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
 
   on(target, "pointerdown", (ev) => {
     const e = ev as PointerEvent;
+    sync();
     const m = mode();
     const touch = e.pointerType !== "mouse" || opts.coarse;
     if (e.button === 2) {
@@ -225,14 +271,15 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
       return;
     }
     if (e.button !== 0) return;
-    if (!touch && m === "walk" && canLock() && !lockFailed) {
-      if (!locked) {
-        requestLock();
+    if (!touch && m === "walk" && canLock()) {
+      if (locked) {
+        held.interact = true;
+        dispatch({ type: "interact", down: true });
         return;
       }
-      held.interact = true;
-      dispatch({ type: "interact", down: true });
-      return;
+      // todo clique tenta travar; no modo arrastar, o mesmo gesto também começa a arrastar
+      requestLock();
+      if (locked || !dragLook) return;
     }
     down = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, touch };
     try {
@@ -282,7 +329,10 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
     const now = doc.pointerLockElement === target;
     if (now) {
       locked = true;
-      lockFailed = false;
+      everLocked = true;
+      lockPending = false;
+      lockFailures = 0;
+      dragLook = false;
       opts.onPause?.(false);
       return;
     }
@@ -296,9 +346,7 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
     // Esc do navegador (ou a aba perdeu o foco): "pausado · clique na cena para continuar"
     if (mode() === "walk") opts.onPause?.(true);
   });
-  on(doc, "pointerlockerror", () => {
-    lockFailed = true;
-  });
+  on(doc, "pointerlockerror", lockFailed);
 
   /* ------------------------------------------------ tela cheia: prende o Esc */
   const keyboard = (win.navigator as Navigator & { keyboard?: KeyboardLock }).keyboard;
@@ -313,7 +361,7 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
   on(doc, "fullscreenchange", syncKeyboardLock);
   syncKeyboardLock();
 
-  return () => {
+  const dispose = () => {
     releaseAll();
     if (turnRaf) win.cancelAnimationFrame(turnRaf);
     for (const off of listeners.splice(0)) off();
@@ -327,4 +375,14 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
       /* nada a soltar */
     }
   };
+  return Object.assign(dispose, {
+    dispose,
+    panelClosed() {
+      const was = lastMode;
+      const now = mode();
+      lastMode = now;
+      if (isPanel(was) && !isPanel(now) && relock) requestLock();
+      relock = false;
+    },
+  });
 }
