@@ -33,8 +33,29 @@ export type CriptaDebug = {
   setVisible(id: string, visible: boolean): void;
   /** Estado das mãos (guardada/sacada, lanterna, ociosa, celular). */
   readonly handsState: HandsDebugState | null;
+  /** T9: mira, aviso, segurar, brilho, painéis e exame. `null` sem jogador. */
+  readonly interact: InteractDebugState | null;
+  /** T9: vira o olhar para o objeto (mesmo ponto do ciclo). Devolve se o objeto existe. */
+  aimAt(id: string): boolean;
   /** Fotos das poses e testes: solta o `still`, liga/apaga, força ociosa, celular, e avança a animação. */
   handsDebug(o: HandsDebugInput): void;
+};
+
+export type InteractDebugState = {
+  aimedId: string | null;
+  /** Leitura crua do centro da tela: o objeto acertado e se está ao alcance. */
+  target: { id: string; inReach: boolean } | null;
+  holdId: string | null;
+  holdProgress: number;
+  glow: string | null;
+  glowLevel: number;
+  panel: boolean;
+  lastCycled: string | null;
+  /** Último aviso entregue à casca (null = escondido). */
+  prompt: { text: string; key: "press" | "hold"; progress: number | null } | null;
+  panels: number;
+  mode: string;
+  examine: { open: boolean; title: string; text: string; turn: number; tilt: number; distance: number };
 };
 
 export type HandsDebugState = { mode: string; flashOn: boolean; idle: string; holster: number; light: number; phone: string };
@@ -59,6 +80,8 @@ export type DebugHooks = {
   objectVisible?(id: string, visible: boolean): void;
   handsState?(): HandsDebugState | null;
   handsDebug?(o: HandsDebugInput): void;
+  interact?(): InteractDebugState | null;
+  aimAt?(id: string): boolean;
 };
 
 export type CameraPose = { x: number; y: number; z: number; yaw: number; pitch: number };
@@ -175,6 +198,10 @@ export function installDebug(engine: Engine, getLayer: () => string, getSave: ()
       return hooks.handsState?.() ?? null;
     },
     handsDebug: (o) => hooks.handsDebug?.(o),
+    get interact() {
+      return hooks.interact?.() ?? null;
+    },
+    aimAt: (id) => hooks.aimAt?.(id) ?? false,
   };
   window.__cripta = api;
   return () => {

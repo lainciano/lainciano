@@ -2,10 +2,14 @@ import type { GameAudio } from "../audio/types";
 import { bindInput, type InputBinding } from "../input/adapters";
 import { isRelease, type Action, type InputMode } from "../input/actions";
 import { cinzaLayer } from "../layers/cinza";
+import { createExamine, type Examine } from "../interaction/examine";
+import { createInteraction, type Interaction, type InteractionUi } from "../interaction/interaction";
+import type { PromptModel } from "../interaction/targeting";
 import { createLayerRunner, type LayerRunner } from "../layers/loader";
 import type { ActApi, GameCtx, Layer, LayerInstance, Line } from "../layers/types";
 import { createPlayer, type Player } from "../player/controller";
 import { createSaveStore, type SaveApi } from "../save/store";
+import { createPanelStack } from "../shell/panelStack";
 import { debugEnabled, installDebug, layerShot, loadShot, standaloneShot } from "./debug";
 import { createEngine, type Engine } from "./engine";
 
@@ -23,16 +27,22 @@ import { createEngine, type Engine } from "./engine";
 export type SessionStatus = "loading" | "live" | "failed" | "stuck";
 export type PlaceItem = { id: string; name: string; here: boolean };
 
-export type SessionUi = {
+export type ExamineInfo = { title: string; text: string };
+
+export type SessionUi = InteractionUi & {
   status(s: SessionStatus): void;
   /** Lista de lugares aberta (`L`) ou fechada (`null`). */
   places(list: PlaceItem[] | null): void;
   paused(on: boolean): void;
   say(line: Line): void;
+  /** Exame aberto (título e texto) ou fechado (`null`). */
+  examine(info: ExamineInfo | null): void;
 };
 
 export type Session = {
   retry(): void;
+  /** Fecha o exame pelo botão da casca (gesto: o mouse pode travar de novo aqui). */
+  closeExamine(): void;
   /** Escolha na lista (clique/Enter num botão: é gesto, então o mouse pode travar de novo aqui). */
   choosePlace(id: string): void;
   closePlaces(): void;
@@ -84,7 +94,12 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   let runner: LayerRunner | null = null;
   let player: Player | null = null;
   let input: InputBinding | null = null;
-  let mode: InputMode = "walk";
+  let interaction: Interaction | null = null;
+  let examine: Examine | null = null;
+  /** Painéis abertos (lista de lugares, exame; o leitor e o celular entram aqui nas T10/T11). O modo é o do topo. */
+  const panels = createPanelStack();
+  const mode = (): InputMode => panels.mode();
+  let lastPrompt: PromptModel | null = null;
   let lost = false;
   let disposed = false;
   let enteredOnce = false;
@@ -94,7 +109,15 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   const teardown = () => {
     if (disposed) return;
     disposed = true;
-    const steps = [() => input?.(), () => player?.dispose(), () => runner?.dispose(), ...cleanups.splice(0).reverse(), () => engine?.dispose()];
+    const steps = [
+      () => input?.(),
+      () => interaction?.dispose(),
+      () => examine?.dispose(),
+      () => player?.dispose(),
+      () => runner?.dispose(),
+      ...cleanups.splice(0).reverse(),
+      () => engine?.dispose(),
+    ];
     for (const step of steps) {
       try {
         step();
@@ -103,6 +126,8 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
       }
     }
     input = null;
+    interaction = null;
+    examine = null;
     player = null;
     runner = null;
     engine = null;
@@ -135,14 +160,36 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   const eng = created;
 
   const say = (line: Line) => ui.say(line);
-  const actApi: ActApi = { save, say, sfx: () => {}, examine: () => {} };
+  const actApi: ActApi = { save, say, sfx: () => {}, examine: (o) => openExamine(o) };
   const ctx: GameCtx = { three: eng.three, scene: eng.scene, camera: eng.camera, kit: eng.kit, audio: silentAudio, say, save };
 
+  /** Com algum painel aberto a lanterna guarda, a mira e o aviso se apagam; pilha vazia, tudo volta. */
+  const syncPanels = () => {
+    const open = panels.size() > 0;
+    player?.setPanel(open);
+    interaction?.setPanel(open);
+  };
   const closePlaces = () => {
-    if (mode !== "menu") return;
-    mode = "walk";
-    player?.setPanel(false);
+    if (panels.top()?.mode !== "menu") return;
+    panels.pop();
+    syncPanels();
     ui.places(null);
+  };
+  function openExamine(o: Parameters<ActApi["examine"]>[0]) {
+    if (!examine || panels.has("examine")) return;
+    examine.open(o.root, { distance: o.distance, title: o.title, text: o.text });
+    panels.push({ mode: "examine", id: o.title });
+    syncPanels();
+    ui.examine({ title: o.title, text: o.text });
+    // Aberto por um aperto (adaptador já viu) ou por um segurar que completou no quadro (não viu): solta o mouse.
+    input?.panelOpened();
+  }
+  const closeExamine = () => {
+    if (panels.top()?.mode !== "examine") return;
+    examine?.close();
+    panels.pop();
+    syncPanels();
+    ui.examine(null);
   };
   const openPlaces = () => {
     if (!player || !runner?.current()) return;
@@ -152,22 +199,40 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     const list = Object.values(inst.places.places)
       .filter((p) => !p.hidden && !(p.locked && p.locked(state)))
       .map((p) => ({ id: p.id, name: p.name, here: p.id === here }));
-    mode = "menu";
-    player.setPanel(true);
+    panels.push({ mode: "menu" });
+    syncPanels();
     ui.places(list);
   };
 
   const onAction = (a: Action) => {
     if (!player) return;
-    if (mode === "menu") {
+    const m = mode();
+    if (m === "menu") {
       if (a.type === "places" || a.type === "back") closePlaces();
       // Soltar (parar, deixar de correr/agachar/espiar) chega sempre ao jogador: abrir a lista com W segurado
       // não deixa o jogador andando sozinho depois.
       else if (isRelease(a)) player.apply(a);
       return;
     }
+    if (m === "examine") {
+      if (a.type === "back") closeExamine();
+      else if (a.type === "rotate") examine?.rotate(a.dx, a.dy);
+      else if (a.type === "zoom") examine?.zoom(a.delta);
+      else if (isRelease(a)) player.apply(a);
+      return;
+    }
+    if (m !== "walk") {
+      // Leitor e celular (T10/T11) tratam as próprias teclas; soltar sempre chega.
+      if (isRelease(a)) player.apply(a);
+      return;
+    }
     if (a.type === "places") return openPlaces();
+    if (a.type === "cycle") return interaction?.cycle();
     player.apply(a);
+    if (a.type === "interact") {
+      if (a.down) interaction?.press();
+      else interaction?.release();
+    }
   };
 
   /** Entra na camada; em sucesso cria o jogador e liga a entrada. Devolve se deu certo. */
@@ -193,7 +258,25 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
       onPlace: (id) => {
         if (id) save.patch({ place: id });
       },
-      onAct: (o) => o.act(actApi),
+      onAct: (o) => interaction?.activate(o),
+    });
+    examine = createExamine(eng, { reduced: () => player?.reduced ?? false });
+    interaction = createInteraction({
+      three: eng.three,
+      camera: eng.camera,
+      player,
+      objects: inst.objects,
+      save: save.get,
+      act: (o) => o.act(actApi),
+      coarse,
+      ui: {
+        prompt: (p) => {
+          lastPrompt = p;
+          ui.prompt(p);
+        },
+        reticle: (r) => ui.reticle(r),
+        notice: (n) => ui.notice(n),
+      },
     });
     // Debug: erro depois do jogador nascer (prova que nada vaza: engine, contexto, mãos).
     if (debugFailure(search, "jogador")) throw new Error("falha de teste (?falha=jogador)");
@@ -207,7 +290,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     }
     input = bindInput(host, onAction, {
       coarse,
-      mode: () => mode,
+      mode,
       onPause: (on) => ui.paused(on),
       onTap: (cx, cy, run) => {
         const r = host.getBoundingClientRect();
@@ -250,6 +333,23 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
           if (o.step) h.debug.step(o.step, o.input ?? {});
           if (o.view !== undefined) h.debug.view(o.view);
         },
+        interact: () =>
+          player && interaction && examine
+            ? {
+                ...interaction.state(),
+                target: player.aimTarget,
+                prompt: lastPrompt,
+                panels: panels.size(),
+                mode: mode(),
+                examine: examine.state(),
+              }
+            : null,
+        aimAt: (id) => {
+          const o = runner?.current()?.objects.find((x) => x.id === id);
+          if (!o || !interaction) return false;
+          interaction.face(o);
+          return true;
+        },
         objectVisible: (id, v) => {
           for (const root of runner?.current()?.objects.find((o) => o.id === id)?.roots ?? []) root.visible = v;
         },
@@ -259,6 +359,8 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
       eng.onFrame((dt, t) => {
         runner?.current()?.update(dt, t);
         player?.update(dt);
+        examine?.update(dt);
+        interaction?.update(dt, t);
       }),
     );
     if (standaloneShot(search)) {
@@ -279,6 +381,11 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   }
 
   return {
+    closeExamine() {
+      closeExamine();
+      // Clique no botão da casca: é gesto, o mouse pode travar de novo aqui.
+      input?.panelClosed();
+    },
     retry() {
       if (disposed || player) return;
       ui.status("loading");

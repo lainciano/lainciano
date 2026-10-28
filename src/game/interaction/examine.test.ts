@@ -140,6 +140,26 @@ describe("exame · abrir e fechar", () => {
   });
 });
 
+describe("exame · realce da cópia", () => {
+  it("só a cópia ganha cor e emissivo; o material do original fica exatamente como estava", async () => {
+    const { ex, note, camera } = await setup();
+    const orig = (note.roots[0] as THREE.Mesh).material as THREE.MeshPhongMaterial;
+    const color = orig.color.clone();
+    const emissive = orig.emissive.clone();
+    ex.open(note.roots[0], OPEN);
+    let copy: THREE.MeshPhongMaterial | null = null;
+    camera.traverse((n) => {
+      if ((n as THREE.Mesh).isMesh) copy = (n as THREE.Mesh).material as THREE.MeshPhongMaterial;
+    });
+    expect(copy).not.toBe(orig);
+    expect((copy as unknown as THREE.MeshPhongMaterial).color.r).toBeCloseTo(color.r * EXAMINE.lift, 6);
+    expect((copy as unknown as THREE.MeshPhongMaterial).emissive.r).toBeGreaterThan(0);
+    expect(orig.color.equals(color)).toBe(true);
+    expect(orig.emissive.equals(emissive)).toBe(true);
+    ex.close();
+  });
+});
+
 describe("exame · enquadramento", () => {
   const corners = (camera: THREE.PerspectiveCamera, group: THREE.Object3D) => {
     camera.updateMatrixWorld(true);

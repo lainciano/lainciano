@@ -32,6 +32,12 @@ export const EXAMINE = {
   restTilt: -0.2,
   /** Deslocamento vertical do centro (m), como o protótipo. */
   drop: 0.01,
+  /**
+   * Realce das cópias (o objeto a 30 cm do olho fica de costas para a luz da sala e lia escuro): a cor sobe e um
+   * emissivo da própria cor entra. Só uniforms: o programa de shader é o mesmo do original.
+   */
+  lift: 2.2,
+  selfLit: 0.05,
   /** Taxas de suavização (1/s). */
   turnRate: 14,
   zoomRate: 10,
@@ -107,6 +113,13 @@ export function createExamine(engine: ExamineEngine, opts: { reduced?: () => boo
       let c = made.get(m);
       if (!c) {
         c = applyPsx(m.clone(), psx);
+        const lit = c as THREE.Material & { color?: THREE.Color; emissive?: THREE.Color };
+        if (lit.color?.isColor && lit.emissive?.isColor) {
+          lit.emissive.r += lit.color.r * EXAMINE.selfLit;
+          lit.emissive.g += lit.color.g * EXAMINE.selfLit;
+          lit.emissive.b += lit.color.b * EXAMINE.selfLit;
+          lit.color.multiplyScalar(EXAMINE.lift);
+        }
         made.set(m, c);
       }
       return c;

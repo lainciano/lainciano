@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { GameLabels } from "../labels";
 import type { Line } from "../layers/types";
-import type { PlaceItem, Session, SessionStatus } from "../runtime/session";
+import type { PromptModel } from "../interaction/targeting";
+import type { ExamineInfo, PlaceItem, Session, SessionStatus } from "../runtime/session";
+import ExamineCard from "./ExamineCard";
+import Prompt from "./Prompt";
 import "./shell.css";
 import { useGameSession } from "./useGameSession";
 
@@ -28,6 +31,9 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   const [places, setPlaces] = useState<PlaceItem[] | null>(null);
   const [paused, setPaused] = useState(false);
   const [line, setLine] = useState<Line | null>(null);
+  const [prompt, setPrompt] = useState<PromptModel | null>(null);
+  const [reticle, setReticle] = useState<"off" | "idle" | "hot">("off");
+  const [examine, setExamine] = useState<ExamineInfo | null>(null);
   useGameSession();
 
   // O site fica inerte: o foco vai para a casca (que não é tabulável) e o Tab segue dali para o botão.
@@ -57,6 +63,19 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
         window.clearTimeout(lineTimer);
         lineTimer = window.setTimeout(() => setLine(null), lineSeconds(l.text) * 1000);
       },
+      prompt: (p: PromptModel | null) => {
+        if (!signal.aborted) setPrompt(p);
+      },
+      reticle: (r: "off" | "idle" | "hot") => {
+        if (!signal.aborted) setReticle(r);
+      },
+      examine: (info: ExamineInfo | null) => {
+        if (!signal.aborted) setExamine(info);
+      },
+      notice: (n: { kind: "nothing" } | { kind: "hold"; verb: string }) => {
+        const text = n.kind === "nothing" ? labels.nothingHere : labels.holdHint.replace("{verb}", n.verb);
+        ui.say({ text, kind: "system" });
+      },
     };
     // Sessão, runtime, three, save (zod) e camada chegam juntos por import(): o chunk do shell não cresce.
     import("../runtime/session")
@@ -76,6 +95,8 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       sessionRef.current?.dispose();
       sessionRef.current = null;
     };
+    // Os rótulos vêm do servidor e não mudam com o jogo aberto: a sessão não reabre por eles.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -88,6 +109,12 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
     if (places) placesRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus({ preventScroll: true });
     else if (shellRef.current?.contains(document.activeElement) || document.activeElement === document.body) shellRef.current?.focus({ preventScroll: true });
   }, [places]);
+
+  // Exame fechado (E, ⌫, botão direito ou o botão): o foco volta à casca, onde o teclado do jogo mora.
+  useEffect(() => {
+    if (examine) return;
+    if (shellRef.current?.contains(document.activeElement) || document.activeElement === document.body) shellRef.current?.focus({ preventScroll: true });
+  }, [examine]);
 
   const onPlacesKey = (e: KeyboardEvent<HTMLUListElement>) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -132,12 +159,15 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
           </ul>
         </nav>
       )}
-      <div data-game-prompt />
+      {status === "live" && !examine && <div data-game-reticle data-state={reticle} aria-hidden="true" />}
+      <Prompt text={prompt?.text ?? null} keyLabel={prompt?.key === "hold" ? labels.holdKey : "E"} progress={prompt?.progress ?? null} />
       <div data-game-subtitles aria-live="polite">
         {paused && <p data-game-paused>{labels.paused}</p>}
         {line && !paused && <p data-game-line>{line.text}</p>}
       </div>
-      <div data-game-overlay />
+      <div data-game-overlay>
+        {examine && <ExamineCard title={examine.title} text={examine.text} closeLabel={labels.examineClose} onClose={() => sessionRef.current?.closeExamine()} />}
+      </div>
       <button type="button" data-game-exit onClick={onExit} className="focus-ring">
         {labels.exit}
       </button>

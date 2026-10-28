@@ -370,4 +370,9 @@ export const game = {
   /** A camada não carregou (contrato §3). */
   stuck: "A porta emperrou.",
   retry: "Tentar de novo",
+  /** Interação (T9): aviso de segurar, dicas curtas e o fechar do exame. As teclas E e ⌫ são glifos, não texto. */
+  holdKey: "segure E",
+  holdHint: "segure E para {verb}.",
+  nothingHere: "nada ao alcance daqui. L abre os lugares.",
+  examineClose: "guardar",
 };

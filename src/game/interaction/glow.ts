@@ -27,6 +27,8 @@ export type Glow = {
   set(id: string | null): void;
   update(t: number): void;
   readonly current: string | null;
+  /** Intensidade do realce no último quadro, 0..1 (0 = apagado, 0,5 fixo com movimento reduzido). */
+  readonly level: number;
   /** Quantos materiais o objeto acende (0 = só materiais sem emissivo ou compartilhados). */
   materialCount(id: string): number;
   dispose(): void;
@@ -86,15 +88,18 @@ export function createGlow(objects: readonly InteractiveObject[], reduced: () =>
   };
 
   let current: string | null = null;
+  let level = 0;
   return {
     set(id) {
       if (id === current) return;
       if (current !== null) restore(current);
       current = id;
+      if (id === null) level = 0;
     },
     update(t) {
       if (current === null) return;
       const k = reduced() ? 0.5 : 0.5 + 0.5 * Math.sin(t * GLOW.rate);
+      level = k;
       const dr = GLOW.base[0] + GLOW.pulse[0] * k;
       const dg = GLOW.base[1] + GLOW.pulse[1] * k;
       const db = GLOW.base[2] + GLOW.pulse[2] * k;
@@ -103,10 +108,14 @@ export function createGlow(objects: readonly InteractiveObject[], reduced: () =>
     get current() {
       return current;
     },
+    get level() {
+      return level;
+    },
     materialCount: (id) => litOf(id).length,
     dispose() {
       if (current !== null) restore(current);
       current = null;
+      level = 0;
       lit.clear();
     },
   };

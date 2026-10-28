@@ -5,7 +5,7 @@ import { createPlayer } from "../player/controller";
 import { DEFAULT_SETTINGS } from "../save/schema";
 import { createInteraction, type InteractionUi } from "./interaction";
 import type { PromptModel } from "./targeting";
-import { cinzaWorld, run } from "./testWorld";
+import { cinzaWorld } from "./testWorld";
 
 // A orquestração da T9 sobre a sala cinza de verdade (sem WebGL): mira de perto, aviso, brilho, segurar, ciclo e
 // painel. O tempo anda só pelo `step`.

@@ -43,6 +43,8 @@ export type InteractionState = {
   holdId: string | null;
   holdProgress: number;
   glow: string | null;
+  /** Intensidade do brilho agora (0..1; fixo em 0,5 com movimento reduzido). */
+  glowLevel: number;
   panel: boolean;
   lastCycled: string | null;
 };
@@ -55,6 +57,8 @@ export type Interaction = {
   release(): void;
   /** Q: vira para o próximo objeto do lugar. */
   cycle(): void;
+  /** Vira o olhar para um ponto do objeto que o centro da tela acerta (ciclo, depuração). */
+  face(o: InteractiveObject): void;
   /** Toque num objeto ao alcance. */
   activate(o: InteractiveObject): void;
   setPanel(open: boolean): void;
@@ -114,6 +118,12 @@ export function createInteraction(opts: InteractionOptions): Interaction {
     hold.press();
   };
 
+  const face = (o: InteractiveObject) => {
+    opts.camera.getWorldPosition(eye);
+    aimPoint(three, raycaster, eye, objects, o, opts.save(), point);
+    player.lookAt(point.x, point.y, point.z);
+  };
+
   const cycle = () => {
     if (disposed || panel) return;
     const order = cycleOrder(objects, player.place, opts.save(), objectVisible);
@@ -124,9 +134,7 @@ export function createInteraction(opts: InteractionOptions): Interaction {
       return;
     }
     lastCycled = o.id;
-    opts.camera.getWorldPosition(eye);
-    aimPoint(three, raycaster, eye, objects, o, opts.save(), point);
-    player.lookAt(point.x, point.y, point.z);
+    face(o);
   };
 
   const hint = (o: InteractiveObject) => {
@@ -188,6 +196,9 @@ export function createInteraction(opts: InteractionOptions): Interaction {
       }
     },
     cycle,
+    face(o) {
+      if (!disposed && !panel) face(o);
+    },
     activate(o) {
       if (disposed || panel) return;
       if (o.hold) hint(o);
@@ -205,6 +216,7 @@ export function createInteraction(opts: InteractionOptions): Interaction {
       holdId: holdObj?.id ?? null,
       holdProgress: hold?.progress ?? 0,
       glow: glow.current,
+      glowLevel: glow.level,
       panel,
       lastCycled,
     }),

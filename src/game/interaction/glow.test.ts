@@ -50,6 +50,23 @@ describe("brilho do objeto mirado", () => {
     expect(first).toBeGreaterThan(0);
   });
 
+  it("level informa a intensidade: pulsa, fica em 0,5 com movimento reduzido e zera ao apagar", () => {
+    const calm = createGlow([obj("a", [phong()])], () => true);
+    calm.set("a");
+    calm.update(0.3);
+    expect(calm.level).toBe(0.5);
+    const live = createGlow([obj("a", [phong()])], () => false);
+    live.set("a");
+    const seen = new Set<number>();
+    for (let t = 0; t < 1.5; t += 0.07) {
+      live.update(t);
+      seen.add(Math.round(live.level * 1000));
+    }
+    expect(seen.size).toBeGreaterThan(5);
+    live.set(null);
+    expect(live.level).toBe(0);
+  });
+
   it("soma ao emissivo que o material já tinha e restaura exatamente esse valor", () => {
     const a = phong(0x201008);
     const base = a.emissive.clone();

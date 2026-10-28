@@ -15,6 +15,10 @@ import { isBrowserChord, keyToAction, TURN_KEYS } from "./keymap";
  *   `panelClosed()` dentro do próprio handler do clique, que também é gesto. Toda entrada ressincroniza o modo:
  *   um "travar de novo" pendente não sobrevive a uma troca de modo que o adaptador não viu.
  *   Perder o travamento sem pedir (Esc do navegador) chama `onPause(true)`.
+ *   Painel aberto POR FORA de uma entrada (um segurar que completa no quadro): o shell chama `panelOpened()`, que
+ *   solta o mouse e lembra, como se o adaptador tivesse visto a abertura.
+ * - Exame: arrastar com o botão esquerdo (ou o dedo) vira `rotate` em pixels, a roda vira `zoom` (sem rolar a
+ *   página) e as setas/+/− repetem enquanto seguradas (ver keymap).
  * - Atalhos com Ctrl, ⌘ ou Alt são do navegador: nem ação, nem `preventDefault`.
  * - Toque: arrastar olha; tocar (sem arrastar) chama `onTap` (chão anda, objeto age); dois toques correm.
  * - Tela cheia: prende o Esc (`navigator.keyboard.lock`) enquanto dura; solta ao sair.
