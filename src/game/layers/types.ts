@@ -59,6 +59,11 @@ export type InteractiveObject = {
   verb(state: SaveV1): string;
   enabled(state: SaveV1): boolean;
   hold?: { seconds: number; verb: string };
+  /**
+   * Objeto que o encobre (emenda 1A/T9): enquanto o objeto com este id estiver habilitado e visível, este não entra
+   * no ciclo de alvos (a carta sob o celular). A mira por raio já não o alcança: o outro o tapa.
+   */
+  hiddenBy?: string;
   act(api: ActApi): void;
 };
 
