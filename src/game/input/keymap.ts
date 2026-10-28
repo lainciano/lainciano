@@ -5,6 +5,7 @@ import type { Action, InputMode } from "./actions";
  * está segurado. Regras:
  * - andando, Esc e ⌫ não fazem nada (o Esc é do navegador: solta o mouse e sai da tela cheia, bíblia 12b.5);
  * - nos painéis (exame, leitura, celular), E e ⌫ voltam; Esc também, por tolerância, sem rótulo na tela;
+ * - no exame, as setas giram o objeto e +/− ampliam;
  * - no menu (lista de lugares), Tab, setas, Enter e espaço ficam com o foco e os botões nativos; L fecha como abriu;
  * - agachar é segurar C (Ctrl é do navegador: ver `isBrowserChord`).
  */
@@ -30,6 +31,19 @@ export const TURN_KEYS: Readonly<Record<string, { yaw: -1 | 0 | 1; pitch: -1 | 0
 };
 
 const BACK_KEYS = new Set(["KeyE", "Backspace", "Escape"]);
+
+/** Exame: uma seta gira 24 px de arrasto equivalentes (~15°); a repetição do teclado gira contínuo. */
+const EXAMINE_STEP = 24;
+const EXAMINE_KEYS: Record<string, Action> = {
+  ArrowLeft: { type: "rotate", dx: -EXAMINE_STEP, dy: 0 },
+  ArrowRight: { type: "rotate", dx: EXAMINE_STEP, dy: 0 },
+  ArrowUp: { type: "rotate", dx: 0, dy: -EXAMINE_STEP },
+  ArrowDown: { type: "rotate", dx: 0, dy: EXAMINE_STEP },
+  Equal: { type: "zoom", delta: -1 },
+  NumpadAdd: { type: "zoom", delta: -1 },
+  Minus: { type: "zoom", delta: 1 },
+  NumpadSubtract: { type: "zoom", delta: 1 },
+};
 
 /**
  * Atalho do navegador ou do sistema (Ctrl, ⌘ ou Alt junto): o jogo não lê nem impede (Ctrl+W, Ctrl+L, Ctrl+F
@@ -80,6 +94,7 @@ export function keyToAction(code: string, down: boolean, mode: InputMode): Actio
     return null;
   }
   if (BACK_KEYS.has(code)) return { type: "back" };
+  if (mode === "examine" && Object.hasOwn(EXAMINE_KEYS, code)) return { ...EXAMINE_KEYS[code] };
   if (mode === "read" && code === "KeyR") return { type: "read" };
   if (mode === "phone" && code === "Tab") return { type: "phone" };
   return null;

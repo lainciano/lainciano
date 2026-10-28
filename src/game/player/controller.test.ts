@@ -175,6 +175,101 @@ describe("controlador · mira e ajustes (rodada 4)", () => {
   });
 });
 
+describe("controlador · alvo (T9)", () => {
+  it("expõe o id do alvo ao alcance; de longe (a mesa vista da entrada) há acerto mas não há alvo", async () => {
+    const { engine, layer, camera } = await world();
+    const near = createPlayer(engine, layer, DEFAULT_SETTINGS, { save: () => initialSave(0) });
+    near.placeAt("mesa");
+    near.apply({ type: "look", dx: 0, dy: (0.8 - 0.42) / 0.0022 });
+    run(near, 0.5);
+    expect(near.aimedId).not.toBeNull();
+    expect(["mesa", "bilhete", "caderno"]).toContain(near.aimedId);
+    near.dispose();
+
+    // da entrada, olhando para a mesa (2,5 m): o raio acerta a mesa, mas fora do alcance
+    const far = createPlayer(engine, layer, DEFAULT_SETTINGS, { save: () => initialSave(0) });
+    far.placeAt("entrada");
+    far.lookAt(-1.15, 0.74, -1.3, 0);
+    run(far, 1);
+    expect(far.aimTarget).toEqual({ id: "mesa", inReach: false });
+    expect(far.aimedId).toBeNull();
+    expect(far.aiming).toBe(false);
+    expect(camera.position.distanceTo(new THREE.Vector3(-1.15, 0.74, -1.3))).toBeGreaterThan(2.4);
+    far.dispose();
+  });
+
+  it("objeto escondido ou encoberto não é acertado", async () => {
+    const { engine, layer } = await world();
+    const p = createPlayer(engine, layer, DEFAULT_SETTINGS, { save: () => initialSave(0) });
+    p.placeAt("mesa");
+    p.lookAt(-1.15, 0.8, -1.3, 0);
+    run(p, 0.6);
+    const seen = p.aimedId;
+    expect(seen).not.toBeNull();
+    for (const o of layer.objects) for (const r of o.roots) r.visible = false;
+    run(p, 0.6);
+    expect(p.aimedId).toBeNull();
+    p.dispose();
+  });
+
+  it("lookAt vira o olhar em ~0,35 s até o ponto (e na hora com duração 0)", async () => {
+    const { engine, layer, camera } = await world();
+    const p = createPlayer(engine, layer, DEFAULT_SETTINGS, { still: true });
+    p.placeAt("entrada");
+    const target = new THREE.Vector3(1.6, 1.2, 0.2);
+    const dir = () => {
+      const f = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+      return f.dot(target.clone().sub(camera.position).normalize());
+    };
+    const before = dir();
+    p.lookAt(target.x, target.y, target.z);
+    p.update(0.05);
+    const mid = dir();
+    expect(mid).toBeGreaterThan(before);
+    run(p, 0.5);
+    expect(dir()).toBeGreaterThan(0.999);
+    // duração 0: instantâneo
+    p.placeAt("entrada");
+    p.lookAt(target.x, target.y, target.z, 0);
+    p.update(0.001);
+    expect(dir()).toBeGreaterThan(0.999);
+    p.dispose();
+  });
+
+  it("mexer o mouse durante a virada assume o olhar (a virada cede)", async () => {
+    const { engine, layer, camera } = await world();
+    const p = createPlayer(engine, layer, DEFAULT_SETTINGS, { still: true });
+    p.placeAt("entrada");
+    p.lookAt(1.6, 1.2, 0.2);
+    p.update(0.05);
+    p.apply({ type: "look", dx: 200, dy: 0 });
+    p.update(0.001);
+    const yawAfterInput = camera.rotation.y;
+    run(p, 0.5);
+    expect(camera.rotation.y).toBeCloseTo(yawAfterInput, 3);
+    p.dispose();
+  });
+
+  it("expõe movimento reduzido da preferência do sistema", async () => {
+    const { engine, layer } = await world();
+    const mq = Object.assign(new EventTarget(), { matches: true });
+    const g = globalThis as unknown as { window?: unknown };
+    const had = "window" in g;
+    const prev = g.window;
+    g.window = { matchMedia: () => mq };
+    try {
+      const p = createPlayer(engine, layer, DEFAULT_SETTINGS);
+      expect(p.reduced).toBe(true);
+      mq.dispatchEvent(Object.assign(new Event("change"), { matches: false }));
+      expect(p.reduced).toBe(false);
+      p.dispose();
+    } finally {
+      if (had) g.window = prev;
+      else delete g.window;
+    }
+  });
+});
+
 describe("controlador · preferência do sistema (rodada 5)", () => {
   it("mudar prefers-reduced-motion com o jogo aberto chega às mãos (e o ouvinte sai no dispose)", async () => {
     const { engine, layer } = await world();

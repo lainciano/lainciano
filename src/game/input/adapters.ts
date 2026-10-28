@@ -54,6 +54,8 @@ export type InputBinding = {
   dispose(): void;
   /** O shell fechou um painel fora do adaptador (clique/Enter num botão da lista): trava de novo se estava travado. */
   panelClosed(): void;
+  /** O jogo abriu um painel fora de uma entrada (um segurar que completou no quadro): solta o mouse e lembra. */
+  panelOpened(): void;
 };
 
 export function bindInput(target: HTMLElement, onAction: (a: Action) => void, opts: BindOptions): InputBinding {
@@ -211,6 +213,11 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
     const a = keyToAction(e.code, true, m);
     if (!a) return;
     if (a.type !== "phone") e.preventDefault();
+    // girar e ampliar o exame repetem enquanto a tecla está segurada; o resto só conta a primeira batida
+    if (a.type === "rotate" || a.type === "zoom") {
+      onAction(a);
+      return;
+    }
     if (e.repeat) return;
     switch (a.type) {
       case "move":
@@ -307,6 +314,8 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
     if (down.moved && mode() === "walk") {
       const k = down.touch ? -TOUCH_LOOK : 1;
       onAction({ type: "look", dx: (e.clientX - down.lx) * k, dy: (e.clientY - down.ly) * k });
+    } else if (down.moved && mode() === "examine") {
+      onAction({ type: "rotate", dx: e.clientX - down.lx, dy: e.clientY - down.ly });
     }
     down.lx = e.clientX;
     down.ly = e.clientY;
@@ -331,6 +340,20 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
   on(doc, "pointerup", endDown);
   on(doc, "pointercancel", endDown);
   on(target, "contextmenu", (e) => e.preventDefault());
+  // Exame: a roda amplia e a página atrás não rola.
+  on(
+    target,
+    "wheel",
+    (ev) => {
+      sync();
+      if (mode() !== "examine") return;
+      const delta = (ev as WheelEvent).deltaY;
+      if (delta === 0) return;
+      ev.preventDefault();
+      onAction({ type: "zoom", delta: Math.sign(delta) });
+    },
+    { passive: false },
+  );
 
   on(doc, "pointerlockchange", () => {
     const now = doc.pointerLockElement === target;
@@ -387,6 +410,16 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
   };
   return Object.assign(dispose, {
     dispose,
+    panelOpened() {
+      const now = mode();
+      if (isPanel(lastMode) || !isPanel(now)) return;
+      lastMode = now;
+      releaseAll();
+      if (locked) {
+        relock = true;
+        releaseLock();
+      }
+    },
     panelClosed() {
       const was = lastMode;
       const now = mode();

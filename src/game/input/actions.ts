@@ -8,6 +8,8 @@
  * - `interact`: apertar/soltar (ações de segurar).
  * - `run`, `crouch`, `peek`: estado enquanto a tecla é segurada.
  * - `back`: fecha painéis (E, ⌫ ou botão direito; Esc só por tolerância, bíblia 12b.5).
+ * - `rotate`, `zoom`: só no exame (T9). `rotate` é arrasto em pixels (setas mandam passos de 24 px); `zoom` tem o
+ *   sinal da roda: negativo aproxima, positivo afasta.
  */
 export type Action =
   | { type: "move"; x: number; z: number }
@@ -21,7 +23,9 @@ export type Action =
   | { type: "peek"; dir: -1 | 0 | 1 }
   | { type: "flash" }
   | { type: "back" }
-  | { type: "read" };
+  | { type: "read" }
+  | { type: "rotate"; dx: number; dy: number }
+  | { type: "zoom"; delta: number };
 
 /** Em que o jogo está: andar, um dos painéis (exame, leitura, celular) ou um menu (lista de lugares). */
 export type InputMode = "walk" | "examine" | "read" | "phone" | "menu";

@@ -295,3 +295,102 @@ function setupMenuOnPlaces(f: Fake) {
   };
   return () => open;
 }
+
+describe("bindInput · exame (T9)", () => {
+  it("setas giram e repetem enquanto seguradas (a repetição do teclado não é ignorada)", () => {
+    const f = setup();
+    f.setMode("examine");
+    const e1 = key(f, "keydown", "ArrowLeft");
+    const e2 = Object.assign(new Event("keydown", { cancelable: true }), { code: "ArrowLeft", repeat: true, ctrlKey: false, metaKey: false, altKey: false });
+    f.win.dispatchEvent(e2);
+    expect(f.actions.filter((a) => a.type === "rotate")).toHaveLength(2);
+    expect(e1.defaultPrevented).toBe(true);
+  });
+
+  it("arrastar com o botão esquerdo gira (delta em pixels); sem arrastar nada gira e não vira toque", () => {
+    const f = setup();
+    f.setMode("examine");
+    pointer(f, "pointerdown", { clientX: 100, clientY: 100 });
+    pointer(f, "pointermove", { clientX: 130, clientY: 90 });
+    pointer(f, "pointermove", { clientX: 160, clientY: 90 });
+    pointer(f, "pointerup", { clientX: 160, clientY: 90 });
+    const rotates = f.actions.filter((a): a is Extract<Action, { type: "rotate" }> => a.type === "rotate");
+    expect(rotates.length).toBeGreaterThanOrEqual(2);
+    expect(rotates.reduce((s, a) => s + a.dx, 0)).toBe(60);
+    expect(rotates.reduce((s, a) => s + a.dy, 0)).toBe(-10);
+    expect(f.taps).toBe(0);
+    // olhar (walk) não vaza para o exame
+    expect(f.actions.some((a) => a.type === "look")).toBe(false);
+  });
+
+  it("a roda amplia (e a página não rola); só no exame", () => {
+    const f = setup();
+    const wheel = (deltaY: number) => {
+      const e = Object.assign(new Event("wheel", { cancelable: true }), { deltaY });
+      f.target.dispatchEvent(e);
+      return e;
+    };
+    wheel(100);
+    expect(f.actions.filter((a) => a.type === "zoom")).toHaveLength(0);
+    f.setMode("examine");
+    const e = wheel(-120);
+    expect(f.actions).toContainEqual({ type: "zoom", delta: -1 });
+    expect(e.defaultPrevented).toBe(true);
+    wheel(120);
+    expect(f.actions).toContainEqual({ type: "zoom", delta: 1 });
+  });
+
+  it("botão direito fecha o exame e o mouse volta travado no mesmo gesto", () => {
+    const f = setup();
+    pointer(f, "pointerdown");
+    expect(f.doc.pointerLockElement).toBe(f.target);
+    // painel aberto por fora do adaptador (o ato do objeto abre o exame): o shell avisa
+    f.setMode("examine");
+    f.binding.panelOpened();
+    expect(f.doc.pointerLockElement, "abrir solta o mouse").toBeNull();
+    expect(f.paused).not.toContain(true);
+    const origPush = f.actions.push.bind(f.actions);
+    f.actions.push = (...items: Action[]) => {
+      if (items.some((a) => a.type === "back")) f.setMode("walk");
+      return origPush(...items);
+    };
+    pointer(f, "pointerdown", { button: 2 });
+    expect(f.actions).toContainEqual({ type: "back" });
+    expect(f.requestLock).toHaveBeenCalledTimes(2);
+    expect(f.doc.pointerLockElement).toBe(f.target);
+  });
+});
+
+describe("bindInput · painel aberto fora do adaptador (hold concluído no quadro)", () => {
+  it("panelOpened solta o mouse e lembra; fechar com E trava de novo", () => {
+    const f = setup();
+    pointer(f, "pointerdown");
+    f.setMode("examine");
+    f.binding.panelOpened();
+    expect(f.doc.pointerLockElement).toBeNull();
+    expect(f.paused).not.toContain(true);
+    f.setMode("walk");
+    f.binding.panelClosed();
+    expect(f.requestLock).toHaveBeenCalledTimes(2);
+  });
+
+  it("panelOpened com o mouse solto não trava nem pausa", () => {
+    const f = setup();
+    f.setMode("examine");
+    f.binding.panelOpened();
+    f.setMode("walk");
+    f.binding.panelClosed();
+    expect(f.requestLock).not.toHaveBeenCalled();
+    expect(f.paused).not.toContain(true);
+  });
+
+  it("panelOpened é idempotente com a abertura vista pelo adaptador", () => {
+    const f = setup();
+    pointer(f, "pointerdown");
+    setupMenuOnPlaces(f);
+    key(f, "keydown", "KeyL");
+    f.binding.panelOpened();
+    key(f, "keydown", "KeyL");
+    expect(f.requestLock).toHaveBeenCalledTimes(2);
+  });
+});

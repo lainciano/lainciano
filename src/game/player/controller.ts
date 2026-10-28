@@ -1,4 +1,3 @@
-import type * as THREE from "three";
 import type { GameAudio } from "../audio/types";
 import type { Action } from "../input/actions";
 import type { InteractiveObject, LayerInstance } from "../layers/types";
@@ -6,7 +5,7 @@ import type { Engine } from "../runtime/engine";
 import type { SaveV1, Settings } from "../save/schema";
 import { moveWithCollision, segmentClear, type Box2, type Vec2 } from "../world/collision";
 import { nearestPlace, pathBetween, type Place } from "../world/places";
-import { inReach } from "../world/reach";
+import { pickTarget, rayHit, type Target } from "../interaction/targeting";
 import { surfaceAt } from "../world/surfaces";
 import { createAim, stepAim } from "./aim";
 import { createHands, type Hands, type HandsUpdate } from "./hands";
@@ -77,6 +76,14 @@ export type Player = {
   readonly hands: Hands;
   /** Mirando um objeto ao alcance (com histerese). */
   readonly aiming: boolean;
+  /** Id do objeto mirado, ao alcance, habilitado e visível (com histerese de 3 leituras); null sem alvo. */
+  readonly aimedId: string | null;
+  /** Última leitura crua do centro da tela (sem histerese): o objeto acertado e se está ao alcance. */
+  readonly aimTarget: Target | null;
+  /** Vira o olhar para um ponto do mundo (ciclo de alvos); `seconds` 0 ou movimento reduzido = na hora. */
+  lookAt(x: number, y: number, z: number, seconds?: number): void;
+  /** `prefers-reduced-motion` do sistema (reativo). */
+  readonly reduced: boolean;
   /** Ajustes mudaram (balanço): as mãos e a câmera seguem na hora. */
   updateSettings(s: Settings): void;
 };
@@ -322,29 +329,19 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
 
   let panel = false;
   let aiming = false;
+  let aimedId: string | null = null;
+  let aimTarget: Target | null = null;
   let aim = createAim();
   /** Entrada das mãos, reaproveitada a cada quadro. */
   const handsIn: HandsUpdate = { moving: false, run: false, bob: 0, crouch: false, panel: false, aiming: false };
   const saveState = () => opts.save?.();
   let aimClock = 0;
   const center = new T.Vector2(0, 0);
-  /** Há um objeto ao alcance no centro da tela? */
-  /** Id do objeto ao alcance no centro da tela (só os habilitados no estado atual), ou null. */
-  const aimingAt = (): string | null => {
-    raycaster.setFromCamera(center, camera);
-    let best: THREE.Intersection | null = null;
-    let bestId: string | null = null;
-    const state = saveState();
-    for (const o of layer.objects) {
-      if (state && !o.enabled(state)) continue;
-      const hits = raycaster.intersectObjects(o.roots, true);
-      if (hits[0] && (!best || hits[0].distance < best.distance)) {
-        best = hits[0];
-        bestId = o.id;
-      }
-    }
-    return best && inReach(pos, { x: best.point.x, z: best.point.z, distance: best.distance }) ? bestId : null;
-  };
+  /** Leitura do centro da tela: o objeto interativo acertado (habilitado, visível, não encoberto) e o alcance. */
+  const readAim = (): Target | null => pickTarget(rayHit(raycaster, camera, center, layer.objects, saveState()), pos);
+
+  /** Virada suave do olhar (ciclo de alvos). */
+  let turn: { y0: number; dy: number; p0: number; dp: number; t: number; dur: number } | null = null;
 
   const applyCamera = () => {
     if (pose) {
@@ -380,6 +377,30 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
     get aiming() {
       return aiming;
     },
+    get aimedId() {
+      return aimedId;
+    },
+    get aimTarget() {
+      return aimTarget;
+    },
+    get reduced() {
+      return reduced;
+    },
+    lookAt(x, y, z, seconds = 0.35) {
+      if (disposed || route) return;
+      const dx = x - pos.x;
+      const dz = z - pos.z;
+      const targetYaw = yawOf(dx, dz);
+      const targetPitch = clamp(Math.atan2(y - eye, Math.hypot(dx, dz)), PLAYER.pitchMin, PLAYER.pitchMax);
+      if (seconds <= 0 || reduced) {
+        turn = null;
+        yaw = targetYaw;
+        pitch = targetPitch;
+        applyCamera();
+        return;
+      }
+      turn = { y0: yaw, dy: angDiff(targetYaw, yaw), p0: pitch, dp: targetPitch - pitch, t: 0, dur: seconds };
+    },
     updateSettings(next) {
       bobSetting = next.bob;
       refreshMotion();
@@ -396,6 +417,7 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       const p = graph.places[id];
       if (!p) return;
       cancelRoute();
+      turn = null;
       pos = { x: p.x, z: p.z };
       ({ yaw, pitch } = faceOf(p));
       eye = crouch ? PLAYER.crouchEye : PLAYER.eye;
@@ -408,6 +430,14 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       const fromRoute = route ? stepRoute(dt) : false;
       const fromFree = route ? false : stepFree(dt);
       moving = fromRoute || fromFree;
+      if (turn && !route) {
+        turn.t += dt;
+        const k = clamp(turn.t / turn.dur, 0, 1);
+        const e = k * k * (3 - 2 * k);
+        yaw = turn.y0 + turn.dy * e;
+        pitch = turn.p0 + turn.dp * e;
+        if (k >= 1) turn = null;
+      }
       eye += ((crouch ? PLAYER.crouchEye : PLAYER.eye) - eye) * Math.min(1, dt * 5);
       peek += (peekTarget - peek) * Math.min(1, dt * 8);
       if (moving) bob += dt * (crouch ? 6 : isRunning() || route?.run ? 12 : 8.5);
@@ -418,13 +448,15 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       // o corpo de sombra fica nos pés, virado para onde se olha
       hands.body.position.set(pos.x, 0, pos.z);
       hands.body.rotation.y = yaw;
-      // mirar: a cada 100 ms, o centro da tela num objeto ao alcance levanta a lanterna (a mira de verdade é da T9)
+      // mirar: a cada 50 ms o centro da tela; a histerese (3 leituras iguais) segura o alvo, então a mão e o aviso
+      // não oscilam na borda de um objeto e o alvo troca em ~150 ms
       aimClock -= dt;
       if (aimClock <= 0) {
-        aimClock = 0.1;
-        // histerese: o alvo só troca depois de 3 leituras seguidas iguais (a mão não oscila na borda)
-        aim = stepAim(aim, panel ? null : aimingAt());
-        aiming = !panel && aim.current !== null;
+        aimClock = 0.05;
+        aimTarget = panel ? null : readAim();
+        aim = stepAim(aim, aimTarget && aimTarget.inReach ? aimTarget.id : null);
+        aimedId = panel ? null : aim.current;
+        aiming = aimedId !== null;
       }
       handsIn.moving = moving;
       handsIn.run = isRunning() || !!route?.run;
@@ -439,10 +471,12 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       switch (a.type) {
         case "move":
           move = { x: a.x, z: a.z };
+          if (a.x !== 0 || a.z !== 0) turn = null;
           if ((a.x !== 0 || a.z !== 0) && route) cancelRoute();
           return;
         case "look":
           if (route) return;
+          turn = null;
           yaw -= a.dx * sens;
           pitch = clamp(pitch - a.dy * sens, PLAYER.pitchMin, PLAYER.pitchMax);
           return;
@@ -469,20 +503,17 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       if (disposed) return;
       ndc.set(nx, ny);
       raycaster.setFromCamera(ndc, camera);
-      // objetos primeiro
-      let best: { o: InteractiveObject; d: number; point: THREE.Vector3 } | null = null;
-      for (const o of layer.objects) {
-        const hits = raycaster.intersectObjects(o.roots, true);
-        if (hits[0] && (!best || hits[0].distance < best.d)) best = { o, d: hits[0].distance, point: hits[0].point };
-      }
-      if (best) {
-        if (inReach(pos, { x: best.point.x, z: best.point.z, distance: best.d })) {
-          opts.onAct?.(best.o);
+      // objetos primeiro (habilitados, visíveis e não encobertos)
+      const seen = rayHit(raycaster, camera, ndc, layer.objects, saveState());
+      const picked = seen && layer.objects.find((o) => o.id === seen.id);
+      if (seen && picked) {
+        if (pickTarget(seen, pos)?.inReach) {
+          opts.onAct?.(picked);
           hands.reach();
           return;
         }
-        if (best.o.place !== place && isOpen(best.o.place)) {
-          void player.goTo(best.o.place);
+        if (picked.place !== place && isOpen(picked.place)) {
+          void player.goTo(picked.place);
           return;
         }
       }
@@ -501,7 +532,10 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       panel = open;
       if (open) {
         aiming = false;
+        aimedId = null;
+        aimTarget = null;
         aim = createAim();
+        turn = null;
       }
     },
     dispose() {

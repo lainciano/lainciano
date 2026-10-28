@@ -107,12 +107,45 @@ export function rayHit(
   return best && bestId ? { id: bestId, x: best.point.x, z: best.point.z, distance: best.distance } : null;
 }
 
-/** Centro da caixa que envolve os `roots`, no mundo: para onde o ciclo vira o olhar. */
-export function objectCenter(three: typeof THREE, roots: readonly THREE.Object3D[], out = new three.Vector3()): THREE.Vector3 {
+/**
+ * Para onde o ciclo vira o olhar: um ponto da superfície do objeto que o raio do centro da tela acerta DE FATO
+ * (o centro da caixa de uma mesa fica dentro do tampo, o de um móvel oco, entre as peças). Testa o centro, o topo
+ * e um ponto a 3/4 da altura, a partir do olho, e fica com o primeiro cujo raio chega ao próprio objeto antes de
+ * qualquer outro; se nenhum chegar, o centro da caixa.
+ */
+export function aimPoint(
+  three: typeof THREE,
+  raycaster: THREE.Raycaster,
+  eye: THREE.Vector3,
+  objects: readonly InteractiveObject[],
+  target: InteractiveObject,
+  state: SaveV1 | undefined,
+  out = new three.Vector3(),
+): THREE.Vector3 {
   const box = new three.Box3();
-  for (const root of roots) {
+  for (const root of target.roots) {
     root.updateWorldMatrix(true, true);
     box.expandByObject(root);
   }
-  return box.getCenter(out);
+  const c = box.getCenter(new three.Vector3());
+  const candidates = [c, new three.Vector3(c.x, box.max.y - 0.005, c.z), new three.Vector3(c.x, box.min.y + (box.max.y - box.min.y) * 0.75, c.z)];
+  const dir = new three.Vector3();
+  for (const cand of candidates) {
+    dir.subVectors(cand, eye);
+    if (dir.lengthSq() < 1e-8) continue;
+    raycaster.set(eye, dir.normalize());
+    let best: THREE.Intersection | null = null;
+    let bestId: string | null = null;
+    for (const o of objects) {
+      if (state && (!o.enabled(state) || isCovered(o, objects, state, objectVisible))) continue;
+      if (!objectVisible(o)) continue;
+      const hit = raycaster.intersectObjects(o.roots, true)[0];
+      if (hit && (!best || hit.distance < best.distance)) {
+        best = hit;
+        bestId = o.id;
+      }
+    }
+    if (best && bestId === target.id) return out.copy(best.point);
+  }
+  return out.copy(c);
 }

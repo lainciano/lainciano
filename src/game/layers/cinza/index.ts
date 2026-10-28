@@ -1,6 +1,6 @@
 import type * as THREE from "three";
 import type { SaveV1 } from "../../save/schema";
-import type { InteractiveObject, Layer, LayerInstance } from "../types";
+import type { ActApi, InteractiveObject, Layer, LayerInstance } from "../types";
 import { createMaker } from "./models";
 import { CINZA_GRAPH, DOOR_FLAG, FURNITURE_COLLIDERS, RUG, WALL_COLLIDERS } from "./places";
 import { buildCinzaScene } from "./scene";
@@ -19,7 +19,7 @@ const yieldFrame = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 const prefersReducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 
-/** Linhas da camada (conteúdo da sala, como os nós do protótipo). A interação completa é da T9. */
+/** Linhas da camada (conteúdo da sala, como os nós do protótipo). */
 const LINES = {
   mesa: "madeira gasta onde os braços apoiavam. alguém escreveu aqui por muito tempo.",
   bilhete: "um bilhete dobrado. a letra é apressada.",
@@ -53,23 +53,41 @@ export const cinzaLayer: Layer = {
     signal.throwIfAborted();
 
     const doorOpen = (s: SaveV1) => s.flags[DOOR_FLAG] === true;
-    const say = (text: string) => ctx.say({ text, kind: "speech" });
+    const speak = (api: ActApi, text: string) => api.say({ text, kind: "speech" });
     const objects: InteractiveObject[] = [
-      { id: "mesa", place: "mesa", roots: [built.table], material: "madeira", verb: () => "examinar a mesa", enabled: () => true, act: () => say(LINES.mesa) },
-      { id: "bilhete", place: "mesa", roots: [built.note], material: "papel", verb: () => "ler o bilhete", enabled: () => true, act: () => say(LINES.bilhete) },
-      { id: "caderno", place: "mesa", roots: [built.notebook], material: "papel", verb: () => "abrir o caderno", enabled: () => true, act: () => say(LINES.caderno) },
-      { id: "armario", place: "armario", roots: [built.wardrobe], material: "madeira", verb: () => "abrir o armário", enabled: () => true, act: () => say(LINES.armario) },
+      { id: "mesa", place: "mesa", roots: [built.table], material: "madeira", verb: () => "examinar a mesa", enabled: () => true, act: (api) => speak(api, LINES.mesa) },
       {
+        id: "bilhete",
+        place: "mesa",
+        roots: [built.note],
+        material: "papel",
+        verb: () => "ler o bilhete",
+        enabled: () => true,
+        act: (api) => api.examine({ root: built.note, distance: 0.34, title: "bilhete", text: LINES.bilhete }),
+      },
+      {
+        id: "caderno",
+        place: "mesa",
+        roots: [built.notebook],
+        material: "papel",
+        verb: () => "abrir o caderno",
+        enabled: () => true,
+        act: (api) => api.examine({ root: built.notebook, distance: 0.38, title: "caderno", text: LINES.caderno }),
+      },
+      { id: "armario", place: "armario", roots: [built.wardrobe], material: "madeira", verb: () => "abrir o armário", enabled: () => true, act: (api) => speak(api, LINES.armario) },
+      {
+        // De segurar (como o cadeado do protótipo 7): prova o anel e o "segure E" na sala cinza.
         id: "porta",
         place: "porta",
         roots: [built.door],
         material: "madeira",
         verb: () => "abrir a porta",
         enabled: () => true,
+        hold: { seconds: 1.4, verb: "forçar a porta" },
         act: (api) => {
-          if (doorOpen(api.save.get())) return say(LINES.portaAberta);
+          if (doorOpen(api.save.get())) return speak(api, LINES.portaAberta);
           api.sfx("knock");
-          say(LINES.portaTrancada);
+          speak(api, LINES.portaTrancada);
         },
       },
     ];

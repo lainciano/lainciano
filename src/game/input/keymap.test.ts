@@ -129,3 +129,24 @@ describe("isRelease · soltar chega ao jogador mesmo com painel aberto", () => {
     expect(isRelease({ type: "places" })).toBe(false);
   });
 });
+
+describe("exame (T9): girar e ampliar", () => {
+  it("setas giram o objeto e +/− ampliam; E, ⌫ e Esc (tolerância) fecham", () => {
+    expect(keyToAction("ArrowLeft", true, "examine")).toEqual({ type: "rotate", dx: -24, dy: 0 });
+    expect(keyToAction("ArrowRight", true, "examine")).toEqual({ type: "rotate", dx: 24, dy: 0 });
+    expect(keyToAction("ArrowUp", true, "examine")).toEqual({ type: "rotate", dx: 0, dy: -24 });
+    expect(keyToAction("ArrowDown", true, "examine")).toEqual({ type: "rotate", dx: 0, dy: 24 });
+    expect(keyToAction("Equal", true, "examine")).toEqual({ type: "zoom", delta: -1 });
+    expect(keyToAction("NumpadAdd", true, "examine")).toEqual({ type: "zoom", delta: -1 });
+    expect(keyToAction("Minus", true, "examine")).toEqual({ type: "zoom", delta: 1 });
+    expect(keyToAction("NumpadSubtract", true, "examine")).toEqual({ type: "zoom", delta: 1 });
+    for (const code of ["KeyE", "Backspace", "Escape"]) expect(keyToAction(code, true, "examine"), code).toEqual({ type: "back" });
+  });
+  it("só no exame: no leitor e no celular as setas não giram nada", () => {
+    expect(keyToAction("ArrowLeft", true, "read")).toBeNull();
+    expect(keyToAction("Equal", true, "phone")).toBeNull();
+  });
+  it("soltar a tecla não gera ação", () => {
+    expect(keyToAction("ArrowLeft", false, "examine")).toBeNull();
+  });
+});
