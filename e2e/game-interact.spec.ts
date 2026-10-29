@@ -398,6 +398,8 @@ test.describe("examinar", () => {
       await expect(prompt(page)).toContainText("ler o bilhete", { timeout: 30_000 });
       if (i === 3) settled = await info();
     }
+    expect(new Set(emissives).size, `emissivo da cópia igual em todas as fases do pulso: ${emissives.join(",")}`).toBe(1);
+    expect(emissives[0]).toBeGreaterThan(0);
     const end = await info();
     // As mãos sobem ao quadro em ociosas e mandam geometria nova à GPU pela primeira vez, com ou sem exame (medido
     // sem exame: 129 → 134 em ~14 espaços de 2,5 s). Um vazamento do exame somaria ≥ 1 por ciclo (≥ 16 aqui).

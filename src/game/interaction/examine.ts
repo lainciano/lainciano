@@ -36,7 +36,11 @@ export const EXAMINE = {
    * Realce das cópias (o objeto a 30 cm do olho fica de costas para a luz da sala e lia escuro): a cor sobe e um
    * emissivo da própria cor entra. Só uniforms: o programa de shader é o mesmo do original.
    */
-  lift: 6,
+  liftMax: 6,
+  /** Teto do brilho final (luminância efetiva × lift): objeto claro não estoura. */
+  liftTarget: 4.2,
+  /** Luminância média que se supõe para uma textura (papel, madeira): o mapa escurece o que a cor sozinha diz. */
+  mapLuma: 0.7,
   selfLit: 0.06,
   /** Tom quente da luz do pendente (RGB): a cópia lia cinza-azulada longe da luz. */
   warm: [1, 0.8, 0.56],
@@ -44,6 +48,17 @@ export const EXAMINE = {
   turnRate: 14,
   zoomRate: 10,
 } as const;
+
+/**
+ * Ganho do realce da cópia (cor × ganho) a partir da luminância da cor base do material: objeto escuro leva o ganho
+ * cheio (`liftMax`); objeto claro leva menos, para que luminância × ganho nunca passe de `liftTarget` (nada
+ * estoura). Com mapa de textura supõe-se `mapLuma` de luminância média. Nunca abaixo de 1.
+ */
+export function liftFor(color: { r: number; g: number; b: number }, hasMap: boolean): number {
+  const luma = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
+  const eff = Math.max(luma * (hasMap ? EXAMINE.mapLuma : 1), 1e-6);
+  return Math.min(EXAMINE.liftMax, Math.max(1, EXAMINE.liftTarget / eff));
+}
 
 export type ExamineOpen = { distance: number; title: string; text: string };
 export type ExamineState = {
@@ -134,12 +149,13 @@ export function createExamine(engine: ExamineEngine, opts: { reduced?: () => boo
         const lit = c as THREE.Material & { color?: THREE.Color; emissive?: THREE.Color };
         if (lit.color?.isColor && lit.emissive?.isColor) {
           const [wr, wg, wb] = EXAMINE.warm;
+          const lift = liftFor(lit.color, !!(lit as THREE.MeshPhongMaterial).map);
           lit.emissive.r += lit.color.r * EXAMINE.selfLit * wr;
           lit.emissive.g += lit.color.g * EXAMINE.selfLit * wg;
           lit.emissive.b += lit.color.b * EXAMINE.selfLit * wb;
-          lit.color.r *= EXAMINE.lift * wr;
-          lit.color.g *= EXAMINE.lift * wg;
-          lit.color.b *= EXAMINE.lift * wb;
+          lit.color.r *= lift * wr;
+          lit.color.g *= lift * wg;
+          lit.color.b *= lift * wb;
         }
         made.set(m, c);
       }
@@ -170,51 +186,64 @@ export function createExamine(engine: ExamineEngine, opts: { reduced?: () => boo
       });
       for (const l of lights) l.removeFromParent();
       const materials = cloneMaterials(clone);
+      let rigRef: THREE.Group | null = null;
+      const visibleBefore = obj.visible;
+      try {
 
-      clone.updateMatrixWorld(true);
-      const box = new T.Box3().setFromObject(clone);
-      const size = box.getSize(new T.Vector3());
-      const center = box.getCenter(new T.Vector3());
-      const sphere = box.getBoundingSphere(new T.Sphere());
-      clone.position.copy(center).multiplyScalar(-1);
+        clone.updateMatrixWorld(true);
+        const box = new T.Box3().setFromObject(clone);
+        const size = box.getSize(new T.Vector3());
+        const center = box.getCenter(new T.Vector3());
+        const sphere = box.getBoundingSphere(new T.Sphere());
+        clone.position.copy(center).multiplyScalar(-1);
 
-      // Peça deitada: a face de cima para a câmera. Peça em pé de lado: a face larga para a câmera.
-      const base = new T.Group();
-      const flat = size.y < 0.6 * Math.min(size.x, size.z);
-      if (flat) base.rotation.x = Math.PI / 2;
-      else if (size.x < 0.6 * Math.min(size.y, size.z)) base.rotation.y = -Math.PI / 2;
-      base.add(clone);
-      const turnG = new T.Group();
-      turnG.add(base);
-      const tiltG = new T.Group();
-      tiltG.add(turnG);
-      const rig = new T.Group();
-      rig.name = "exame";
-      rig.add(tiltG);
-      rig.position.set(0, -EXAMINE.drop, -o.distance);
-      camera.add(rig);
+        // Peça deitada: a face de cima para a câmera. Peça em pé de lado: a face larga para a câmera.
+        const base = new T.Group();
+        const flat = size.y < 0.6 * Math.min(size.x, size.z);
+        if (flat) base.rotation.x = Math.PI / 2;
+        else if (size.x < 0.6 * Math.min(size.y, size.z)) base.rotation.y = -Math.PI / 2;
+        base.add(clone);
+        const turnG = new T.Group();
+        turnG.add(base);
+        const tiltG = new T.Group();
+        tiltG.add(turnG);
+        const rig = new T.Group();
+        rig.name = "exame";
+        rig.add(tiltG);
+        rig.position.set(0, -EXAMINE.drop, -o.distance);
+        camera.add(rig);
+        rigRef = rig;
 
-      held = {
-        rig,
-        tiltG,
-        turnG,
-        base,
-        original: obj,
-        wasVisible: obj.visible,
-        materials,
-        radius: Math.max(sphere.radius, 1e-4),
-        baseDistance: o.distance,
-        aspect: camera.aspect,
-      };
-      obj.visible = false;
-      title = o.title;
-      text = o.text;
-      turn = turnT = EXAMINE.restTurn;
-      tilt = tiltT = EXAMINE.restTilt;
-      dist = distT = o.distance;
-      base.scale.setScalar(fitScale(held, o.distance));
-      turnG.rotation.y = turn;
-      tiltG.rotation.x = tilt;
+        held = {
+          rig,
+          tiltG,
+          turnG,
+          base,
+          original: obj,
+          wasVisible: obj.visible,
+          materials,
+          radius: Math.max(sphere.radius, 1e-4),
+          baseDistance: o.distance,
+          aspect: camera.aspect,
+        };
+        obj.visible = false;
+        title = o.title;
+        text = o.text;
+        turn = turnT = EXAMINE.restTurn;
+        tilt = tiltT = EXAMINE.restTilt;
+        dist = distT = o.distance;
+        base.scale.setScalar(fitScale(held, o.distance));
+        turnG.rotation.y = turn;
+        tiltG.rotation.x = tilt;
+      } catch (error) {
+        // Falhou no meio (geometria, caixa, enquadramento): as cópias de material não ficam sem dono nem a câmera
+        // com um rig pela metade, e o original continua à mostra.
+        for (const m of materials) m.dispose();
+        rigRef?.removeFromParent();
+        obj.visible = visibleBefore;
+        held = null;
+        throw error;
+      }
     },
     rotate(dx, dy) {
       if (!held) return;

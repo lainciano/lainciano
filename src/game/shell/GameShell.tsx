@@ -59,6 +59,8 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
           setPrompt(null);
           setPlaces(null);
           setReticle("off");
+          setLine(null);
+          setPaused(false);
         }
       },
       places: (list: PlaceItem[] | null) => {
@@ -116,16 +118,24 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   }, [status]);
 
   // Lista aberta: foco no primeiro lugar disponível; fechada: o foco volta à casca (o teclado segue no jogo).
+  const prevPlaces = useRef<PlaceItem[] | null>(null);
   useEffect(() => {
-    if (status !== "live") return;
+    // Só quando a lista mudou de fato (abrir/fechar): ir para "live" não mexe no foco de um botão da casca.
+    const changed = prevPlaces.current !== places;
+    prevPlaces.current = places;
+    if (!changed || status !== "live") return;
     if (places) placesRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus({ preventScroll: true });
     else if (shellRef.current?.contains(document.activeElement) || document.activeElement === document.body) shellRef.current?.focus({ preventScroll: true });
   }, [places, status]);
 
   // Exame fechado (E, ⌫, botão direito ou o botão): o foco volta à casca, onde o teclado do jogo mora.
+  const prevExamine = useRef<ExamineInfo | null>(null);
   useEffect(() => {
-    // Só com o jogo vivo: num aviso de falha o foco é do botão de voltar (o efeito de status), não da casca.
-    if (examine || status !== "live") return;
+    // Só quando o exame fechou de fato e com o jogo vivo: num aviso de falha o foco é do botão de voltar (o efeito
+    // de status), e a transição para "live" não rouba o foco de ninguém.
+    const closed = prevExamine.current !== null && examine === null;
+    prevExamine.current = examine;
+    if (!closed || status !== "live") return;
     if (shellRef.current?.contains(document.activeElement) || document.activeElement === document.body) shellRef.current?.focus({ preventScroll: true });
   }, [examine, status]);
 

@@ -9,7 +9,7 @@ import { createLayerRunner, type LayerRunner } from "../layers/loader";
 import type { ActApi, GameCtx, Layer, LayerInstance, Line } from "../layers/types";
 import { createPlayer, type Player } from "../player/controller";
 import { createSaveStore, type SaveApi } from "../save/store";
-import { createPanelStack } from "../shell/panelStack";
+import { createPanelStack, openPanel } from "../shell/panelStack";
 import { debugEnabled, installDebug, layerShot, loadShot, standaloneShot } from "./debug";
 import { createEngine, type Engine } from "./engine";
 
@@ -179,9 +179,8 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     if (!examine || panels.has("examine")) return;
     // Primeiro o painel (apaga o brilho do alvo e baixa a mira): a cópia lê o emissivo dos materiais, que não pode
     // estar na fase do pulso. Vale também para o segurar que conclui dentro do quadro.
-    panels.push({ mode: "examine", id: o.title });
-    syncPanels();
-    examine.open(o.root, { distance: o.distance, title: o.title, text: o.text });
+    const held = examine;
+    openPanel(panels, { mode: "examine", id: o.title }, syncPanels, () => held.open(o.root, { distance: o.distance, title: o.title, text: o.text }));
     ui.examine({ title: o.title, text: o.text });
     // Aberto por um aperto (adaptador já viu) ou por um segurar que completou no quadro (não viu): solta o mouse.
     input?.panelOpened();

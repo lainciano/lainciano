@@ -43,3 +43,20 @@ export function createPanelStack(): PanelStack {
     },
   };
 }
+
+/**
+ * Abre um painel com desfazer: empilha, sincroniza (a lanterna guarda, a mira e o brilho apagam) e SÓ ENTÃO constrói
+ * o que o painel mostra (a cópia do exame lê materiais já sem o brilho da mira). Se construir lançar, desempilha e
+ * sincroniza de novo: nenhum painel fantasma (modo preso, mouse solto, sem cartão) e o erro segue adiante.
+ */
+export function openPanel(stack: PanelStack, panel: Panel, sync: () => void, build: () => void): void {
+  stack.push(panel);
+  sync();
+  try {
+    build();
+  } catch (error) {
+    stack.pop();
+    sync();
+    throw error;
+  }
+}

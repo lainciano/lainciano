@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { describe, expect, it, vi } from "vitest";
 import type { InteractiveObject } from "../layers/types";
 import { applyPsx } from "../render/psx";
-import { createExamine, EXAMINE } from "./examine";
+import { createExamine, EXAMINE, liftFor } from "./examine";
 import { cinzaWorld, run } from "./testWorld";
 
 const OPEN = { distance: 0.34, title: "bilhete", text: "um bilhete dobrado." };
@@ -153,10 +153,83 @@ describe("exame · realce da cópia", () => {
       if ((n as THREE.Mesh).isMesh) copy = (n as THREE.Mesh).material as THREE.MeshPhongMaterial;
     });
     expect(copy).not.toBe(orig);
-    expect((copy as unknown as THREE.MeshPhongMaterial).color.r).toBeCloseTo(color.r * EXAMINE.lift, 6);
+    expect((copy as unknown as THREE.MeshPhongMaterial).color.r).toBeCloseTo(color.r * liftFor(color, true) * EXAMINE.warm[0], 6);
     expect((copy as unknown as THREE.MeshPhongMaterial).emissive.r).toBeGreaterThan(0);
     expect(orig.color.equals(color)).toBe(true);
     expect(orig.emissive.equals(emissive)).toBe(true);
+    ex.close();
+  });
+});
+
+describe("exame · ganho do realce pela luminância", () => {
+  it("escuro leva o ganho cheio; textura clara (papel) também; sem mapa e claro leva menos", () => {
+    expect(liftFor({ r: 0.02, g: 0.02, b: 0.02 }, false)).toBe(EXAMINE.liftMax);
+    expect(liftFor({ r: 1, g: 1, b: 1 }, true)).toBeCloseTo(EXAMINE.liftMax, 6);
+    expect(liftFor({ r: 1, g: 1, b: 1 }, false)).toBeCloseTo(EXAMINE.liftTarget, 6);
+  });
+
+  it("monotônico: mais claro nunca leva mais ganho; luminância × ganho nunca passa do teto; nunca abaixo de 1", () => {
+    let prev = Infinity;
+    for (let v = 0.01; v <= 3; v += 0.07) {
+      const g = liftFor({ r: v, g: v, b: v }, false);
+      expect(g).toBeLessThanOrEqual(prev + 1e-12);
+      expect(g).toBeGreaterThanOrEqual(1);
+      if (v >= EXAMINE.liftTarget / EXAMINE.liftMax && g > 1) expect(v * g).toBeLessThanOrEqual(EXAMINE.liftTarget + 1e-9);
+      prev = g;
+    }
+    expect(liftFor({ r: 50, g: 50, b: 50 }, false)).toBe(1);
+  });
+
+  it("a cópia de um material branco sem mapa sai mais fraca que a de um com mapa", async () => {
+    const { ex, camera } = await setup();
+    const make = (mat: THREE.MeshPhongMaterial) => {
+      const model = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), mat);
+      ex.open(model, OPEN);
+      let copy: THREE.MeshPhongMaterial | null = null;
+      camera.traverse((n) => {
+        if ((n as THREE.Mesh).isMesh) copy = (n as THREE.Mesh).material as THREE.MeshPhongMaterial;
+      });
+      const r = (copy as unknown as THREE.MeshPhongMaterial).color.r;
+      ex.close();
+      return r;
+    };
+    const plain = make(new THREE.MeshPhongMaterial({ color: 0xffffff }));
+    const mapped = make(new THREE.MeshPhongMaterial({ color: 0xffffff, map: new THREE.CanvasTexture(undefined as unknown as HTMLCanvasElement) }));
+    expect(plain).toBeLessThan(mapped);
+  });
+});
+
+describe("exame · falha no meio de abrir", () => {
+  it("se algo lançar depois de copiar os materiais, as cópias morrem, a câmera fica limpa e o original continua à mostra", async () => {
+    const { ex, note, camera, cameraKids } = await setup();
+    const clones: THREE.Material[] = [];
+    const orig = THREE.MeshPhongMaterial.prototype.clone;
+    const cloneSpy = vi.spyOn(THREE.MeshPhongMaterial.prototype, "clone").mockImplementation(function (this: THREE.MeshPhongMaterial) {
+      const c = orig.call(this);
+      clones.push(c);
+      return c;
+    });
+    const boxSpy = vi.spyOn(THREE.Box3.prototype, "setFromObject").mockImplementation(() => {
+      throw new Error("caixa quebrou");
+    });
+    let disposed = 0;
+    const origDispose = THREE.Material.prototype.dispose;
+    const disposeSpy = vi.spyOn(THREE.Material.prototype, "dispose").mockImplementation(function (this: THREE.Material) {
+      if (clones.includes(this)) disposed++;
+      return origDispose.call(this);
+    });
+    expect(() => ex.open(note.roots[0], OPEN)).toThrow("caixa quebrou");
+    boxSpy.mockRestore();
+    cloneSpy.mockRestore();
+    disposeSpy.mockRestore();
+    expect(clones.length).toBeGreaterThan(0);
+    expect(disposed).toBe(clones.length);
+    expect(ex.isOpen()).toBe(false);
+    expect(note.roots[0].visible).toBe(true);
+    expect(camera.children.length).toBe(cameraKids);
+    // e abrir de novo funciona
+    ex.open(note.roots[0], OPEN);
+    expect(ex.isOpen()).toBe(true);
     ex.close();
   });
 });
