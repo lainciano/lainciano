@@ -265,14 +265,14 @@ test.describe("celular de 2005", () => {
       seen.push({ geometries: r.memory.geometries, textures: r.memory.textures, programs: r.programs });
     }
     testInfo.annotations.push({ type: "memória por ciclo", description: JSON.stringify(seen) });
-    // O 1º ciclo sobe o aparelho (4 geometrias, 3 texturas). Depois disso texturas e programas ficam planos. As
-    // geometrias ainda sobem até +4 em ciclos esparsos e param (medido: 155 → 156 no 2º, 157 no 8º, 158 no 10º,
-    // e 158 até o 20º): é a 1ª vez que uma falange ou unha da mão entra no quadro numa pose amostrada (o WebGL só sobe
-    // a geometria quando a desenha), não o celular, que é um só (ver hands.test.ts: mesmo modelo e mesma contagem em
-    // 20 aberturas). Vazamento seria crescer até o fim: os últimos 10 ciclos têm de ser iguais.
+    // O aparelho já nasce e compila no ocioso, antes do 1º ciclo (T11, rodada 1). Texturas e programas ficam planos do
+    // 2º ciclo em diante. As geometrias ainda sobem até +3 em ciclos esparsos e param (medido na rodada 1: 155 → 156
+    // no 2º, 157 no 8º, 158 no 10º e 158 até o 20º): é a 1ª vez que uma peça da mão entra no quadro numa pose amostrada
+    // (o WebGL só sobe a geometria quando a desenha), não o celular, que é um só (hands.test.ts: mesmo modelo e mesma
+    // contagem em 20 aberturas). Vazamento seria crescer até o fim: os últimos 10 ciclos têm de ser iguais.
     for (const k of ["textures", "programs"] as const) expect(new Set(seen.slice(1).map((x) => x[k])).size, k).toBe(1);
     expect(new Set(seen.slice(10).map((x) => x.geometries)).size, "geometrias nos últimos 10 ciclos").toBe(1);
-    expect(seen[19].geometries - seen[0].geometries, "geometrias de mão vistas pela 1ª vez").toBeLessThanOrEqual(6);
+    expect(seen[19].geometries - seen[0].geometries, "geometrias de mão vistas pela 1ª vez").toBeLessThanOrEqual(3);
     expect((await interact(page))?.panels).toBe(0);
   });
 
@@ -281,10 +281,15 @@ test.describe("celular de 2005", () => {
     page.on("pageerror", (e) => errors.push(e.message));
     await fakePointerLock(page);
     // derruba só o chunk do leitor (o que tem o diálogo do papel); o resto do jogo carrega
+    let failing = true;
+    let readerRequests = 0;
     await page.route("**/_next/static/chunks/*.js", async (route) => {
       const res = await route.fetch();
       const body = await res.text();
-      if (body.includes("data-reader-paper") && !body.includes("data-game-shell")) return route.abort();
+      if (body.includes("data-reader-paper") && !body.includes("data-game-shell")) {
+        readerRequests += 1;
+        if (failing) return route.abort();
+      }
       return route.fulfill({ response: res, body });
     });
     await lightGame(page, testInfo, { place: "mesa" });
@@ -302,31 +307,62 @@ test.describe("celular de 2005", () => {
     expect(await lock(page)).toMatchObject({ requests: 1, locked: false });
     await page.mouse.click(400, 250);
     await expect.poll(() => lock(page)).toMatchObject({ requests: 2, locked: true });
+    // "tente de novo": a rede volta, a 2ª tentativa baixa o chunk de novo (nada de promessa rejeitada em cache)
+    const before = readerRequests;
+    failing = false;
+    await page.keyboard.press("KeyE");
+    await expect(page.getByRole("dialog", { name: "bilhete" })).toBeVisible({ timeout: 20_000 });
+    expect(readerRequests).toBeGreaterThan(before);
     expect(errors).toEqual([]);
   });
 
-  test("@slow celular em movimento: preso à câmera, não nada nem cintila (dois quadros com a câmera deslocada)", async ({ page }, testInfo) => {
+  test("voltar + voltar rápido no Arquivo (o 1º ainda na fila): o celular fecha e o mouse trava de novo no gesto", async ({ page }, testInfo) => {
+    await fakePointerLock(page);
+    await lightGame(page, testInfo, { place: "mesa", flags: { "lido:bilhete": true } });
+    await openGame(page);
+    await page.mouse.click(400, 250);
+    await expect.poll(() => lock(page)).toMatchObject({ requests: 1, locked: true });
+    await openPhone(page);
+    await choose(page, "arquivo");
+    await expect(page.locator("[data-lcd-title]")).toHaveText("arquivo");
+    await page.keyboard.press("KeyE");
+    await page.keyboard.press("KeyE");
+    await expect(phoneDialog(page)).toHaveCount(0);
+    expect((await interact(page))?.mode).toBe("walk");
+    await expect.poll(() => lock(page)).toMatchObject({ requests: 2, locked: true });
+  });
+
+  test("@slow celular em movimento: só os pixels do aparelho, dois quadros com a câmera deslocada, não nadam nem cintilam", async ({ page }, testInfo) => {
     await lightGame(page, testInfo, { place: "mesa" });
     await openGame(page);
     await page.evaluate(() => (window as unknown as { __cripta: { handsDebug(o: { still: boolean }): void } }).__cripta.handsDebug({ still: true }));
     await openPhone(page);
-    const rect = (await interact(page))!.phone.rect!;
-    // a moldura da tampa em volta do LCD (o LCD é DOM e ficaria igual de qualquer jeito: esconde para medir a tampa)
+    // o LCD é DOM (igual em qualquer quadro): esconde, para medir só o modelo 3D
     await page.addStyleTag({ content: "[data-phone-lcd] { visibility: hidden !important; }" });
-    const region = [Math.round(rect.x - rect.w * 0.75), Math.round(rect.y - rect.h * 0.62), Math.round(rect.w * 1.5), Math.round(rect.h * 1.2)];
-    const shot = async (pose: { x: number; y: number; z: number; yaw: number; pitch: number }) => {
-      await page.evaluate((p) => (window as unknown as { __cripta: { setCamera(p: unknown): void } }).__cripta.setCamera(p), pose);
-      const f0 = (await w(page))!.renderer.frames;
-      await expect.poll(async () => (await w(page))!.renderer.frames).toBeGreaterThan(f0 + 2);
-      return page.screenshot();
-    };
     const cam = (await w(page)) as unknown as { camera: { position: [number, number, number]; rotation: [number, number, number] } };
     const [x, y, z] = cam.camera.position;
     const [pitch, yaw] = cam.camera.rotation;
+    const hands = (v: boolean) => page.evaluate((on) => (window as unknown as { __cripta: { hands(v: boolean): void } }).__cripta.hands(on), v);
+    const shot = async (pose: { x: number; y: number; z: number; yaw: number; pitch: number }) => {
+      await page.evaluate((p) => (window as unknown as { __cripta: { setCamera(p: unknown): void } }).__cripta.setCamera(p), pose);
+      const frame = async () => {
+        const f0 = (await w(page))!.renderer.frames;
+        await expect.poll(async () => (await w(page))!.renderer.frames).toBeGreaterThan(f0 + 2);
+        return (await page.screenshot()).toString("base64");
+      };
+      await hands(true);
+      const withPhone = await frame();
+      await hands(false);
+      const without = await frame();
+      await hands(true);
+      return { withPhone, without };
+    };
     const a = await shot({ x, y, z, yaw, pitch });
     const b = await shot({ x: x + 0.05, y, z: z + 0.03, yaw: yaw + 0.02, pitch });
-    const diff = await page.evaluate(
-      async ({ a, b, region }) => {
+    // máscara: pixels em que o aparelho (e a mão) aparecem nos DOIS quadros (comparado com o mesmo quadro sem as mãos);
+    // a sala atrás fica fora, então o parallax dela não conta; o que sobra é o celular, que anda com a câmera
+    const r = await page.evaluate(
+      async ({ a, b }) => {
         const pixels = async (b64: string) => {
           const img = new Image();
           img.src = `data:image/png;base64,${b64}`;
@@ -336,19 +372,28 @@ test.describe("celular de 2005", () => {
           c.height = img.height;
           const g = c.getContext("2d")!;
           g.drawImage(img, 0, 0);
-          const [rx, ry, rw, rh] = region;
-          return g.getImageData(rx, ry, rw, rh).data;
+          return g.getImageData(0, 0, c.width, c.height).data;
         };
-        const [pa, pb] = await Promise.all([pixels(a), pixels(b)]);
+        const [aw, ao, bw, bo] = await Promise.all([pixels(a.withPhone), pixels(a.without), pixels(b.withPhone), pixels(b.without)]);
+        const d = (p: Uint8ClampedArray, q: Uint8ClampedArray, i: number) => (Math.abs(p[i] - q[i]) + Math.abs(p[i + 1] - q[i + 1]) + Math.abs(p[i + 2] - q[i + 2])) / 3;
+        let n = 0;
         let sum = 0;
-        for (let i = 0; i < pa.length; i += 4) sum += (Math.abs(pa[i] - pb[i]) + Math.abs(pa[i + 1] - pb[i + 1]) + Math.abs(pa[i + 2] - pb[i + 2])) / 3;
-        return sum / (pa.length / 4);
+        let big = 0;
+        for (let i = 0; i < aw.length; i += 4) {
+          if (d(aw, ao, i) < 12 || d(bw, bo, i) < 12) continue;
+          n += 1;
+          const v = d(aw, bw, i);
+          sum += v;
+          if (v > 40) big += 1;
+        }
+        return { pixels: n, mean: n ? sum / n : 0, flicker: n ? big / n : 0 };
       },
-      { a: a.toString("base64"), b: b.toString("base64"), region },
+      { a: a, b: b },
     );
-    testInfo.annotations.push({ type: "diferença média na moldura da tampa", description: diff.toFixed(2) });
-    // a sala atrás aparece pelos cantos da região; o aparelho em si não muda (diferença média baixa)
-    expect(diff).toBeLessThan(6);
+    testInfo.annotations.push({ type: "aparelho em movimento", description: JSON.stringify(r) });
+    expect(r.pixels, "o aparelho ocupa uma parte boa do quadro").toBeGreaterThan(20_000);
+    expect(r.mean, "diferença média nos pixels do aparelho").toBeLessThan(4);
+    expect(r.flicker, "fração de pixels do aparelho que trocam muito (cintilação)").toBeLessThan(0.02);
   });
 });
 
