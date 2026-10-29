@@ -27,12 +27,12 @@ export default function Reader({
   showKeys,
   onToggle,
   onClose,
-  origin = null,
+  origin,
   network = "",
 }: {
   view: ReaderView;
-  /** Tela do celular de onde o documento saiu (só com `returnTo: "phone"`). */
-  origin?: PhoneRect | null;
+  /** Tela do celular de onde o documento saiu (só com `returnTo: "phone"`), lida ao abrir. */
+  origin?: () => PhoneRect | null;
   /** Rótulo da barra do LCD (variante do celular). */
   network?: string;
   readLabel: string;
@@ -120,6 +120,7 @@ export default function Reader({
 
   const paragraphs = doc.text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   const phone = view.returnTo === "phone";
+  const [from] = useState(() => (phone ? turnFrom(origin?.() ?? null) : undefined));
 
   return (
     <dialog
@@ -127,7 +128,7 @@ export default function Reader({
       data-game-reader
       data-level={clean ? "clean" : "paper"}
       data-variant={phone ? "phone" : undefined}
-      style={phone ? turnFrom(origin) : undefined}
+      style={from}
       aria-labelledby={titleId}
       aria-describedby={textId}
       onKeyDown={onKeyDown}

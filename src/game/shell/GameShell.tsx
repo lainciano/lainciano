@@ -5,7 +5,7 @@ import type { GameLabels } from "../labels";
 import type { Line } from "../layers/types";
 import type { PromptModel } from "../interaction/targeting";
 import type { ExamineInfo, PlaceItem, Session, SessionStatus } from "../runtime/session";
-import type { PhoneView } from "../runtime/phone";
+import type { PhoneRect, PhoneView } from "../runtime/phone";
 import type { Settings } from "../save/schema";
 import ExamineCard from "./ExamineCard";
 import Phone from "./Phone";
@@ -75,6 +75,13 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   const [reader, setReader] = useState<ReaderView | null>(null);
   const [ReaderPanel, setReaderPanel] = useState<ReaderModule["default"] | null>(null);
   const [phone, setPhone] = useState<PhoneView | null>(null);
+  // a tela do aparelho anda quadro a quadro: vai direto ao elemento do LCD (sem estado do React)
+  const phoneRectRef = useRef<PhoneRect | null>(null);
+  const phoneRectSink = useRef<((r: PhoneRect | null) => void) | null>(null);
+  const [readPhoneRect] = useState(() => () => phoneRectRef.current);
+  const [setPhoneRectSink] = useState(() => (sink: ((r: PhoneRect | null) => void) | null) => {
+    phoneRectSink.current = sink;
+  });
   // Legendas desligadas nos ajustes do celular: some a fala e o som; as dicas do jogo (sistema) ficam.
   const subtitlesRef = useRef(true);
   const reduced = useReducedMotion();
@@ -141,6 +148,10 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       },
       phone: (view: PhoneView | null) => {
         if (!signal.aborted) setPhone(view);
+      },
+      phoneRect: (r: PhoneRect | null) => {
+        phoneRectRef.current = r;
+        if (!signal.aborted) phoneRectSink.current?.(r);
       },
       settings: (s: Settings) => {
         if (signal.aborted) return;
@@ -291,13 +302,15 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
           labels={labels.phone}
           covered={reader !== null}
           reduced={reduced}
+          rect={readPhoneRect}
+          onRect={setPhoneRectSink}
           onNav={(a) => sessionRef.current?.phoneNav(a)}
         />
       )}
       {reader && ReaderPanel && (
         <ReaderPanel
           view={reader}
-          origin={phone?.rect ?? null}
+          origin={readPhoneRect}
           network={labels.phone.network}
           readLabel={labels.readerRead}
           paperLabel={labels.readerPaper}

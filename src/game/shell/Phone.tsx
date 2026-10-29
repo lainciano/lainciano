@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { GameLabels } from "../labels";
 import type { PhoneRect, PhoneView } from "../runtime/phone";
 import { phoneRows, type PhoneAction, type PhoneRow, type PhoneState } from "./phone-menu";
@@ -23,20 +23,37 @@ export default function Phone({
   labels,
   covered,
   reduced,
+  rect,
+  onRect,
   onNav,
 }: {
   view: PhoneView;
+  /** Onde a tela do aparelho está agora (lido ao montar o LCD). */
+  rect: () => PhoneRect | null;
+  /** Registra quem escreve a posição do LCD direto no elemento, quadro a quadro (sem renderizar). */
+  onRect: (sink: ((r: PhoneRect | null) => void) | null) => void;
   labels: Labels;
   /** O leitor está por cima (documento aberto do Arquivo). */
   covered: boolean;
   reduced: boolean;
   onNav: (a: PhoneAction) => void;
 }) {
-  const { state, rect } = view;
+  const { state, lcd } = view;
   const dialogRef = useRef<HTMLDialogElement>(null);
   const lcdRef = useRef<HTMLDivElement>(null);
   const rows = phoneRows(state);
-  const hasRect = rect !== null;
+  const hasRect = lcd;
+
+  // posição do LCD: escrita no elemento (estilo e variáveis), fora do React
+  useEffect(() => {
+    const write = (r: PhoneRect | null) => {
+      const el = lcdRef.current;
+      if (el && r) placeLcd(el, r);
+    };
+    onRect(write);
+    write(rect());
+    return () => onRect(null);
+  }, [onRect, rect, lcd]);
 
   // Abre modal (o resto fica inerte); ao desmontar, fecha.
   useEffect(() => {
@@ -60,7 +77,7 @@ export default function Phone({
   const [wasCovered, setWasCovered] = useState(covered);
   if (wasCovered !== covered) {
     setWasCovered(covered);
-    if (!covered && !reduced && rect) setReturning(true);
+    if (!covered && !reduced && lcd) setReturning(true);
   }
 
   // O foco segue o item marcado (e volta a ele quando o leitor de cima fecha); sem LCD ainda, fica no diálogo.
@@ -100,14 +117,8 @@ export default function Phone({
         onNav({ type: "back" });
       }}
     >
-      {rect && (
-        <div
-          ref={lcdRef}
-          data-phone-lcd
-          data-returning={returning ? "" : undefined}
-          style={lcdStyle(rect)}
-          onAnimationEnd={() => setReturning(false)}
-        >
+      {lcd && (
+        <div ref={lcdRef} data-phone-lcd data-returning={returning ? "" : undefined} onAnimationEnd={() => setReturning(false)}>
           <div data-lcd-bar aria-hidden="true">
             <span>▂▄▆ {labels.network}</span>
             <span>{clock()}</span>
@@ -135,23 +146,23 @@ const clock = () => {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
 
-/** Onde o LCD fica (a tela do aparelho) e de onde ele volta (a tela cheia girada), em variáveis para o CSS. */
-function lcdStyle(rect: PhoneRect): CSSProperties {
-  const vw = typeof window === "undefined" ? 1280 : window.innerWidth;
-  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
+/** Onde o LCD fica (a tela do aparelho) e de onde ele volta (a tela cheia girada): estilo e variáveis do CSS. */
+function placeLcd(el: HTMLElement, rect: PhoneRect) {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
   // tela cheia girada: o lado comprido do LCD ocupa a largura da janela
   const zoom = Math.max(vw / rect.h, vh / rect.w);
-  return {
-    left: `${rect.x - rect.w / 2}px`,
-    top: `${rect.y - rect.h / 2}px`,
-    width: `${rect.w}px`,
-    height: `${rect.h}px`,
-    "--lcd-rot": `${rect.angle}rad`,
-    "--lcd-fs": `${Math.min(18, Math.max(10, rect.h / 15))}px`,
-    "--lcd-from-x": `${vw / 2 - rect.x}px`,
-    "--lcd-from-y": `${vh / 2 - rect.y}px`,
-    "--lcd-from-zoom": `${zoom}`,
-  } as CSSProperties;
+  const st = el.style;
+  st.left = `${rect.x - rect.w / 2}px`;
+  st.top = `${rect.y - rect.h / 2}px`;
+  st.width = `${rect.w}px`;
+  st.height = `${rect.h}px`;
+  st.setProperty("--lcd-rot", `${rect.angle}rad`);
+  // piso de 12 px: o LCD lê mesmo em janela baixa (a tela também sobe no quadro, ver runtime/phone.ts)
+  st.setProperty("--lcd-fs", `${Math.min(18, Math.max(12, rect.h / 15))}px`);
+  st.setProperty("--lcd-from-x", `${vw / 2 - rect.x}px`);
+  st.setProperty("--lcd-from-y", `${vh / 2 - rect.y}px`);
+  st.setProperty("--lcd-from-zoom", `${zoom}`);
 }
 
 function settingValue(row: Extract<PhoneRow, { kind: "setting" }>, labels: Labels): string {
