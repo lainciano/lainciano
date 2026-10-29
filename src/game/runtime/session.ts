@@ -14,6 +14,7 @@ import { debugEnabled, installDebug, layerShot, loadShot, standaloneShot } from 
 import { createEngine, type Engine } from "./engine";
 import { createPanels, type PanelsUi } from "./panels";
 import { createPhoneFlow, readFlag, type PhoneUi } from "./phone";
+import { createSettingsApplier } from "./settingsApply";
 import type { PhoneAction } from "../shell/phone-menu";
 import type { Settings } from "../save/schema";
 
@@ -177,12 +178,17 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   });
   const mode = panels.mode;
   const reader = panels.reader;
-  const applySettings = (s: Settings) => {
-    eng.camera.fov = s.fov;
-    eng.camera.updateProjectionMatrix();
-    eng.setQualitySetting(s.quality);
-    player?.updateSettings(s);
-  };
+  const applySettings = createSettingsApplier(
+    {
+      fov: (v) => {
+        eng.camera.fov = v;
+        eng.camera.updateProjectionMatrix();
+      },
+      quality: (q) => eng.setQualitySetting(q),
+      player: (s: Settings) => player?.updateSettings(s),
+    },
+    save.get().settings,
+  );
   /** Celular (T11): mesma pilha; o Arquivo reabre o que já foi lido (`flags["lido:<id>"]`). */
   const phone = createPhoneFlow({
     panels,
