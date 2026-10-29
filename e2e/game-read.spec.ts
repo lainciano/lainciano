@@ -30,7 +30,7 @@ type CriptaWindow = Window & {
 test.describe.configure({ timeout: 120_000 });
 test.skip(({ isMobile }) => isMobile, "leitor e legendas com teclado e mouse: desktop");
 
-const NOTE_TEXT = "o que abre a porta eu deixei no armário.";
+const NOTE_TEXT = "na prateleira de cima, lá no fundo.";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/run", (route) =>

@@ -4,6 +4,9 @@ import { createGlow } from "../../interaction/glow";
 import { holdFor } from "../../interaction/hold";
 import { cinzaWorld } from "../../interaction/testWorld";
 import type { ActApi, Doc } from "../types";
+import { DOOR_HINGE } from "./models";
+import { DOOR_FLAG } from "./places";
+import { CINZA_LINES, KEY_ITEM, readCinza } from "./puzzle";
 
 // Interação dos objetos da sala cinza (T9): o que cada um faz ao ser acionado e se o brilho da mira pode acender
 // cada um sem acender o vizinho.
@@ -47,7 +50,7 @@ describe("sala cinza · objetos interativos", () => {
     expect(doc.look?.signature).toBeTruthy();
   });
 
-  it("mesa e armário falam; a porta é de segurar (forçar) e, concluído, bate e diz que está trancada", async () => {
+  it("mesa e armário falam; a porta sem a chave não é de segurar: E bate e diz que está trancada", async () => {
     const { layer, save } = await cinzaWorld();
     for (const id of ["mesa", "armario"]) {
       const a = api(save);
@@ -55,12 +58,69 @@ describe("sala cinza · objetos interativos", () => {
       expect(a.said, id).toHaveLength(1);
       expect(a.examine).not.toHaveBeenCalled();
     }
+    // sem saber da chave, o armário não a entrega (e diz que a chavinha da fechadura é só dele)
+    expect(save.get().items).toEqual([]);
     const door = layer.objects.find((x) => x.id === "porta");
-    expect(door && holdFor(door, save.get())).toEqual({ seconds: 1.4, verb: "forçar a porta" });
+    expect(door && holdFor(door, save.get())).toBeUndefined();
+    expect(door?.verb(save.get())).toBe("abrir a porta");
     const a = api(save);
     door?.act(a);
     expect(a.sfx).toHaveBeenCalledWith("knock");
     expect(a.said).toEqual(["trancada."]);
+    expect(save.get().flags[DOOR_FLAG]).not.toBe(true);
+  });
+
+  it("caminho completo pelos objetos: bilhete → chave no armário (inventário) → porta abre (flag, folha gira, colisão)", async () => {
+    const { layer, save, scene } = await cinzaWorld();
+    const obj = (id: string) => layer.objects.find((x) => x.id === id)!;
+    const hinge = scene.getObjectByName(DOOR_HINGE)!;
+    const colliders = layer.colliders.length;
+    obj("bilhete").act(api(save));
+    expect(readCinza(save.get()).noteRead).toBe(true);
+    expect(obj("armario").verb(save.get())).toBe("pegar a chave na prateleira");
+    const k = api(save);
+    obj("armario").act(k);
+    expect(k.said).toEqual([CINZA_LINES.keyFound]);
+    expect(save.get().items).toEqual([KEY_ITEM]);
+    expect(obj("porta").verb(save.get())).toBe("usar a chave na porta");
+    expect(holdFor(obj("porta"), save.get())).toBeUndefined();
+    const d = api(save);
+    obj("porta").act(d);
+    expect(d.said).toEqual([CINZA_LINES.doorUnlocked]);
+    expect(save.get().flags[DOOR_FLAG]).toBe(true);
+    expect(save.get().items).toEqual([]);
+    expect(layer.puzzle?.solved(save.get())).toBe(true);
+    expect(layer.colliders.length).toBe(colliders + 1);
+    for (let i = 0; i < 50; i++) layer.update(0.05, i * 0.05);
+    expect(hinge.rotation.y).toBeCloseTo(-1.45, 3);
+    expect(scene.getObjectByName("porta-alem")?.visible).toBe(true);
+  });
+
+  it("depois da 3ª pista (sem a chave) a porta é de segurar; completar força (forced) e abre torta", async () => {
+    const { layer, save } = await cinzaWorld({ puzzles: { cinza: { hints: 3 } } });
+    const door = layer.objects.find((x) => x.id === "porta")!;
+    expect(holdFor(door, save.get())).toEqual({ seconds: 1.4, verb: "forçar a porta" });
+    const a = api(save);
+    door.act(a);
+    expect(readCinza(save.get())).toMatchObject({ doorOpen: true, forced: true });
+    expect(a.said).toEqual([CINZA_LINES.doorForced]);
+  });
+
+  it("entrar com a porta aberta no save: já aberta (sem animar), com a colisão da folha", async () => {
+    const { layer, scene } = await cinzaWorld({ puzzles: { cinza: { doorOpen: true, keyTaken: true, noteRead: true } } });
+    expect(scene.getObjectByName(DOOR_HINGE)?.rotation.y).toBeCloseTo(-1.45, 5);
+    const leaf = layer.colliders[layer.colliders.length - 1];
+    expect(leaf.minZ).toBe(-2);
+    expect(leaf.maxZ).toBeGreaterThan(-1.4);
+  });
+
+  it("a escada grava cada pista no save (puzzles.cinza.hints) pela própria camada", async () => {
+    const { layer, save } = await cinzaWorld();
+    expect(layer.puzzle?.hints).toHaveLength(3);
+    layer.puzzle?.hint();
+    layer.puzzle?.hint();
+    expect(layer.puzzle?.given(save.get())).toBe(2);
+    expect(readCinza(save.get()).hints).toBe(2);
   });
 
   it("todo objeto tem verbo, lugar de parada e ao menos um material que pode brilhar", async () => {

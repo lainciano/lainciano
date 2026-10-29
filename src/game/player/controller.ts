@@ -67,6 +67,8 @@ export type Player = {
   placeAt(place: string): void;
   /** Toque na tela (NDC −1..1): objeto ao alcance age, objeto longe leva ao lugar dele, chão anda até o ponto. */
   tap(ndcX: number, ndcY: number, run: boolean): void;
+  /** O objeto interativo sob um ponto da tela (NDC) e ao alcance, ou `null` (segurar por toque, T12). */
+  pickAt(ndcX: number, ndcY: number): InteractiveObject | null;
   /** Debug: câmera presa numa pose (sem balanço nem espiar); `null` solta. */
   debugPose(pose: CameraPose | null): void;
   /** Debug/fotos: esconde as mãos. */
@@ -499,6 +501,13 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
         default:
           return;
       }
+    },
+    pickAt(nx, ny) {
+      if (disposed || panel) return null;
+      ndc.set(nx, ny);
+      const seen = rayHit(raycaster, camera, ndc, layer.objects, saveState());
+      if (!seen || !pickTarget(seen, pos)?.inReach) return null;
+      return layer.objects.find((o) => o.id === seen.id) ?? null;
     },
     tap(nx, ny, run) {
       if (disposed) return;

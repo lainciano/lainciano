@@ -22,8 +22,11 @@ export function pickTarget(hit: Hit | null, player: Vec2): Target | null {
   return { id: hit.id, inReach: inReach(player, hit) };
 }
 
-/** Texto e tecla do aviso; `progress` é o anel de segurar (null = sem anel). */
-export type PromptModel = { text: string; key: "press" | "hold"; progress: number | null };
+/**
+ * Texto e tecla do aviso; `progress` é o anel de segurar (null = sem anel). `at` (segurar por toque, T12): o aviso
+ * vai para perto do dedo (px no palco), não para baixo da mira.
+ */
+export type PromptModel = { text: string; key: "press" | "hold"; progress: number | null; at?: { x: number; y: number } };
 
 /**
  * O que o `Prompt` recebe. Só com o alvo ao alcance: fora disso, nada (null), nunca um aviso de "ir até".

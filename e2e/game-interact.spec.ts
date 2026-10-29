@@ -52,8 +52,8 @@ async function hydrated(page: Page) {
 }
 
 /** Abre o jogo já parado em `place` (o save salvo manda). */
-async function openAt(page: Page, place: string) {
-  const save = { ...initialSave(0), place };
+async function openAt(page: Page, place: string, extra: Partial<ReturnType<typeof initialSave>> = {}) {
+  const save = { ...initialSave(0), place, ...extra };
   await page.addInitScript((json) => localStorage.setItem("lainciano:jogo:save:v1", json), JSON.stringify(save));
   await page.goto("/?jogo=1&debug=1");
   await hydrated(page);
@@ -203,9 +203,12 @@ test.describe("E sem alvo e Q: ciclo pelos objetos do lugar", () => {
   });
 });
 
+/** T12: a porta só é de segurar (forçar) depois da 3ª pista e sem a chave. */
+const FORCE = { puzzles: { cinza: { hints: 3 } } };
+
 test.describe("segurar", () => {
-  test("a porta é de segurar: aviso com o anel, o anel sobe, concluir age UMA vez", async ({ page }) => {
-    await openAt(page, "porta");
+  test("depois da 3ª pista a porta é de segurar: aviso com o anel, o anel sobe, concluir força UMA vez", async ({ page }) => {
+    await openAt(page, "porta", FORCE);
     await aimAndWait(page, "porta", "forçar a porta");
     await expect(prompt(page).locator("kbd")).toHaveText("segure E");
     await expect(page.locator("[data-game-ring]")).toHaveCount(1);
@@ -215,7 +218,7 @@ test.describe("segurar", () => {
     // a lanterna não atrapalha: segue na mão
     expect((await page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.handsState))?.mode).toBe("held");
     await expect(page.locator("[data-game-line]")).toHaveCount(0);
-    await expect(page.locator("[data-game-line]")).toContainText("trancada.", { timeout: 60_000 });
+    await expect(page.locator("[data-game-line]")).toContainText("a fechadura estala e cede", { timeout: 60_000 });
     expect((await interact(page))?.holdId).toBeNull();
     await page.keyboard.up("KeyE");
     // não repete sozinho
@@ -224,17 +227,17 @@ test.describe("segurar", () => {
   });
 
   test("soltar antes de 0,22 s: dica 'segure E para forçar a porta' e nada acontece", async ({ page }) => {
-    await openAt(page, "porta");
+    await openAt(page, "porta", FORCE);
     await aimAndWait(page, "porta", "forçar a porta");
     await page.keyboard.press("KeyE");
     await expect(page.locator("[data-game-line]")).toContainText("segure E para forçar a porta", { timeout: 20_000 });
     await page.waitForTimeout(1500);
-    expect(await spoken(page)).not.toContain("trancada");
+    expect(await spoken(page)).not.toContain("estala");
     expect((await interact(page))?.holdId).toBeNull();
   });
 
   test("soltar no meio: o anel recua e não age", async ({ page }) => {
-    await openAt(page, "porta");
+    await openAt(page, "porta", FORCE);
     await aimAndWait(page, "porta", "forçar a porta");
     await page.keyboard.down("KeyE");
     await expect.poll(async () => (await interact(page))?.holdProgress ?? 0, { timeout: 30_000 }).toBeGreaterThan(0.3);
@@ -242,7 +245,7 @@ test.describe("segurar", () => {
     await expect.poll(async () => (await interact(page))?.holdId, { timeout: 30_000 }).toBeNull();
     await page.waitForTimeout(500);
     const said = await spoken(page);
-    expect(said).not.toContain("trancada");
+    expect(said).not.toContain("estala");
     expect(said).not.toContain("segure E para");
   });
 });

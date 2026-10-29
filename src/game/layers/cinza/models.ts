@@ -336,6 +336,10 @@ export function buildWardrobe(m: Maker): THREE.Group {
  * almofadas rebaixadas e chanfradas, espelho comprido com a maçaneta de alavanca caída (mola gasta) e o buraco
  * da chave, três dobradiças, soleira de pedra e, por baixo da folha, um fio de luz fria do outro lado.
  */
+/** Nomes das peças da porta que a camada mexe ao abrir (T12). */
+export const DOOR_HINGE = "porta-dobradica";
+export const DOOR_LEAK = "porta-fresta";
+
 export function buildDoor(m: Maker): THREE.Group {
   const { T, kit } = m;
   const root = new T.Group();
@@ -374,11 +378,17 @@ export function buildDoor(m: Maker): THREE.Group {
   const LW = DOOR_LEAF.w;
   const LH = DOOR_LEAF.h;
   const LT = 0.035;
+  // dobradiça (T12): pivô na borda esquerda, na face de dentro da folha (abre para a sala, girando em −y; o batente
+  // de encosto fica atrás). A folha continua com o centro como origem, como antes.
+  const leafY0 = SILL + 0.008;
+  const hinge = new T.Group();
+  hinge.name = DOOR_HINGE;
+  hinge.position.set(-LW / 2, leafY0, -0.04);
+  root.add(hinge);
   const leaf = new T.Group();
   leaf.name = "porta-folha";
-  const leafY0 = SILL + 0.008;
-  leaf.position.set(0, leafY0, -0.04 - LT / 2);
-  root.add(leaf);
+  leaf.position.set(LW / 2, 0, -LT / 2);
+  hinge.add(leaf);
   /** Peça da folha com a pintura em metros da folha (a textura continua de uma peça para a outra). */
   const paint = kit.phong({ map: paintTex, shininess: 34, specular: 0x101412 });
   const piece = (w: number, h: number, d: number, x: number, y: number, z: number, chamfer: number) =>
@@ -417,7 +427,19 @@ export function buildDoor(m: Maker): THREE.Group {
   for (const y of [0.22, 1.05, LH - 0.22]) m.mesh(new T.CylinderGeometry(0.007, 0.007, 0.09, 8), steel, leaf, -LW / 2 - 0.0015, y, fz - 0.004, { cast: false });
 
   // fio de luz fria por baixo da folha: um plano emissivo atrás dela, visível só pela fresta
-  m.mesh(new T.PlaneGeometry(LW, 0.02), leak, root, 0, SILL + 0.009, leafBack - 0.002, { cast: false, recv: false });
+  m.mesh(new T.PlaneGeometry(LW, 0.02), leak, root, 0, SILL + 0.009, leafBack - 0.002, { cast: false, recv: false, name: DOOR_LEAK });
+  // do outro lado (T12): um vão escuro e frio, visto quando a porta abre (a 1B põe o corredor de verdade aqui). Caixa
+  // vista por dentro, sem luz, fora das sombras; o fundo um pouco mais claro dá profundidade em vez de um buraco liso.
+  const beyond = new T.Group();
+  beyond.name = "porta-alem";
+  beyond.visible = false;
+  root.add(beyond);
+  const BW = DOOR.x1 - DOOR.x0 + 0.5;
+  const BH = DOOR.top + 0.3;
+  const BD = 1.8;
+  const dark = kit.basic({ color: 0x0b1014, side: T.BackSide });
+  m.mesh(new T.BoxGeometry(BW, BH, BD), dark, beyond, 0, BH / 2 - 0.01, -DEPTH - BD / 2, { cast: false, recv: false });
+  m.mesh(new T.PlaneGeometry(BW * 0.6, BH * 0.55), kit.basic({ color: 0x1a252d }), beyond, 0.12, BH * 0.36, -DEPTH - BD + 0.01, { cast: false, recv: false });
   return root;
 }
 

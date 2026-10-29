@@ -21,6 +21,12 @@ import { isBrowserChord, keyToAction, TURN_KEYS } from "./keymap";
  *   página) e as setas/+/− repetem enquanto seguradas (ver keymap).
  * - Atalhos com Ctrl, ⌘ ou Alt são do navegador: nem ação, nem `preventDefault`.
  * - Toque: arrastar olha; tocar (sem arrastar) chama `onTap` (chão anda, objeto age); dois toques correm.
+ * - Segurar por toque (T12): o dedo pousa (andando) e `onHoldStart` diz se há um objeto de segurar ao alcance sob
+ *   ele; se há, o gesto é um segurar (sem olhar, sem toque): levantar o dedo solta (`onHoldEnd(false)`); o dedo
+ *   andar mais de `HOLD_SLOP` px, sair do alvo (`onHoldMove` falso), um 2º dedo, `pointercancel` ou perder o foco
+ *   cancelam (`onHoldEnd(true)`), e o resto do gesto vira olhar.
+ * - Pinça no exame (T12): dois dedos; abrir aproxima (`zoom` −1 a cada `PINCH_STEP` px), fechar afasta; com dois
+ *   dedos não se gira.
  * - Tela cheia: prende o Esc (`navigator.keyboard.lock`) enquanto dura; solta ao sair.
  */
 
@@ -32,6 +38,12 @@ export type BindOptions = {
   onTap?: (clientX: number, clientY: number, run: boolean) => void;
   /** Travamento do mouse perdido sem pedir (`true`) ou retomado (`false`). */
   onPause?: (paused: boolean) => void;
+  /** Toque: o dedo pousou no palco andando. `true` = começou a segurar um objeto (o gesto não olha nem vira toque). */
+  onHoldStart?: (clientX: number, clientY: number) => boolean;
+  /** O dedo andou durante o segurar: `false` = o objeto não está mais sob ele (cancela). */
+  onHoldMove?: (clientX: number, clientY: number) => boolean;
+  /** Fim do segurar por toque: soltou (`false`) ou cancelou (`true`). */
+  onHoldEnd?: (cancelled: boolean) => void;
 };
 
 /** Pixels de mouse equivalentes por segundo ao girar com as setas (≈ 1,9 rad/s com a sensibilidade 1). */
@@ -40,6 +52,10 @@ const TURN_PX_PER_S = 1.9 / 0.0022;
 const TOUCH_LOOK = 2.5;
 const TAP_SLOP = 9;
 const DOUBLE_TAP_MS = 330;
+/** O dedo pode tremer até isto (px) sem cancelar o segurar. */
+export const HOLD_SLOP = 28;
+/** Pinça: cada tanto de px de variação na distância entre os dedos é um passo de zoom. */
+export const PINCH_STEP = 20;
 
 /** Falhas seguidas de `requestPointerLock` (depois de já ter travado) antes de arrastar também olhar. */
 const LOCK_FAILURES_TO_DRAG = 3;
@@ -100,7 +116,19 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
     if (held.crouch) onAction({ type: "crouch", on: false });
     if (held.interact) onAction({ type: "interact", down: false });
     held = { run: false, crouch: false, peek: 0, interact: false };
+    cancelTouchHold();
   };
+
+  /* ------------------------------------------------ segurar por toque (declarado antes: releaseAll cancela) */
+  type Down = { id: number; x: number; y: number; lx: number; ly: number; moved: boolean; touch: boolean; hold: boolean };
+  let down: Down | null = null;
+  /** O segurar por toque cai: o resto do gesto (se o dedo continua) vira olhar. */
+  function cancelTouchHold() {
+    if (!down?.hold) return;
+    down.hold = false;
+    down.moved = true;
+    opts.onHoldEnd?.(true);
+  }
 
   /* ------------------------------------------------ ponteiro travado */
   let locked = false;
@@ -276,9 +304,14 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
   on(win, "blur", releaseAll);
 
   /* ------------------------------------------------ mouse e toque */
-  type Down = { id: number; x: number; y: number; lx: number; ly: number; moved: boolean; touch: boolean };
-  let down: Down | null = null;
   let lastTap = { t: 0, x: 0, y: 0 };
+  /** Dedos no palco durante o exame (pinça). */
+  const fingers = new Map<number, { x: number; y: number }>();
+  let pinch: { dist: number } | null = null;
+  const fingerDistance = () => {
+    const [a, b] = [...fingers.values()];
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+  };
 
   on(target, "pointerdown", (ev) => {
     const e = ev as PointerEvent;
@@ -290,6 +323,21 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
       return;
     }
     if (e.button !== 0) return;
+    if (touch && down && down.id !== e.pointerId) {
+      // 2º dedo: o segurar cai; no exame, começa a pinça (e o 1º dedo para de girar)
+      cancelTouchHold();
+      if (m === "examine") {
+        fingers.set(down.id, { x: down.lx, y: down.ly });
+        fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        pinch = { dist: fingerDistance() };
+        down = null;
+      }
+      return;
+    }
+    if (touch && pinch) {
+      fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      return;
+    }
     if (!touch && m === "walk" && canLock()) {
       if (locked) {
         held.interact = true;
@@ -300,7 +348,8 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
       requestLock();
       if (locked || !dragLook) return;
     }
-    down = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, touch };
+    down = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, touch, hold: false };
+    if (touch && m === "walk" && opts.onHoldStart?.(e.clientX, e.clientY)) down.hold = true;
     try {
       target.setPointerCapture(e.pointerId);
     } catch {
@@ -314,7 +363,25 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
       if (mode() === "walk" && (e.movementX || e.movementY)) onAction({ type: "look", dx: e.movementX, dy: e.movementY });
       return;
     }
+    if (pinch && fingers.has(e.pointerId)) {
+      fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (fingers.size < 2 || mode() !== "examine") return;
+      const dist = fingerDistance();
+      while (Math.abs(dist - pinch.dist) >= PINCH_STEP) {
+        const opening = dist > pinch.dist;
+        // abrir os dedos aproxima (como a roda para cima)
+        onAction({ type: "zoom", delta: opening ? -1 : 1 });
+        pinch.dist += opening ? PINCH_STEP : -PINCH_STEP;
+      }
+      return;
+    }
     if (!down || e.pointerId !== down.id) return;
+    if (down.hold) {
+      if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > HOLD_SLOP || opts.onHoldMove?.(e.clientX, e.clientY) === false) cancelTouchHold();
+      down.lx = e.clientX;
+      down.ly = e.clientY;
+      return;
+    }
     if (!down.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) > TAP_SLOP) down.moved = true;
     if (down.moved && mode() === "walk") {
       const k = down.touch ? -TOUCH_LOOK : 1;
@@ -333,9 +400,20 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
       onAction({ type: "interact", down: false });
       return;
     }
+    if (fingers.delete(e.pointerId)) {
+      if (fingers.size < 2) {
+        pinch = null;
+        fingers.clear();
+      }
+      return;
+    }
     if (!down || e.pointerId !== down.id) return;
     const d = down;
     down = null;
+    if (d.hold) {
+      opts.onHoldEnd?.(e.type !== "pointerup");
+      return;
+    }
     if (e.type !== "pointerup" || d.moved || mode() !== "walk") return;
     const now = performance.now();
     const run = now - lastTap.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 44;

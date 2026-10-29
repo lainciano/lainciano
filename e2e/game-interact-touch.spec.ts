@@ -2,18 +2,18 @@ import { expect, test, type Page } from "@playwright/test";
 import { initialSave } from "../src/game/save/schema";
 
 // T9 · toque: o rótulo do segurar e o cartão do exame não mostram tecla em ponteiro grosso. Tocar num objeto ao
-// alcance age (o exame abre); num objeto de segurar mostra a dica por toque. PENDENTE (T11/T12): segurar por toque
-// (dedo parado no objeto) e pinça para ampliar o exame.
+// alcance age (o exame abre); num objeto de segurar mostra a dica por toque. O segurar por toque (dedo parado no
+// objeto) e a pinça do exame (T12) estão em game-complete.spec.ts.
 
 type CriptaWindow = Window & { __cripta?: { aimAt(id: string): boolean; renderer: { frames: number }; place: string | null; interact: { aimedId: string | null } | null } };
 
 test.describe.configure({ timeout: 120_000 });
 test.skip(({ isMobile }) => !isMobile, "só no projeto mobile (ponteiro grosso)");
 
-async function openAt(page: Page, place: string) {
+async function openAt(page: Page, place: string, extra: Partial<ReturnType<typeof initialSave>> = {}) {
   await page.route("**/api/run", (route) =>
     route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ runId: "e2e", issuedAt: 0, token: "e2e" }) }));
-  const save = { ...initialSave(0), place };
+  const save = { ...initialSave(0), place, ...extra };
   await page.addInitScript((json) => {
     localStorage.setItem("lainciano:som:v1", "off");
     localStorage.setItem("lainciano:jogo:save:v1", json);
@@ -43,8 +43,8 @@ test("tocar no caderno abre o exame sem glifos de tecla; o botão guarda", async
   await expect(card).toHaveCount(0);
 });
 
-test("tocar na porta (de segurar) mostra a dica por toque, sem 'E'", async ({ page }) => {
-  await openAt(page, "porta");
+test("tocar na porta (de segurar, depois da 3ª pista) mostra a dica por toque, sem 'E'", async ({ page }) => {
+  await openAt(page, "porta", { puzzles: { cinza: { hints: 3 } } });
   await aimAndTap(page, "porta");
   const line = page.locator("[data-game-line]");
   await expect(line).toContainText("mantenha o dedo para forçar a porta", { timeout: 20_000 });

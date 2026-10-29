@@ -15,6 +15,8 @@ import { aimPoint, cycleOrder, nextInCycle, objectVisible, promptFor, type Promp
  *   sempre faz: o olhar vira para o próximo objeto do lugar (habilitado, visível, não encoberto).
  * - Painel aberto: sem aviso, sem brilho, o segurar cai, `E` não faz nada aqui (o painel trata as próprias teclas).
  * - Toque (`coarse`): não há mira de passagem; tocar num objeto ao alcance age, num de segurar mostra a dica.
+ *   Segurar por toque (T12, `touchHold`): o dedo parado no objeto de segurar faz o anel subir perto do dedo; quem
+ *   decide se o dedo continua no alvo é o adaptador (`cancelHold`), não o centro da tela.
  */
 
 export type InteractionUi = {
@@ -61,6 +63,13 @@ export type Interaction = {
   face(o: InteractiveObject): void;
   /** Toque num objeto ao alcance. */
   activate(o: InteractiveObject): void;
+  /**
+   * Dedo pousado num objeto ao alcance (T12): se ele é de segurar agora, começa o segurar (anel em `at`, px no
+   * palco) e devolve `true`; senão, nada (o toque segue como toque). Soltar é `release()`; o dedo sair, `cancelHold()`.
+   */
+  touchHold(o: InteractiveObject, at: { x: number; y: number }): boolean;
+  /** O segurar em curso cai sem dica (o dedo saiu do alvo, o gesto foi cancelado). */
+  cancelHold(): void;
   setPanel(open: boolean): void;
   state(): InteractionState;
   dispose(): void;
@@ -80,6 +89,8 @@ export function createInteraction(opts: InteractionOptions): Interaction {
   let holdObj: InteractiveObject | null = null;
   /** O segurar em curso fica como começou (o estado mudar no meio não troca a duração nem o verbo). */
   let holdSpec: HoldSpec | null = null;
+  /** Segurar por toque: onde está o dedo (o alvo é o que está sob ele, não o centro da tela). */
+  let holdAt: { x: number; y: number } | null = null;
   let lastCycled: string | null = null;
   let shown = "";
   let reticle = "";
@@ -105,6 +116,7 @@ export function createInteraction(opts: InteractionOptions): Interaction {
     hold = null;
     holdObj = null;
     holdSpec = null;
+    holdAt = null;
   };
 
   /** O alvo de agora: o da histerese, ou (para não perder o primeiro aperto) a leitura crua se já está ao alcance. */
@@ -159,7 +171,7 @@ export function createInteraction(opts: InteractionOptions): Interaction {
       }
       if (holdObj && hold) {
         // O segurar vale enquanto o mesmo objeto segue mirado; sair dele (ou o gesto acabar) fecha.
-        if (hold.pressed && aimed()?.id !== holdObj.id) {
+        if (hold.pressed && !holdAt && aimed()?.id !== holdObj.id) {
           endHold();
         } else {
           const r = hold.update(dt);
@@ -178,7 +190,7 @@ export function createInteraction(opts: InteractionOptions): Interaction {
       glow.update(t);
       setReticle(coarse ? "off" : strict ? "hot" : "idle");
       if (holdObj && hold && holdSpec) {
-        emit({ text: holdSpec.verb, key: "hold", progress: hold.progress });
+        emit(holdAt ? { text: holdSpec.verb, key: "hold", progress: hold.progress, at: holdAt } : { text: holdSpec.verb, key: "hold", progress: hold.progress });
       } else {
         emit(strict ? promptFor({ id: strict.id, inReach: true }, strict, opts.save(), 0, false) : null);
       }
@@ -209,6 +221,16 @@ export function createInteraction(opts: InteractionOptions): Interaction {
       if (disposed || panel) return;
       if (holdFor(o, opts.save())) hint(o);
       else opts.act(o);
+    },
+    touchHold(o, at) {
+      if (disposed || panel || !o.enabled(opts.save()) || !holdFor(o, opts.save())) return false;
+      endHold();
+      startHold(o);
+      holdAt = { x: at.x, y: at.y };
+      return true;
+    },
+    cancelHold() {
+      endHold();
     },
     setPanel(open) {
       panel = open;

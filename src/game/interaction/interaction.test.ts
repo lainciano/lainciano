@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { describe, expect, it, vi } from "vitest";
 import type { InteractiveObject } from "../layers/types";
 import { createPlayer } from "../player/controller";
-import { DEFAULT_SETTINGS } from "../save/schema";
+import { DEFAULT_SETTINGS, type SaveV1 } from "../save/schema";
 import { createInteraction, type InteractionUi } from "./interaction";
 import type { PromptModel } from "./targeting";
 import { cinzaWorld } from "./testWorld";
@@ -10,8 +10,11 @@ import { cinzaWorld } from "./testWorld";
 // A orquestração da T9 sobre a sala cinza de verdade (sem WebGL): mira de perto, aviso, brilho, segurar, ciclo e
 // painel. O tempo anda só pelo `step`.
 
-async function setup(opts: { coarse?: boolean } = {}) {
-  const w = await cinzaWorld();
+/** Save com as 3 pistas dadas e sem a chave: a porta pede segurar (forçar). */
+const FORCE: Partial<SaveV1> = { puzzles: { cinza: { hints: 3 } } };
+
+async function setup(opts: { coarse?: boolean; save?: Partial<SaveV1> } = {}) {
+  const w = await cinzaWorld(opts.save);
   const player = createPlayer(w.engine, w.layer, DEFAULT_SETTINGS, { save: w.save.get, still: true });
   const prompts: (PromptModel | null)[] = [];
   const reticles: string[] = [];
@@ -226,7 +229,7 @@ describe("interação · E, Q e o ciclo", () => {
 
 describe("interação · segurar", () => {
   async function atDoor() {
-    const w = await setup();
+    const w = await setup({ save: FORCE });
     w.player.placeAt("porta");
     lookAtObject(w, "porta");
     w.step(0.6);
@@ -375,7 +378,7 @@ describe("interação · painel, toque e fim", () => {
   });
 
   it("tocar num objeto comum age; num de segurar mostra a dica em vez de agir", async () => {
-    const w = await setup();
+    const w = await setup({ save: FORCE });
     const bilhete = w.layer.objects.find((o) => o.id === "bilhete") as InteractiveObject;
     const porta = w.layer.objects.find((o) => o.id === "porta") as InteractiveObject;
     w.it.activate(bilhete);
@@ -415,5 +418,77 @@ describe("interação · painel, toque e fim", () => {
     lookAtObject(w, "bilhete");
     w.step(0.6);
     expect(w.it.state()).toMatchObject({ aimedId: "bilhete", glow: "bilhete", holdId: null, panel: false });
+  });
+});
+
+describe("interação · segurar por toque (T12)", () => {
+  async function touchDoor() {
+    const w = await setup({ coarse: true, save: FORCE });
+    w.player.placeAt("porta");
+    const porta = w.layer.objects.find((o) => o.id === "porta") as InteractiveObject;
+    return { ...w, porta };
+  }
+
+  it("dedo parado na porta: o anel sobe (aviso no dedo, sem mira) e completa UMA vez, sem depender do centro da tela", async () => {
+    const w = await touchDoor();
+    // olhando para o outro lado: no toque o alvo é o que está sob o dedo, não o centro da tela
+    w.player.apply({ type: "look", dx: 1400, dy: 0 });
+    w.step(0.2);
+    expect(w.it.touchHold(w.porta, { x: 120, y: 340 })).toBe(true);
+    w.step(0.7);
+    const mid = w.lastPrompt();
+    expect(mid).toMatchObject({ text: "forçar a porta", key: "hold", at: { x: 120, y: 340 } });
+    expect(mid?.progress).toBeGreaterThan(0.3);
+    expect(w.acted).toEqual([]);
+    w.step(1);
+    expect(w.acted).toEqual(["porta"]);
+    w.it.release();
+    w.step(1);
+    expect(w.acted).toEqual(["porta"]);
+    expect(w.lastPrompt()).toBeNull();
+  });
+
+  it("soltar cedo (antes de 0,22 s) dá a dica e não age; no meio, não age e o anel recua", async () => {
+    const w = await touchDoor();
+    w.it.touchHold(w.porta, { x: 0, y: 0 });
+    w.step(0.1);
+    w.it.release();
+    expect(w.notices).toEqual([{ kind: "hold", verb: "forçar a porta" }]);
+    w.it.touchHold(w.porta, { x: 0, y: 0 });
+    w.step(0.8);
+    w.it.release();
+    w.step(2);
+    expect(w.acted).toEqual([]);
+    expect(w.lastPrompt()).toBeNull();
+  });
+
+  it("cancelar (o dedo saiu do alvo) zera sem dica e sem agir", async () => {
+    const w = await touchDoor();
+    w.it.touchHold(w.porta, { x: 0, y: 0 });
+    w.step(1);
+    w.it.cancelHold();
+    w.step(2);
+    expect(w.acted).toEqual([]);
+    expect(w.notices).toEqual([]);
+    expect(w.it.state().holdId).toBeNull();
+  });
+
+  it("objeto que agora não é de segurar (sem a 3ª pista) não começa: o toque age normal", async () => {
+    const w = await setup({ coarse: true });
+    const porta = w.layer.objects.find((o) => o.id === "porta") as InteractiveObject;
+    expect(w.it.touchHold(porta, { x: 0, y: 0 })).toBe(false);
+    expect(w.it.state().holdId).toBeNull();
+  });
+
+  it("painel aberto: não começa; abrir no meio cancela", async () => {
+    const w = await touchDoor();
+    w.it.setPanel(true);
+    expect(w.it.touchHold(w.porta, { x: 0, y: 0 })).toBe(false);
+    w.it.setPanel(false);
+    w.it.touchHold(w.porta, { x: 0, y: 0 });
+    w.step(0.5);
+    w.it.setPanel(true);
+    w.step(2);
+    expect(w.acted).toEqual([]);
   });
 });

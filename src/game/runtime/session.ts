@@ -12,6 +12,7 @@ import type { PhoneKey } from "../player/phone";
 import { createSaveStore, type SaveApi } from "../save/store";
 import { debugEnabled, installDebug, layerShot, loadShot, standaloneShot } from "./debug";
 import { createEngine, type Engine } from "./engine";
+import { createHintDriver, hintGapFrom, type HintDriver } from "./hints";
 import { createPanels, type PanelsUi } from "./panels";
 import { createPhoneFlow, readFlag, type PhoneUi } from "./phone";
 import { createSettingsApplier } from "./settingsApply";
@@ -108,6 +109,8 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   let input: InputBinding | null = null;
   let interaction: Interaction | null = null;
   let examine: Examine | null = null;
+  /** Escada de pistas do puzzle da camada (T12): o relógio só corre andando, sem painel. */
+  let hints: HintDriver | null = null;
   let lastPrompt: PromptModel | null = null;
   let lost = false;
   let disposed = false;
@@ -283,6 +286,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
         notice: (n) => ui.notice(n),
       },
     });
+    hints = inst.puzzle ? createHintDriver(inst.puzzle, save.get, hintGapFrom(search, debugEnabled(search)), say) : null;
     // Debug: erro depois do jogador nascer (prova que nada vaza: engine, contexto, mãos).
     if (debugFailure(search, "jogador")) throw new Error("falha de teste (?falha=jogador)");
     const saved = save.get().place;
@@ -293,13 +297,37 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
       // As fotos comparam pixel a pixel: a qualidade do aparelho fica presa.
       eng.setQuality(eng.info().quality);
     }
+    /** Ponto de cliente → NDC do palco. */
+    const ndc = (cx: number, cy: number) => {
+      const r = host.getBoundingClientRect();
+      return { x: ((cx - r.left) / r.width) * 2 - 1, y: -((cy - r.top) / r.height) * 2 + 1, px: cx - r.left, py: cy - r.top };
+    };
+    /** O objeto de segurar sob o dedo (segurar por toque, T12). */
+    let fingerOn: string | null = null;
     input = bindInput(host, onAction, {
       coarse,
       mode,
       onPause: (on) => ui.paused(on),
       onTap: (cx, cy, run) => {
-        const r = host.getBoundingClientRect();
-        player?.tap(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1, run);
+        const p = ndc(cx, cy);
+        player?.tap(p.x, p.y, run);
+      },
+      onHoldStart: (cx, cy) => {
+        const p = ndc(cx, cy);
+        const o = player?.pickAt(p.x, p.y);
+        if (!o || !interaction?.touchHold(o, { x: p.px, y: p.py })) return false;
+        fingerOn = o.id;
+        player?.hands.reach();
+        return true;
+      },
+      onHoldMove: (cx, cy) => {
+        const p = ndc(cx, cy);
+        return player?.pickAt(p.x, p.y)?.id === fingerOn;
+      },
+      onHoldEnd: (cancelled) => {
+        fingerOn = null;
+        if (cancelled) interaction?.cancelHold();
+        else interaction?.release();
       },
     });
     return true;
@@ -381,6 +409,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
         player?.update(dt);
         examine?.update(dt);
         interaction?.update(dt, t);
+        hints?.update(dt, mode() === "walk");
         // rede de segurança: um passo da fila que fechou o celular (fora de gesto) ainda sincroniza a entrada
         if (phone.frame().emptied) input?.panelClosed();
       }),

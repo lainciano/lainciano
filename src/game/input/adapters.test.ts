@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { isRelease, type Action, type InputMode } from "./actions";
-import { bindInput } from "./adapters";
+import { bindInput, type BindOptions } from "./adapters";
 
 // Sem DOM no Vitest (ambiente node): o adaptador roda sobre falsos feitos de EventTarget, com o mínimo que ele
 // usa (documento com pointerLockElement/exitPointerLock, janela com rAF, alvo com requestPointerLock).
@@ -21,7 +21,7 @@ type Fake = {
   binding: ReturnType<typeof bindInput>;
 };
 
-function setup(coarse = false): Fake {
+function setup(coarse = false, extra: Partial<BindOptions> = {}): Fake {
   let mode: InputMode = "walk";
   const win = Object.assign(new EventTarget(), {
     requestAnimationFrame: () => 0,
@@ -66,6 +66,7 @@ function setup(coarse = false): Fake {
     onTap: () => {
       fake.taps += 1;
     },
+    ...extra,
   });
   return fake;
 }
@@ -405,5 +406,114 @@ describe("bindInput · painel aberto fora do adaptador (hold concluído no quadr
     f.binding.panelOpened();
     key(f, "keydown", "KeyL");
     expect(f.requestLock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("bindInput · segurar por toque (T12)", () => {
+  /** Toque com um objeto de segurar sob o dedo enquanto `onTarget` for verdade. */
+  function touchHold(o: { start?: boolean } = {}) {
+    const log: string[] = [];
+    let onTarget = true;
+    const f = setup(true, {
+      onHoldStart: (x, y) => {
+        log.push(`start ${x},${y}`);
+        return o.start ?? true;
+      },
+      onHoldMove: () => onTarget,
+      onHoldEnd: (cancelled) => log.push(cancelled ? "cancel" : "release"),
+    });
+    return { f, log, leave: () => (onTarget = false) };
+  }
+  const touch = (f: Fake, type: string, x: number, y: number, id = 1) => pointer(f, type, { pointerType: "touch", clientX: x, clientY: y, pointerId: id });
+
+  it("dedo parado num objeto de segurar: começa no pousar e solta no levantar; não vira toque nem olhar", () => {
+    const { f, log } = touchHold();
+    touch(f, "pointerdown", 100, 200);
+    touch(f, "pointermove", 104, 203);
+    touch(f, "pointermove", 112, 206);
+    touch(f, "pointerup", 112, 206);
+    expect(log).toEqual(["start 100,200", "release"]);
+    expect(f.taps).toBe(0);
+    expect(f.actions.some((a) => a.type === "look")).toBe(false);
+  });
+
+  it("o dedo sai muito do lugar (> 28 px) cancela, e o resto do gesto vira olhar", () => {
+    const { f, log } = touchHold();
+    touch(f, "pointerdown", 100, 200);
+    touch(f, "pointermove", 140, 200);
+    touch(f, "pointermove", 170, 200);
+    touch(f, "pointerup", 170, 200);
+    expect(log).toEqual(["start 100,200", "cancel"]);
+    expect(f.actions.some((a) => a.type === "look")).toBe(true);
+    expect(f.taps).toBe(0);
+  });
+
+  it("o dedo sai do alvo (o objeto não está mais sob ele) cancela, mesmo perto", () => {
+    const { f, log, leave } = touchHold();
+    touch(f, "pointerdown", 100, 200);
+    leave();
+    touch(f, "pointermove", 106, 200);
+    touch(f, "pointerup", 106, 200);
+    expect(log).toEqual(["start 100,200", "cancel"]);
+  });
+
+  it("pointercancel, perder o foco e um 2º dedo cancelam", () => {
+    for (const how of ["pointercancel", "blur", "second"] as const) {
+      const { f, log } = touchHold();
+      touch(f, "pointerdown", 100, 200);
+      if (how === "pointercancel") touch(f, "pointercancel", 100, 200);
+      else if (how === "blur") f.win.dispatchEvent(new Event("blur"));
+      else touch(f, "pointerdown", 300, 200, 2);
+      touch(f, "pointerup", 100, 200);
+      expect(log, how).toEqual(["start 100,200", "cancel"]);
+    }
+  });
+
+  it("sem objeto de segurar sob o dedo (onHoldStart falso), o toque segue normal", () => {
+    const { f, log } = touchHold({ start: false });
+    touch(f, "pointerdown", 100, 200);
+    touch(f, "pointerup", 100, 200);
+    expect(log).toEqual(["start 100,200"]);
+    expect(f.taps).toBe(1);
+  });
+
+  it("com painel aberto não começa a segurar; mouse (ponteiro fino) nunca", () => {
+    const { f, log } = touchHold();
+    f.setMode("examine");
+    touch(f, "pointerdown", 100, 200);
+    touch(f, "pointerup", 100, 200);
+    expect(log).toEqual([]);
+    const fine: string[] = [];
+    const g = setup(false, { onHoldStart: () => (fine.push("start"), true) });
+    pointer(g, "pointerdown", { clientX: 10, clientY: 10 });
+    expect(fine).toEqual([]);
+  });
+});
+
+describe("bindInput · pinça no exame (T12)", () => {
+  const touch = (f: Fake, type: string, x: number, y: number, id: number) => pointer(f, type, { pointerType: "touch", clientX: x, clientY: y, pointerId: id });
+  const zooms = (f: Fake) => f.actions.filter((a): a is Extract<Action, { type: "zoom" }> => a.type === "zoom").map((a) => a.delta);
+
+  it("abrir os dedos aproxima (zoom −1 a cada passo), fechar afasta; dois dedos não giram", () => {
+    const f = setup(true);
+    f.setMode("examine");
+    touch(f, "pointerdown", 100, 300, 1);
+    touch(f, "pointerdown", 200, 300, 2);
+    touch(f, "pointermove", 240, 300, 2); // 100 → 140 px
+    expect(zooms(f)).toEqual([-1, -1]);
+    touch(f, "pointermove", 160, 300, 2); // 140 → 60 px
+    expect(zooms(f)).toEqual([-1, -1, 1, 1, 1, 1]);
+    expect(f.actions.some((a) => a.type === "rotate")).toBe(false);
+    touch(f, "pointerup", 160, 300, 2);
+    touch(f, "pointerup", 100, 300, 1);
+    expect(f.taps).toBe(0);
+  });
+
+  it("pinça só no exame: andando, dois dedos não ampliam", () => {
+    const f = setup(true);
+    touch(f, "pointerdown", 100, 300, 1);
+    touch(f, "pointerdown", 200, 300, 2);
+    touch(f, "pointermove", 300, 300, 2);
+    expect(zooms(f)).toEqual([]);
   });
 });

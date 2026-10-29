@@ -14,6 +14,7 @@ import Prompt from "./Prompt";
 import type { ReaderView } from "./readerFlow";
 import Subtitles from "./Subtitles";
 import { lineDuration } from "./subtitles";
+import { createLineQueue, tierOf, TIER } from "./lineQueue";
 import "./shell.css";
 import { useGameSession } from "./useGameSession";
 
@@ -93,6 +94,31 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
     const controller = new AbortController();
     const { signal } = controller;
     let lineTimer = 0;
+    // Fila curta com prioridade (T12): pista e aviso de sistema nunca cortam a fala da história.
+    const queue = createLineQueue((l) => lineDuration(l.text));
+    const clock = () => performance.now() / 1000;
+    const schedule = () => {
+      window.clearTimeout(lineTimer);
+      if (queue.current()) lineTimer = window.setTimeout(expire, Math.max(0, queue.until() - clock()) * 1000);
+    };
+    /** Fala nova na tela (mesmo texto de novo, inclusive, recomeça a entrada); `null` limpa. */
+    const show = (l: Line | null) => {
+      setLine(l);
+      if (l) setLineSeq((n) => n + 1);
+      schedule();
+    };
+    function expire() {
+      if (signal.aborted) return;
+      const before = queue.current();
+      const next = queue.expire(clock());
+      if (next && next === before) schedule();
+      else show(next);
+    }
+    const clearLines = () => {
+      queue.clear();
+      window.clearTimeout(lineTimer);
+      setLine(null);
+    };
     const ui = {
       status: (s: SessionStatus) => {
         if (signal.aborted) return;
@@ -105,7 +131,7 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
           setPrompt(null);
           setPlaces(null);
           setReticle("off");
-          setLine(null);
+          clearLines();
           setPaused(false);
         }
       },
@@ -117,12 +143,11 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       },
       say: (l: Line) => {
         if (signal.aborted) return;
-        if (!subtitlesRef.current && (l.kind ?? "speech") !== "system") return;
-        // Fala nova (mesmo texto de novo, inclusive) recomeça a entrada; o tempo cresce com o texto (bíblia 12b.2).
-        setLine(l);
-        setLineSeq((n) => n + 1);
-        window.clearTimeout(lineTimer);
-        lineTimer = window.setTimeout(() => setLine(null), lineDuration(l.text) * 1000);
+        // Legendas desligadas: some a fala da história; as pistas (sem voz até a T13) e os avisos ficam.
+        if (!subtitlesRef.current && tierOf(l) === TIER.story) return;
+        // O tempo na tela cresce com o texto (bíblia 12b.2); a fila decide se entra agora ou espera.
+        const now = queue.offer(l, clock());
+        if (now) show(now);
       },
       prompt: (p: PromptModel | null) => {
         if (!signal.aborted) setPrompt(p);
@@ -146,7 +171,8 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       settings: (s: Settings) => {
         if (signal.aborted) return;
         subtitlesRef.current = s.subtitles;
-        if (!s.subtitles) setLine((l) => (l && (l.kind ?? "speech") !== "system" ? null : l));
+        const cur = queue.current();
+        if (!s.subtitles && cur && tierOf(cur) === TIER.story) clearLines();
       },
       exit: () => {
         if (!signal.aborted) onExit();
@@ -278,7 +304,12 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
         </div>
       )}
       {status === "live" && !examine && !reader && !phone && <div data-game-reticle data-state={reticle} aria-hidden="true" />}
-      <Prompt text={prompt?.text ?? null} keyLabel={prompt?.key === "hold" ? (coarse ? labels.holdKeyTouch : labels.holdKey) : "E"} progress={prompt?.progress ?? null} />
+      <Prompt
+        text={prompt?.text ?? null}
+        keyLabel={prompt?.key === "hold" ? (coarse ? labels.holdKeyTouch : labels.holdKey) : "E"}
+        progress={prompt?.progress ?? null}
+        at={prompt?.at ?? null}
+      />
       <Subtitles line={line} seq={lineSeq} reduced={reduced} notice={paused ? labels.paused : null} />
       <div data-game-overlay>
         {examine && <ExamineCard title={examine.title} text={examine.text} closeLabel={labels.examineClose} showKeys={!coarse} onClose={() => sessionRef.current?.closeExamine()} />}

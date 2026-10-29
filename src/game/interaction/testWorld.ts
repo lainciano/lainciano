@@ -4,6 +4,7 @@ import type { LayerInstance, Own } from "../layers/types";
 import type { MaterialKit } from "../render/materials";
 import { createPsxUniforms } from "../render/psx";
 import type { Engine } from "../runtime/engine";
+import { mergeSavePatch } from "../save/merge";
 import { initialSave, type SaveV1 } from "../save/schema";
 
 /**
@@ -19,7 +20,8 @@ export function fakeKit(): MaterialKit {
   };
 }
 
-export async function cinzaWorld() {
+/** `initial` sobrescreve campos do save inicial (ex.: `puzzles.cinza` com as pistas dadas). */
+export async function cinzaWorld(initial: Partial<SaveV1> = {}) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(62, 1.6, 0.02, 60);
   camera.rotation.order = "YXZ";
@@ -28,12 +30,12 @@ export async function cinzaWorld() {
   const psx = createPsxUniforms(THREE);
   const engine = { three: THREE, scene, camera, kit, psx, setFade: () => {} } as unknown as Engine;
   const own = Object.assign(<T,>(r: T) => r, { add() {} }) as unknown as Own;
-  let state: SaveV1 = initialSave(0);
+  let state: SaveV1 = { ...initialSave(0), ...initial };
   const said: string[] = [];
   const save = {
     get: () => state,
     patch(p: Partial<SaveV1>) {
-      state = { ...state, ...p };
+      state = mergeSavePatch(state, p);
     },
     reset() {},
     wipeGame() {},
