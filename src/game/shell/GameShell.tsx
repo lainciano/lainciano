@@ -83,6 +83,11 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   const [coarse] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches === true);
   useGameSession();
 
+  // Medição de base (T13): a casca montou (o chunk dela e o React já chegaram). Ver `cripta:*` em runtime/session.ts.
+  useEffect(() => {
+    performance.mark("cripta:shell");
+  }, []);
+
   // O site fica inerte: o foco vai para a casca (que não é tabulável) e o Tab segue dali para o botão.
   useEffect(() => {
     shellRef.current?.focus({ preventScroll: true });

@@ -30,6 +30,15 @@ import type { Settings } from "../save/schema";
  * contexto WebGL e o slot do orçamento nunca ficam presos.
  */
 
+/** Marcas de tempo da abertura (medição de base da T13): `performance.getEntriesByName("cripta:...")`. */
+const mark = (name: string) => {
+  try {
+    performance.mark(`cripta:${name}`);
+  } catch {
+    /* sem Performance API: só não mede */
+  }
+};
+
 export type SessionStatus = "loading" | "live" | "failed" | "stuck";
 export type { ExamineInfo, PlaceItem } from "./panels";
 
@@ -174,6 +183,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   }
   engine = created;
   const eng = created;
+  mark("engine");
 
   // Áudio da sessão (T13): procedural, mudo sem som ligado no site / em modo leitura / antes do 1º gesto. Aba escondida
   // = suspende (o loop já para; o zumbido e o contexto dormem também).
@@ -324,6 +334,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     const start = shot?.place ?? (saved && inst.places.places[saved] ? saved : "entrada");
     player.placeAt(start);
     audio.room("calm");
+    mark("layer");
     if (shot) {
       eng.freezeTime(FROZEN_T);
       // As fotos comparam pixel a pixel: a qualidade do aparelho fica presa.
@@ -373,6 +384,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     if (signal.aborted || disposed) return;
     if (lost) return fail();
     ui.status("live");
+    mark("live"); // sala na tela e entrada ligada: o 1º input útil
     // Ocioso: o celular nasce e o programa dele compila antes da 1ª abertura (Tab não engasga).
     const warm = () => {
       if (disposed || !player) return;
@@ -380,7 +392,10 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
       player.hands.preparePhone(() => {
         ready = eng.precompile();
       });
-      ready.catch((error: unknown) => console.error("[jogo] o celular não pré-compilou", error));
+      ready.then(
+        () => mark("warm"), // celular construído e programas compilados: a memória da GPU assentou
+        (error: unknown) => console.error("[jogo] o celular não pré-compilou", error),
+      );
     };
     if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(warm, { timeout: 3000 });
     else window.setTimeout(warm, 1500);
@@ -438,8 +453,14 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
         },
       }),
     );
+    // 1º quadro desenhado: a marca vem no quadro seguinte ao 1º callback (o render do 1º já aconteceu)
+    let firstFrame = true;
     cleanups.push(
       eng.onFrame((dt, t) => {
+        if (firstFrame) {
+          firstFrame = false;
+          requestAnimationFrame(() => mark("first-frame"));
+        }
         runner?.current()?.update(dt, t);
         player?.update(dt);
         examine?.update(dt);
