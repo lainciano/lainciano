@@ -106,7 +106,7 @@ test.describe("celular de 2005", () => {
     expect((await w(page))?.camera.fov).toBe(62);
 
     await openPhone(page);
-    let s = await interact(page);
+    const s = await interact(page);
     expect(s?.mode).toBe("phone");
     expect(s?.panels).toBe(1);
     expect(s?.phone).toMatchObject({ open: true, screen: "menu", index: 0 });
