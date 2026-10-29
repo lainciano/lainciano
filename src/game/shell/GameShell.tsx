@@ -67,6 +67,8 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   const retryRef = useRef<HTMLButtonElement>(null);
   const placesRef = useRef<HTMLUListElement>(null);
   const sessionRef = useRef<Session | null>(null);
+  /** A fala da casca (com o temporizador dela) para quem está fora do efeito da sessão. */
+  const sayRef = useRef<((l: Line) => void) | null>(null);
   const [status, setStatus] = useState<SessionStatus>("loading");
   const [places, setPlaces] = useState<PlaceItem[] | null>(null);
   const [paused, setPaused] = useState(false);
@@ -167,6 +169,7 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
         ui.say({ text, kind: "system" });
       },
     };
+    sayRef.current = ui.say;
     // Sessão, runtime, three, save (zod) e camada chegam juntos por import(): o chunk do shell não cresce.
     import("../runtime/session")
       .then(({ startSession }) => startSession(host, ui, signal))
@@ -213,9 +216,8 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       (error: unknown) => {
         console.error("[jogo] o leitor não carregou", error);
         if (!alive) return;
-        sessionRef.current?.closeReader();
-        setLine({ text: labels.readerFailed, kind: "system" });
-        setLineSeq((n) => n + 1);
+        sessionRef.current?.dropReader();
+        sayRef.current?.({ text: labels.readerFailed, kind: "system" });
       },
     );
     return () => {

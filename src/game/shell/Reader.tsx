@@ -143,7 +143,6 @@ export default function Reader({
       {phone && (
         <div data-lcd-bar aria-hidden="true">
           <span>▂▄▆ {network}</span>
-          <span>{doc.title}</span>
           <span>▮▮▯</span>
         </div>
       )}

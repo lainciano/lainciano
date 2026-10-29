@@ -59,6 +59,11 @@ export type Engine = {
   /** Ajuste do jogador (celular): uma qualidade fixa, ou "auto" (degrau do aparelho e descida automática de volta). */
   setQualitySetting(q: Settings["quality"]): void;
   setPostMode(m: PostMode): void;
+  /**
+   * Compila de novo a cena (o que estiver visível agora) no alvo em que ela é desenhada: quem mostra algo pela 1ª vez
+   * (o celular) o deixa visível durante a chamada, e a 1ª abertura não engasga compilando no quadro.
+   */
+  precompile(): Promise<void>;
   setFade(v: number): void;
   glitch(seconds: number, strength: number): void;
   onFrame(fn: (dt: number, t: number) => void): () => void;
@@ -432,6 +437,13 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
         qualityControl.choose(q);
         guard = createFpsGuard();
         rebuildTarget();
+      },
+      precompile() {
+        if (disposed || lost) return Promise.resolve();
+        renderer.setRenderTarget(target);
+        const ready = renderer.compileAsync(scene, camera);
+        renderer.setRenderTarget(null);
+        return ready.then(() => undefined);
       },
       setQualitySetting(q) {
         if (disposed) return;

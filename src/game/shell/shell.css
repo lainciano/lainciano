@@ -799,6 +799,15 @@
   background: color-mix(in srgb, var(--poco) 70%, transparent);
 }
 
+/* O fundo escurece junto com o giro (nada de apagar a sala de uma vez). */
+[data-game-reader][data-variant="phone"][open]::backdrop {
+  animation: game-veil-in var(--motion-phone-turn) var(--ease-out) both;
+}
+
+[data-game-reader][data-variant="phone"] .focus-ring:focus-visible {
+  outline-color: var(--lcd-ink);
+}
+
 [data-game-reader][data-variant="phone"] [data-lcd-bar] {
   font-size: 0.8125rem;
 }
@@ -880,7 +889,8 @@
 @media (prefers-reduced-motion: reduce) {
   [data-phone-lcd],
   [data-phone-lcd][data-returning],
-  [data-game-reader][data-variant="phone"][open] {
+  [data-game-reader][data-variant="phone"][open],
+  [data-game-reader][data-variant="phone"][open]::backdrop {
     animation: none;
   }
 }

@@ -224,6 +224,7 @@ function Screen({ state, rows, labels, onNav }: { state: PhoneState; rows: Phone
     <>
       <div data-lcd-title>{labels[state.screen]}</div>
       {rows.length === 0 && empty && <div data-lcd-text>{empty}</div>}
+      <div role="menu" aria-label={labels[state.screen]}>
       {rows.map((row, i) => {
         const { label, right } = rowText(row, state, labels);
         const disabled = row.kind === "screen" && row.disabled;
@@ -237,6 +238,7 @@ function Screen({ state, rows, labels, onNav }: { state: PhoneState; rows: Phone
             data-selected={i === state.index ? "" : undefined}
             aria-disabled={disabled ? "true" : undefined}
             aria-current={i === state.index ? "true" : undefined}
+            role="menuitem"
             tabIndex={i === state.index ? 0 : -1}
             onClick={() => onNav({ type: "select", index: i })}
           >
@@ -245,6 +247,7 @@ function Screen({ state, rows, labels, onNav }: { state: PhoneState; rows: Phone
           </button>
         );
       })}
+      </div>
     </>
   );
 }

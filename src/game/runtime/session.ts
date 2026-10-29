@@ -50,6 +50,11 @@ export type Session = {
   phoneNav(a: PhoneAction): void;
   /** Celular: fechar pelo botão da casca. */
   closePhone(): void;
+  /**
+   * O leitor não pôde abrir (o chunk não chegou): desempilha sem tentar travar o mouse (não há gesto aqui; um clique
+   * na cena trava de novo, como sempre).
+   */
+  dropReader(): void;
   /** Alterna papel e texto limpo pelo botão do leitor. */
   toggleReader(): void;
   /** Escolha na lista (clique/Enter num botão: é gesto, então o mouse pode travar de novo aqui). */
@@ -307,6 +312,17 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     if (signal.aborted || disposed) return;
     if (lost) return fail();
     ui.status("live");
+    // Ocioso: o celular nasce e o programa dele compila antes da 1ª abertura (Tab não engasga).
+    const warm = () => {
+      if (disposed || !player) return;
+      let ready: Promise<void> = Promise.resolve();
+      player.hands.preparePhone(() => {
+        ready = eng.precompile();
+      });
+      ready.catch((error: unknown) => console.error("[jogo] o celular não pré-compilou", error));
+    };
+    if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(warm, { timeout: 3000 });
+    else window.setTimeout(warm, 1500);
   };
 
   try {
@@ -403,6 +419,9 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     },
     closePhone() {
       if (phone.close().emptied) input?.panelClosed();
+    },
+    dropReader() {
+      panels.closeReader();
     },
     toggleReader() {
       reader.toggle();

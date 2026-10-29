@@ -64,8 +64,11 @@ export type Hands = {
   keysFired(): readonly string[];
   /** Fração mínima da altura do quadro para a tela (janela baixa: LCD legível); 0,27 a 0,42. */
   setPhoneFrac(f: number): void;
-  /** Monta o aparelho já (ocioso, antes da 1ª abertura) e devolve o suporte dele, para pré-compilar o programa. */
-  preparePhone(): THREE.Object3D;
+  /**
+   * Monta o aparelho já (ocioso, antes da 1ª abertura) e roda `compile` com ele e a mão esquerda visíveis por um
+   * instante (só durante a chamada, que percorre a cena de forma síncrona): os programas ficam prontos.
+   */
+  preparePhone(compile: () => void): void;
   /** Cantos da tela interna no mundo (sup.-esq., sup.-dir., inf.-dir., inf.-esq.), só com a tampa aberta. */
   phoneScreen(out: THREE.Vector3[]): boolean;
   debug: {
@@ -945,9 +948,17 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
       phoneFrac = Math.min(0.42, Math.max(HOLD.frac, Number.isFinite(f) ? f : HOLD.frac));
       if (phoneModel) fitHold();
     },
-    preparePhone() {
+    preparePhone(compile) {
       ensurePhone();
-      return phoneMount;
+      const was = { left: left.visible, mount: phoneMount.visible };
+      left.visible = true;
+      phoneMount.visible = true;
+      try {
+        compile();
+      } finally {
+        left.visible = was.left;
+        phoneMount.visible = was.mount;
+      }
     },
     phoneScreen(out) {
       if (!phoneModel || !phoneMount.visible || phoneModel.root.parent !== phoneMount || anim.state().phone !== "holding") return false;
