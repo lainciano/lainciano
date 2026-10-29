@@ -125,3 +125,133 @@ describe("mãos · polegar", () => {
     expect(max).toBeLessThan(0.055);
   });
 });
+
+describe("mãos · celular real (T11)", () => {
+  /** Abre o celular e devolve a tela projetada: centro (NDC), altura (fração do quadro) e o quanto ela olha para o olho. */
+  function openAndProject(fov: number, aspect = 1.6) {
+    const s = setup();
+    s.camera.fov = fov;
+    s.camera.aspect = aspect;
+    s.camera.updateProjectionMatrix();
+    s.hands.phone("open");
+    s.hands.debug.step(1.2, {});
+    s.camera.updateMatrixWorld(true);
+    const corners = [0, 1, 2, 3].map(() => new THREE.Vector3());
+    expect(s.hands.phoneScreen(corners)).toBe(true);
+    const ndc = corners.map((c) => c.clone().project(s.camera));
+    const center = ndc.reduce((a, c) => a.add(c), new THREE.Vector3()).multiplyScalar(0.25);
+    const height = (ndc[0].y + ndc[1].y - ndc[2].y - ndc[3].y) / 4; // meia-altura em NDC = fração do quadro
+    const mid = corners.reduce((a, c) => a.add(c), new THREE.Vector3()).multiplyScalar(0.25);
+    const normal = new THREE.Vector3().subVectors(corners[1], corners[0]).cross(new THREE.Vector3().subVectors(corners[0], corners[3])).normalize();
+    const toEye = new THREE.Vector3().subVectors(s.camera.getWorldPosition(new THREE.Vector3()), mid).normalize();
+    return { ...s, center, height, facing: normal.dot(toEye), distance: mid.distanceTo(s.camera.position) };
+  }
+
+  it("a tela aberta ocupa ~36 % da altura, um pouco acima do centro, virada para o olho, em FOV 62 e 80", () => {
+    for (const fov of [62, 80]) {
+      const { center, height, facing } = openAndProject(fov);
+      expect(height, `fov ${fov}`).toBeGreaterThan(0.34);
+      expect(height, `fov ${fov}`).toBeLessThan(0.38);
+      expect(center.y).toBeCloseTo(0.2, 1);
+      expect(Math.abs(center.x)).toBeLessThan(0.1);
+      expect(facing).toBeGreaterThan(0.995);
+    }
+    // FOV maior: o aparelho chega mais perto (a tela não encolhe na imagem)
+    expect(openAndProject(80).distance).toBeLessThan(openAndProject(62).distance);
+  });
+
+  it("phoneScreen só responde com a tampa aberta (abrindo, fechando ou guardado: false)", () => {
+    const { hands } = setup();
+    const out = [0, 1, 2, 3].map(() => new THREE.Vector3());
+    expect(hands.phoneScreen(out)).toBe(false);
+    hands.phone("open");
+    hands.debug.step(0.2, {});
+    expect(hands.phoneScreen(out)).toBe(false);
+    hands.debug.step(1, {});
+    expect(hands.phoneScreen(out)).toBe(true);
+    hands.phone("close");
+    hands.debug.step(0.05, {});
+    expect(hands.phoneScreen(out)).toBe(false);
+  });
+
+  it("apertar: o polegar vai até a tecla e afunda junto com ela (ponta a ≤ 1,5 mm do tampo afundado), falanges sem esticar", () => {
+    const { hands } = setup();
+    hands.phone("open");
+    hands.debug.step(1.2, {});
+    for (const key of ["down", "ok", "softR", "up"] as const) {
+      expect(hands.press(key)).toBe(true);
+      let best = Infinity;
+      for (let i = 0; i < 24; i++) {
+        hands.debug.step(1 / 60, {});
+        const ph = hands.debug.phone()!;
+        const top = ph.model.keyTop(key, new THREE.Vector3());
+        ph.model.root.updateWorldMatrix(true, false);
+        const world = top.applyMatrix4(ph.model.root.matrixWorld);
+        // a ponta é uma esfera de 7,4 mm (× escala da mão): a distância do centro ao tampo, menos o raio
+        best = Math.min(best, ph.thumbTip.distanceTo(world) - 0.0074 * 1.12 * 0.92);
+        expect(ph.thumbBones.proximal).toBeCloseTo(0.028, 4);
+        expect(ph.thumbBones.distal).toBeCloseTo(0.024, 4);
+      }
+      expect(best, key).toBeLessThan(0.0015);
+      hands.debug.step(1.5, {});
+    }
+  });
+
+  it("orçamento do aparelho: 4 malhas (4 chamadas de desenho) e poucos milhares de triângulos; um só aparelho em 20 aberturas", () => {
+    const { hands, camera } = setup();
+    hands.phone("open");
+    hands.debug.step(1.2, {});
+    const model = hands.debug.phone()!.model;
+    expect(model.stats.meshes).toBe(4);
+    let meshes = 0;
+    model.root.traverse((o) => o instanceof THREE.Mesh && (meshes += 1));
+    expect(meshes).toBe(4);
+    expect(model.stats.triangles).toBeGreaterThan(1500);
+    expect(model.stats.triangles).toBeLessThan(6000);
+    const count = () => {
+      const g = new Set<THREE.BufferGeometry>();
+      camera.traverse((o) => o instanceof THREE.Mesh && g.add(o.geometry));
+      return g.size;
+    };
+    const before = count();
+    for (let i = 0; i < 20; i++) {
+      hands.phone("close");
+      hands.debug.step(0.8, {});
+      hands.phone("open");
+      hands.debug.step(1.2, {});
+    }
+    expect(hands.debug.phone()!.model).toBe(model);
+    expect(count()).toBe(before);
+  });
+
+  it("a tecla afunda de verdade (vértices dela, só dela) e volta", () => {
+    const { hands } = setup();
+    hands.phone("open");
+    hands.debug.step(1.2, {});
+    const model = hands.debug.phone()!.model;
+    const keys = model.root.getObjectByName("celular-teclas") as THREE.Mesh;
+    const pos = keys.geometry.getAttribute("position");
+    const snapshot = () => Float32Array.from({ length: pos.count }, (_, i) => pos.getZ(i));
+    const rest = snapshot();
+    hands.press("5");
+    let deepest = 0;
+    let moved = 0;
+    for (let i = 0; i < 20; i++) {
+      hands.debug.step(1 / 60, {});
+      const now = snapshot();
+      let d = 0;
+      let n = 0;
+      for (let k = 0; k < now.length; k++) {
+        if (rest[k] - now[k] > 1e-7) n += 1;
+        d = Math.max(d, rest[k] - now[k]);
+      }
+      deepest = Math.max(deepest, d);
+      moved = Math.max(moved, n);
+    }
+    expect(deepest).toBeCloseTo(0.0009, 5);
+    expect(moved).toBeGreaterThan(20);
+    expect(moved).toBeLessThan(pos.count / 10);
+    hands.debug.step(0.5, {});
+    expect(Array.from(snapshot())).toEqual(Array.from(rest));
+  });
+});

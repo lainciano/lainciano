@@ -14,8 +14,10 @@ import { mulberry } from "../render/paint";
  *   respiração. Mirar sobe e aproxima; agachar recolhe.
  * - Movimento reduzido (`setReduced`, pode mudar em execução): sem ociosa, balanço nem respiração (somem
  *   suaves); trocas em ≤ 120 ms. `still` (foto): nada anda sozinho.
- * - Celular (rig da T11): subir e abrir a tampa / fechar a tampa e descer são valores contínuos (`raise`, `lid`):
- *   fechar no meio da abertura (e o contrário) continua de onde está. Teclas: até 4 apertos independentes.
+ * - Celular (T11): subir e abrir a tampa / fechar a tampa e descer são valores contínuos (`raise`, `lid`):
+ *   fechar no meio da abertura (e o contrário) continua de onde está. Teclas: até 4 apertos independentes; o polegar
+ *   mira a última tecla e volta ao descanso depois de 1,2 s. A pose de segurar vem do rig (`setPhoneHold`: a tela
+ *   cabe no campo de visão do FOV em vigor); `LEFT_PHONE` é só a nominal.
  *
  * Desempenho: `step` não aloca. A pose e a lista de eventos devolvidas são reaproveitadas a cada quadro (copie se
  * precisar guardar).
@@ -34,8 +36,14 @@ export type HandsPose = {
   light: number;
   /** 0 segurando à frente, 1 guardada. */
   holster: number;
-  /** Celular: tampa (0 fechada, 1 aberta), polegar da esquerda, e os apertos (`key` vazio = livre). */
-  phone: { visible: boolean; lid: number; thumb: number; presses: KeyPress[] };
+  /** Mão esquerda sem o celular (descanso, alcance, ajeitar): o rig gira dela até a pose de segurar por quatérnio. */
+  leftBase: Pose6 & { curl: number };
+  /**
+   * Celular: tampa (0 fechada, 1 aberta), polegar da esquerda, os apertos (`key` vazio = livre), a subida suavizada
+   * (0..1), o empurrão do polegar na tampa enquanto ela abre (= `lid` abrindo, 0 no resto) e a tecla que o polegar
+   * mira (a última apertada, até 1,2 s depois; vazio = descanso).
+   */
+  phone: { visible: boolean; lid: number; thumb: number; presses: KeyPress[]; raise: number; flick: number; aim: string };
 };
 export type HandsInput = { moving: boolean; run: boolean; crouch: boolean; panel: boolean; aiming: boolean; bob: number };
 export type IdleKind = "none" | "regrip" | "sway" | "adjust";
@@ -76,6 +84,8 @@ const LEFT_ADJUST: LeftPose = { x: -0.16, y: -0.16, z: -0.33, rx: 0.3, ry: -0.2,
 /** Celular à frente do olho, um pouco abaixo e à esquerda do centro. */
 const LEFT_PHONE: LeftPose = { x: -0.06, y: -0.085, z: -0.27, rx: 0.35, ry: 0.15, rz: 0.1, curl: 0.72 };
 const IDLE_SECONDS = { regrip: 0.9, sway: 1.6, adjust: 1.4 } as const;
+/** O polegar fica sobre a última tecla por este tempo depois do aperto, e então volta ao descanso. */
+const AIM_LINGER = 1.2;
 const IDLE_KINDS = ["regrip", "sway", "adjust"] as const;
 
 const KEYS6 = ["x", "y", "z", "rx", "ry", "rz"] as const;
@@ -122,6 +132,9 @@ export function createHandsAnim(o: HandsAnimOptions) {
   let raise = 0;
   let lid = 0;
   const presses = Array.from({ length: MAX_PRESSES }, () => ({ key: "", t: 0, dur: 0, fired: false }));
+  let hold: LeftPose = LEFT_PHONE;
+  let aimKey = "";
+  let aimLeft = 0;
 
   // saídas reaproveitadas
   const base: Pose6 = { ...HELD };
@@ -131,9 +144,10 @@ export function createHandsAnim(o: HandsAnimOptions) {
     grip: 0,
     thumb: 0,
     left: { ...LEFT_REST },
+    leftBase: { ...LEFT_REST },
     light,
     holster: 0,
-    phone: { visible: false, lid: 0, thumb: 0, presses: Array.from({ length: MAX_PRESSES }, () => ({ key: "", depth: 0 })) },
+    phone: { visible: false, lid: 0, thumb: 0, presses: Array.from({ length: MAX_PRESSES }, () => ({ key: "", depth: 0 })), raise: 0, flick: 0, aim: "" },
   };
   const events: HandsEvent[] = [];
   const result = { pose, events };
@@ -174,15 +188,22 @@ export function createHandsAnim(o: HandsAnimOptions) {
       if (action === "open") phoneTarget = "open";
       else if (phoneTarget === "open") phoneTarget = "closed";
     },
-    /** Uma tecla do celular aberto: aperto independente (atraso e duração sorteados). */
-    press(key: string) {
-      if (phoneState() !== "holding") return;
+    /** Uma tecla do celular aberto: aperto independente (atraso e duração sorteados). Devolve se aceitou. */
+    press(key: string): boolean {
+      if (phoneState() !== "holding") return false;
       const slot = presses.find((p) => p.key === "");
-      if (!slot) return;
+      if (!slot) return false;
       slot.key = key;
       slot.t = -(0.03 + rng() * 0.05);
       slot.dur = 0.12 + rng() * 0.06;
       slot.fired = false;
+      aimKey = key;
+      aimLeft = slot.dur - slot.t + AIM_LINGER;
+      return true;
+    },
+    /** Pose de segurar o celular (o rig a calcula para a tela caber no campo de visão); `null` volta à nominal. */
+    setPhoneHold(p: LeftPose | null) {
+      hold = p ? { ...p } : LEFT_PHONE;
     },
     state: () => ({ mode, flashOn, idle: idleActive && idle ? idle : ("none" as IdleKind), holster, light, phone: phoneState(), reduced }),
     step(dt: number, input: HandsInput): { pose: HandsPose; events: HandsEvent[] } {
@@ -203,6 +224,8 @@ export function createHandsAnim(o: HandsAnimOptions) {
         }
       } else if (phoneTarget === "closed") {
         for (const p of presses) p.key = "";
+        aimKey = "";
+        aimLeft = 0;
         if (lid > 0) {
           lid = Math.max(0, lid - dt / (HANDS_TIMING.phoneShut * scaleClose));
           lidMoving = true;
@@ -335,7 +358,8 @@ export function createHandsAnim(o: HandsAnimOptions) {
       for (const key of KEYS7) {
         const rest = reachLeft > 0 ? LEFT_REACH[key] : lerp(LEFT_REST[key], LEFT_ADJUST[key], adjust);
         left[key] = lerp(left[key], rest, kl);
-        l[key] = lerp(left[key], LEFT_PHONE[key], rs);
+        l[key] = lerp(left[key], hold[key], rs);
+        pose.leftBase[key] = left[key];
       }
       const sl = SWAY.left;
       l.x -= bx * sl;
@@ -347,6 +371,13 @@ export function createHandsAnim(o: HandsAnimOptions) {
       pose.phone.visible = phoneTarget !== null;
       pose.phone.lid = lid;
       pose.phone.thumb = Math.max(phoneThumb, pressMax);
+      pose.phone.raise = rs;
+      pose.phone.flick = lidMoving && phoneTarget === "open" ? lid : 0;
+      if (aimLeft > 0) {
+        aimLeft = Math.max(0, aimLeft - dt);
+        if (aimLeft === 0) aimKey = "";
+      }
+      pose.phone.aim = aimKey;
       return result;
     },
   };

@@ -316,6 +316,65 @@ describe("mãos · celular (rig para a T11)", () => {
   });
 });
 
+describe("mãos · celular real (T11)", () => {
+  it("press devolve se aceitou: só com o celular aberto e com vaga entre os 4 apertos", () => {
+    const anim = createHandsAnim({ seed: 5, reduced: false, still: false, flashOn: true });
+    expect(anim.press("ok")).toBe(false);
+    anim.phone("open");
+    play(anim, 1.2);
+    expect([1, 2, 3, 4].map(() => anim.press("down"))).toEqual([true, true, true, true]);
+    expect(anim.press("down")).toBe(false);
+  });
+
+  it("a pose expõe a subida (0..1, suave) e a mão esquerda sem o celular (para o rig girar por quatérnio)", () => {
+    const anim = createHandsAnim({ seed: 5, reduced: false, still: false, flashOn: true });
+    const rest = play(anim, 0.3).last;
+    expect(rest.phone.raise).toBe(0);
+    anim.phone("open");
+    const raises = play(anim, 1.2).poses.map((p) => p.phone.raise);
+    expect(raises[raises.length - 1]).toBe(1);
+    for (let i = 1; i < raises.length; i++) expect(raises[i]).toBeGreaterThanOrEqual(raises[i - 1]);
+    const held = anim.step(1 / 60, STILL).pose;
+    // a base continua na pose de descanso (o celular se mistura por cima)
+    expect(held.leftBase.y).toBeLessThan(-0.4);
+  });
+
+  it("setPhoneHold troca a pose de segurar (o rig encaixa a tela no campo de visão); null volta à nominal", () => {
+    const anim = createHandsAnim({ seed: 5, reduced: false, still: false, flashOn: true });
+    const hold = { x: -0.01, y: -0.05, z: -0.15, rx: 0.2, ry: 0.1, rz: -0.3, curl: 0.9 };
+    anim.setPhoneHold(hold);
+    anim.phone("open");
+    const p = play(anim, 1.2).last;
+    for (const k of ["x", "y", "z", "rx", "ry", "rz", "curl"] as const) expect(p.left[k]).toBeCloseTo(hold[k], 6);
+    anim.setPhoneHold(null);
+    expect(anim.step(1 / 60, STILL).pose.left.z).toBeCloseTo(-0.27, 6);
+  });
+
+  it("o polegar mira a última tecla apertada e, parado 1,2 s, volta ao descanso (aim vazio)", () => {
+    const anim = createHandsAnim({ seed: 5, reduced: false, still: false, flashOn: true });
+    anim.phone("open");
+    play(anim, 1.2);
+    expect(anim.step(1 / 60, STILL).pose.phone.aim).toBe("");
+    anim.press("down");
+    expect(anim.step(1 / 60, STILL).pose.phone.aim).toBe("down");
+    play(anim, 0.6);
+    expect(anim.step(1 / 60, STILL).pose.phone.aim).toBe("down");
+    play(anim, 1.0);
+    expect(anim.step(1 / 60, STILL).pose.phone.aim).toBe("");
+  });
+
+  it("flick: o polegar acompanha a tampa só enquanto ela abre (0 subindo e segurando)", () => {
+    const anim = createHandsAnim({ seed: 5, reduced: false, still: false, flashOn: true });
+    anim.phone("open");
+    const flicks = play(anim, 1.2).poses.map((p) => ({ f: p.phone.flick, lid: p.phone.lid }));
+    expect(flicks[0].f).toBe(0);
+    const moving = flicks.filter((x) => x.lid > 0 && x.lid < 1);
+    expect(moving.length).toBeGreaterThan(5);
+    for (const x of moving) expect(x.f).toBeCloseTo(x.lid, 6);
+    expect(flicks[flicks.length - 1].f).toBe(0);
+  });
+});
+
 describe("mãos · revisão (rodada 4)", () => {
   /** Maior salto entre quadros consecutivos de um canal. */
   const maxJump = (poses: HandsPose[], f: (p: HandsPose) => number) => poses.slice(1).reduce((m, p, i) => Math.max(m, Math.abs(f(p) - f(poses[i]))), 0);

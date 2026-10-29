@@ -8,6 +8,7 @@ import type { PromptModel } from "../interaction/targeting";
 import { createLayerRunner, type LayerRunner } from "../layers/loader";
 import type { ActApi, GameCtx, Layer, Line } from "../layers/types";
 import { createPlayer, type Player } from "../player/controller";
+import type { PhoneKey } from "../player/phone";
 import { createSaveStore, type SaveApi } from "../save/store";
 import { debugEnabled, installDebug, layerShot, loadShot, standaloneShot } from "./debug";
 import { createEngine, type Engine } from "./engine";
@@ -282,7 +283,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
           if (o.toggle) h.toggleFlash();
           if (o.idle) h.debug.forceIdle(o.idle);
           if (o.phone) h.phone(o.phone);
-          if (o.press) h.press(o.press);
+          if (o.press) h.press(o.press as PhoneKey);
           if (o.step) h.debug.step(o.step, o.input ?? {});
           if (o.view !== undefined) h.debug.view(o.view);
         },
