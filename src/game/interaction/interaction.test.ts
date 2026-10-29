@@ -301,6 +301,59 @@ describe("interação · segurar", () => {
   });
 });
 
+describe("interação · hold dependente do estado", () => {
+  it("sem hold no estado atual, E age na hora; com hold, E segura (e o aviso acompanha)", async () => {
+    const w = await setup();
+    const porta = w.layer.objects.find((o) => o.id === "porta") as InteractiveObject;
+    let forcing = false;
+    porta.hold = () => (forcing ? { seconds: 1.4, verb: "forçar a porta" } : undefined);
+    w.player.placeAt("porta");
+    lookAtObject(w, "porta");
+    w.step(0.6);
+    expect(w.lastPrompt()).toEqual({ text: "abrir a porta", key: "press", progress: null });
+    w.it.press();
+    w.it.release();
+    expect(w.acted).toEqual(["porta"]);
+    expect(w.it.state().holdId).toBeNull();
+    // agora a porta passa a pedir segurar
+    forcing = true;
+    w.step(0.2);
+    expect(w.lastPrompt()).toEqual({ text: "forçar a porta", key: "hold", progress: 0 });
+    w.it.press();
+    expect(w.it.state().holdId).toBe("porta");
+    w.it.release();
+    expect(w.notices).toEqual([{ kind: "hold", verb: "forçar a porta" }]);
+    expect(w.acted).toEqual(["porta"]);
+  });
+
+  it("o toque rápido (activate) age quando não há hold e dá a dica quando há", async () => {
+    const w = await setup();
+    const porta = w.layer.objects.find((o) => o.id === "porta") as InteractiveObject;
+    let forcing = false;
+    porta.hold = () => (forcing ? { seconds: 1, verb: "forçar" } : undefined);
+    w.it.activate(porta);
+    expect(w.acted).toEqual(["porta"]);
+    forcing = true;
+    w.it.activate(porta);
+    expect(w.acted).toEqual(["porta"]);
+    expect(w.notices).toEqual([{ kind: "hold", verb: "forçar" }]);
+  });
+
+  it("o segurar em curso mantém a duração de quando começou (o estado mudar no meio não o troca)", async () => {
+    const w = await setup();
+    const porta = w.layer.objects.find((o) => o.id === "porta") as InteractiveObject;
+    let seconds = 1.4;
+    porta.hold = () => ({ seconds, verb: "forçar a porta" });
+    w.player.placeAt("porta");
+    lookAtObject(w, "porta");
+    w.step(0.6);
+    w.it.press();
+    seconds = 100;
+    w.step(2.5);
+    expect(w.acted).toEqual(["porta"]);
+  });
+});
+
 describe("interação · painel, toque e fim", () => {
   it("com painel aberto não há aviso nem brilho; ao fechar tudo volta", async () => {
     const w = await setup();

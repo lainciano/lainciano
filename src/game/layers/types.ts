@@ -51,6 +51,9 @@ export type ActApi = {
   examine(o: { root: THREE.Object3D; distance: number; title: string; text: string }): void;
 };
 
+/** O segurar de um objeto: quanto tempo e o verbo do aviso ("forçar a porta"). */
+export type HoldSpec = { seconds: number; verb: string };
+
 export type InteractiveObject = {
   id: string;
   place: string;
@@ -58,7 +61,12 @@ export type InteractiveObject = {
   material: SurfaceMaterial;
   verb(state: SaveV1): string;
   enabled(state: SaveV1): boolean;
-  hold?: { seconds: number; verb: string };
+  /**
+   * Objeto de segurar. Função do estado do save (T12: E na porta usa a chave; "forçar" só depois da 3ª pista):
+   * devolver `undefined` quer dizer "agora não é de segurar", e o toque rápido age. O literal `{ seconds, verb }`
+   * continua valendo (sempre de segurar). Leia sempre por `holdFor(objeto, save)` (interaction/hold.ts).
+   */
+  hold?: HoldSpec | ((state: SaveV1) => HoldSpec | undefined);
   /**
    * Objeto que o encobre (emenda 1A/T9): enquanto o objeto com este id estiver habilitado e visível, este não entra
    * no ciclo de alvos (a carta sob o celular). A mira por raio já não o alcança: o outro o tapa.

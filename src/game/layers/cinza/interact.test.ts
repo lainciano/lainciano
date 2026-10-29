@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { describe, expect, it, vi } from "vitest";
 import { createGlow } from "../../interaction/glow";
+import { holdFor } from "../../interaction/hold";
 import { cinzaWorld } from "../../interaction/testWorld";
 import type { ActApi } from "../types";
 
@@ -39,7 +40,7 @@ describe("sala cinza · objetos interativos", () => {
       expect(a.examine).not.toHaveBeenCalled();
     }
     const door = layer.objects.find((x) => x.id === "porta");
-    expect(door?.hold).toEqual({ seconds: 1.4, verb: "forçar a porta" });
+    expect(door && holdFor(door, save.get())).toEqual({ seconds: 1.4, verb: "forçar a porta" });
     const a = api(save);
     door?.act(a);
     expect(a.sfx).toHaveBeenCalledWith("knock");

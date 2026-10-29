@@ -1,9 +1,9 @@
 import type * as THREE from "three";
-import type { InteractiveObject } from "../layers/types";
+import type { HoldSpec, InteractiveObject } from "../layers/types";
 import type { Player } from "../player/controller";
 import type { SaveV1 } from "../save/schema";
 import { createGlow } from "./glow";
-import { createHold, type Hold } from "./hold";
+import { createHold, holdFor, type Hold } from "./hold";
 import { aimPoint, cycleOrder, nextInCycle, objectVisible, promptFor, type PromptModel } from "./targeting";
 
 /**
@@ -78,6 +78,8 @@ export function createInteraction(opts: InteractionOptions): Interaction {
   let disposed = false;
   let hold: Hold | null = null;
   let holdObj: InteractiveObject | null = null;
+  /** O segurar em curso fica como começou (o estado mudar no meio não troca a duração nem o verbo). */
+  let holdSpec: HoldSpec | null = null;
   let lastCycled: string | null = null;
   let shown = "";
   let reticle = "";
@@ -102,6 +104,7 @@ export function createInteraction(opts: InteractionOptions): Interaction {
     hold?.cancel();
     hold = null;
     holdObj = null;
+    holdSpec = null;
   };
 
   /** O alvo de agora: o da histerese, ou (para não perder o primeiro aperto) a leitura crua se já está ao alcance. */
@@ -112,9 +115,11 @@ export function createInteraction(opts: InteractionOptions): Interaction {
   };
 
   const startHold = (o: InteractiveObject) => {
-    if (!o.hold) return;
-    hold = createHold(o.hold.seconds);
+    const spec = holdFor(o, opts.save());
+    if (!spec) return;
+    hold = createHold(spec.seconds);
     holdObj = o;
+    holdSpec = spec;
     hold.press();
   };
 
@@ -138,7 +143,8 @@ export function createInteraction(opts: InteractionOptions): Interaction {
   };
 
   const hint = (o: InteractiveObject) => {
-    if (o.hold) ui.notice({ kind: "hold", verb: o.hold.verb });
+    const spec = holdFor(o, opts.save());
+    if (spec) ui.notice({ kind: "hold", verb: spec.verb });
   };
 
   return {
@@ -171,8 +177,8 @@ export function createInteraction(opts: InteractionOptions): Interaction {
       glow.set(strict ? strict.id : null);
       glow.update(t);
       setReticle(coarse ? "off" : strict ? "hot" : "idle");
-      if (holdObj && hold) {
-        emit(promptFor({ id: holdObj.id, inReach: true }, holdObj, opts.save(), hold.progress, hold.pressed));
+      if (holdObj && hold && holdSpec) {
+        emit({ text: holdSpec.verb, key: "hold", progress: hold.progress });
       } else {
         emit(strict ? promptFor({ id: strict.id, inReach: true }, strict, opts.save(), 0, false) : null);
       }
@@ -181,15 +187,15 @@ export function createInteraction(opts: InteractionOptions): Interaction {
       if (disposed || panel) return;
       const o = aimed();
       if (!o) return cycle();
-      if (o.hold) startHold(o);
+      if (holdFor(o, opts.save())) startHold(o);
       else opts.act(o);
     },
     release() {
       if (disposed || !hold || !holdObj) return;
-      const o = holdObj;
+      const spec = holdSpec;
       const r = hold.release();
       if (r.tooShort) {
-        hint(o);
+        if (spec) ui.notice({ kind: "hold", verb: spec.verb });
         endHold();
       } else if (r.done) {
         endHold();
@@ -201,7 +207,7 @@ export function createInteraction(opts: InteractionOptions): Interaction {
     },
     activate(o) {
       if (disposed || panel) return;
-      if (o.hold) hint(o);
+      if (holdFor(o, opts.save())) hint(o);
       else opts.act(o);
     },
     setPanel(open) {

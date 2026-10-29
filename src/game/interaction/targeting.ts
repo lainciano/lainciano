@@ -3,6 +3,7 @@ import type { InteractiveObject } from "../layers/types";
 import type { SaveV1 } from "../save/schema";
 import type { Vec2 } from "../world/collision";
 import { inReach } from "../world/reach";
+import { holdFor } from "./hold";
 
 /**
  * Mira e ciclo de alvos (contrato §3, bíblia 12b.3). Aviso de interação SÓ de perto: 1,45 m no chão e 2,4 m em
@@ -36,7 +37,8 @@ export function promptFor(
   holding: boolean,
 ): PromptModel | null {
   if (!target || !target.inReach || !object) return null;
-  if (object.hold) return { text: object.hold.verb, key: "hold", progress: holding || holdProgress > 0 ? holdProgress : 0 };
+  const hold = holdFor(object, state);
+  if (hold) return { text: hold.verb, key: "hold", progress: holding || holdProgress > 0 ? holdProgress : 0 };
   return { text: object.verb(state), key: "press", progress: null };
 }
 

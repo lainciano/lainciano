@@ -3,7 +3,15 @@
  * fazer); soltar depois, sem completar, deixa o anel recuar ao dobro da velocidade (o protótipo 7). Completar
  * dispara UMA vez, no `update`. Lógica pura: o tempo só anda por `update(dt)`.
  */
+import type { HoldSpec, InteractiveObject } from "../layers/types";
+import type { SaveV1 } from "../save/schema";
+
 export const HOLD_MIN = 0.22;
+
+/** O segurar do objeto no estado atual (literal ou função do save), ou `undefined` se agora não é de segurar. */
+export function holdFor(o: InteractiveObject, state: SaveV1): HoldSpec | undefined {
+  return typeof o.hold === "function" ? o.hold(state) : o.hold;
+}
 /** O anel recua a esta vezes a velocidade com que subia. */
 const DECAY = 2;
 

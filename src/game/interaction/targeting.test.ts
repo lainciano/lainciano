@@ -55,6 +55,12 @@ describe("aviso (promptFor): só de perto", () => {
     expect(promptFor({ id: "mesa", inReach: true }, o, save, 0, false)).toEqual({ text: "examinar mesa", key: "press", progress: null });
   });
 
+  it("hold dependente do estado: sem hold no estado atual, o aviso é o do toque rápido", () => {
+    const h = obj("porta", { hold: (st) => (st.flags.pista3 ? { seconds: 1.4, verb: "forçar a porta" } : undefined) });
+    expect(promptFor({ id: "porta", inReach: true }, h, save, 0, false)).toEqual({ text: "examinar porta", key: "press", progress: null });
+    expect(promptFor({ id: "porta", inReach: true }, h, { ...save, flags: { pista3: true } }, 0, false)).toEqual({ text: "forçar a porta", key: "hold", progress: 0 });
+  });
+
   it("objeto de segurar: verbo do hold, tecla 'hold' e o anel com o progresso", () => {
     const h = obj("porta", { hold: { seconds: 1.4, verb: "forçar a porta" } });
     expect(promptFor({ id: "porta", inReach: true }, h, save, 0, false)).toEqual({ text: "forçar a porta", key: "hold", progress: 0 });

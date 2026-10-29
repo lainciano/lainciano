@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createHold, HOLD_MIN } from "./hold";
+import type { InteractiveObject } from "../layers/types";
+import { initialSave } from "../save/schema";
+import { createHold, HOLD_MIN, holdFor } from "./hold";
 
 describe("segurar", () => {
   it("segurando além da duração, update conclui (uma vez)", () => {
@@ -76,5 +78,25 @@ describe("segurar", () => {
     h.press();
     expect(h.update(0).progress).toBe(0);
     expect(h.update(1).done).toBe(true);
+  });
+});
+
+describe("holdFor: o segurar depende do estado (T12)", () => {
+  const base: InteractiveObject = { id: "porta", place: "porta", roots: [], material: "madeira", verb: () => "abrir", enabled: () => true, act: () => {} };
+  const save = initialSave(0);
+
+  it("objeto sem hold não é de segurar", () => {
+    expect(holdFor({ ...base }, save)).toBeUndefined();
+  });
+
+  it("literal continua valendo (compatível com a T9)", () => {
+    const o: InteractiveObject = { ...base, hold: { seconds: 1.4, verb: "forçar a porta" } };
+    expect(holdFor(o, save)).toEqual({ seconds: 1.4, verb: "forçar a porta" });
+  });
+
+  it("função lê o estado a cada chamada e pode devolver undefined (E age na hora)", () => {
+    const o: InteractiveObject = { ...base, hold: (s) => (s.flags["pista3"] ? { seconds: 2, verb: "forçar" } : undefined) };
+    expect(holdFor(o, save)).toBeUndefined();
+    expect(holdFor(o, { ...save, flags: { pista3: true } })).toEqual({ seconds: 2, verb: "forçar" });
   });
 });

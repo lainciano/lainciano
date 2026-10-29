@@ -83,7 +83,7 @@ export const cinzaLayer: Layer = {
         material: "madeira",
         verb: () => "abrir a porta",
         enabled: () => true,
-        hold: { seconds: 1.4, verb: "forçar a porta" },
+        hold: () => ({ seconds: 1.4, verb: "forçar a porta" }),
         act: (api) => {
           if (doorOpen(api.save.get())) return speak(api, LINES.portaAberta);
           api.sfx("knock");
