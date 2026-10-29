@@ -55,7 +55,9 @@ export type InteractDebugState = {
   prompt: { text: string; key: "press" | "hold"; progress: number | null } | null;
   panels: number;
   mode: string;
-  examine: { open: boolean; title: string; text: string; turn: number; tilt: number; distance: number };
+  examine: { open: boolean; title: string; text: string; turn: number; tilt: number; distance: number; emissive: number; originalVisible: boolean | null };
+  /** Filhos da câmera (mãos, exame): volta ao valor de antes ao fechar o exame. */
+  cameraChildren: number;
 };
 
 export type HandsDebugState = { mode: string; flashOn: boolean; idle: string; holster: number; light: number; phone: string };

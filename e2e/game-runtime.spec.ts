@@ -173,6 +173,41 @@ test("perder o contexto mostra o aviso, para o loop, solta o canvas e volta ao s
   expect(errors).toEqual([]);
 });
 
+test("perder o contexto com o exame aberto não deixa cartão, aviso, mira nem lista na tela", async ({ page, isMobile }) => {
+  test.skip(isMobile, "o exame aqui abre por teclado e mira de mouse (o toque tem a própria spec)");
+  // Começa no lugar da mesa (o save manda) para mirar o bilhete e examinar.
+  const save = {
+    version: 1, layer: "cinza", place: "mesa", items: [], flags: {}, puzzles: {}, relics: [],
+    settings: { fov: 62, bob: true, scares: true, subtitles: true, quality: "auto", sensitivity: 1 }, startedAt: 0, playMs: 0,
+  };
+  await page.addInitScript((json) => localStorage.setItem("lainciano:jogo:save:v1", json), JSON.stringify(save));
+  await page.goto("/?jogo=1&debug=1");
+  await hydrated(page);
+  await expectRunning(page);
+  const errors = collectErrors(page);
+  type Aim = { aimAt(id: string): boolean; interact: { aimedId: string | null } | null };
+  await page.evaluate(() => (window as unknown as { __cripta: Aim }).__cripta.aimAt("bilhete"));
+  await expect(page.locator("[data-game-prompt]")).toContainText("ler o bilhete", { timeout: 30_000 });
+  await page.keyboard.press("KeyE");
+  await expect(page.locator("[data-game-examine]")).toBeVisible({ timeout: 20_000 });
+  // com o exame aberto o contexto cai: nada da cena (cartão, véu, aviso, mira, lista) pode sobreviver ao aviso
+  await page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>("[data-game-stage] canvas");
+    canvas?.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
+  });
+  await expect(page.getByText(NO_WEBGL)).toBeVisible();
+  await expect(page.locator("[data-game-examine]")).toHaveCount(0);
+  await expect(page.locator("[data-game-veil]")).toHaveCount(0);
+  await expect(page.locator("[data-game-prompt]")).toBeEmpty();
+  await expect(page.locator("[data-game-reticle]")).toHaveCount(0);
+  await expect(page.locator("[data-game-places]")).toHaveCount(0);
+  // o foco é do botão de voltar, não roubado pelo retorno do exame
+  await expect(page.getByRole("button", { name: "Voltar ao site" })).toBeFocused();
+  await page.getByRole("button", { name: "Voltar ao site" }).click();
+  await expect(page.locator("[data-game-shell]")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test("erro depois que o engine nasce (jogador): a sessão descarta tudo, solta o contexto e mostra o aviso", async ({ page }) => {
   const errors = collectErrors(page);
   // `?falha=jogador` (só debug) lança logo depois de criar o jogador, com a camada já carregada e as mãos na câmera.

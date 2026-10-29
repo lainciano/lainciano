@@ -177,9 +177,11 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   };
   function openExamine(o: Parameters<ActApi["examine"]>[0]) {
     if (!examine || panels.has("examine")) return;
-    examine.open(o.root, { distance: o.distance, title: o.title, text: o.text });
+    // Primeiro o painel (apaga o brilho do alvo e baixa a mira): a cópia lê o emissivo dos materiais, que não pode
+    // estar na fase do pulso. Vale também para o segurar que conclui dentro do quadro.
     panels.push({ mode: "examine", id: o.title });
     syncPanels();
+    examine.open(o.root, { distance: o.distance, title: o.title, text: o.text });
     ui.examine({ title: o.title, text: o.text });
     // Aberto por um aperto (adaptador já viu) ou por um segurar que completou no quadro (não viu): solta o mouse.
     input?.panelOpened();
@@ -342,6 +344,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
                 panels: panels.size(),
                 mode: mode(),
                 examine: examine.state(),
+                cameraChildren: eng.camera.children.length,
               }
             : null,
         aimAt: (id) => {

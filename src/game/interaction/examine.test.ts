@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { describe, expect, it, vi } from "vitest";
 import type { InteractiveObject } from "../layers/types";
+import { applyPsx } from "../render/psx";
 import { createExamine, EXAMINE } from "./examine";
 import { cinzaWorld, run } from "./testWorld";
 
@@ -157,6 +158,114 @@ describe("exame · realce da cópia", () => {
     expect(orig.color.equals(color)).toBe(true);
     expect(orig.emissive.equals(emissive)).toBe(true);
     ex.close();
+  });
+});
+
+describe("exame · luz e PSX próprios da cópia", () => {
+  /** Roda o `onBeforeCompile` da cópia com shaders mínimos e devolve os uniforms que ela ligou. */
+  function uniformsOf(m: THREE.Material) {
+    const shader = {
+      uniforms: {} as Record<string, { value: unknown }>,
+      vertexShader: "void main(){\n#include <project_vertex>\n}",
+      fragmentShader: "void main(){\n#include <map_fragment>\n}",
+    };
+    m.onBeforeCompile(shader as never, undefined as never);
+    return shader.uniforms;
+  }
+  const copyMaterial = (camera: THREE.Camera) => {
+    let found: THREE.MeshPhongMaterial | null = null;
+    camera.traverse((n) => {
+      if ((n as THREE.Mesh).isMesh && !found) found = (n as THREE.Mesh).material as THREE.MeshPhongMaterial;
+    });
+    return found as unknown as THREE.MeshPhongMaterial;
+  };
+
+  it("a cópia usa uniforms PSX próprios, com tremor e afim desligados; a sala continua com os dela", async () => {
+    const { ex, note, camera, engine } = await setup();
+    ex.open(note.roots[0], OPEN);
+    const ours = uniformsOf(copyMaterial(camera));
+    expect(ours.uSnap.value).toBe(0);
+    expect(ours.uAff.value).toBe(0);
+    expect(ours.uSnap).not.toBe(engine.psx.uSnap);
+    expect(engine.psx.uSnap.value).toBe(1);
+    // um material da sala (com o PSX do engine) liga os uniforms da sala
+    const roomLike = applyPsx(((note.roots[0] as THREE.Mesh).material as THREE.Material).clone(), engine.psx);
+    expect(uniformsOf(roomLike).uSnap).toBe(engine.psx.uSnap);
+    ex.close();
+  });
+
+  it("o programa é o mesmo: a chave de cache da cópia é a de um material da sala com o mesmo mapa", async () => {
+    const { ex, note, camera, engine } = await setup();
+    ex.open(note.roots[0], OPEN);
+    const copy = copyMaterial(camera);
+    const roomLike = applyPsx(((note.roots[0] as THREE.Mesh).material as THREE.Material).clone(), engine.psx);
+    expect(copy.customProgramCacheKey()).toBe(roomLike.customProgramCacheKey());
+    expect(copy.customProgramCacheKey()).toBe("psx-m");
+    ex.close();
+  });
+
+  it("o emissivo da cópia é a base do original + cor·selfLit·quente, qualquer que seja a fase do brilho (determinístico)", async () => {
+    const { ex, note, camera } = await setup();
+    const orig = (note.roots[0] as THREE.Mesh).material as THREE.MeshPhongMaterial;
+    const expected = orig.emissive.r + orig.color.r * EXAMINE.selfLit * EXAMINE.warm[0];
+    ex.open(note.roots[0], OPEN);
+    expect(copyMaterial(camera).emissive.r).toBeCloseTo(expected, 8);
+    expect(ex.state().emissive).toBeCloseTo(expected, 8);
+    ex.close();
+  });
+
+  it("a cópia é quente, não fria: vermelho > verde > azul na cor de realce", async () => {
+    const { ex, note, camera } = await setup();
+    ex.open(note.roots[0], OPEN);
+    const c = copyMaterial(camera);
+    expect(c.color.r).toBeGreaterThan(c.color.g);
+    expect(c.color.g).toBeGreaterThan(c.color.b);
+    ex.close();
+  });
+
+  it("estado de depuração: original visível/escondido e filhos da câmera", async () => {
+    const { ex, note } = await setup();
+    expect(ex.state().originalVisible).toBeNull();
+    ex.open(note.roots[0], OPEN);
+    expect(ex.state().originalVisible).toBe(false);
+    ex.close();
+    expect(ex.state().originalVisible).toBeNull();
+  });
+});
+
+describe("exame · aberto sob o brilho (ordem da sessão)", () => {
+  it("com o brilho do alvo aceso, fechar o brilho ANTES de abrir deixa a cópia igual em qualquer fase", async () => {
+    const { createInteraction } = await import("./interaction");
+    const { createPlayer } = await import("../player/controller");
+    const { DEFAULT_SETTINGS } = await import("../save/schema");
+    const copies: number[] = [];
+    for (const phase of [0, 0.29, 0.57, 0.91]) {
+      const w = await cinzaWorld();
+      const player = createPlayer(w.engine, w.layer, DEFAULT_SETTINGS, { save: w.save.get, still: true });
+      const it = createInteraction({ three: THREE, camera: w.camera, player, objects: w.layer.objects, save: w.save.get, act: () => {}, ui: { prompt() {}, reticle() {}, notice() {} } });
+      const ex = createExamine(w.engine);
+      player.placeAt("mesa");
+      const note = w.layer.objects.find((o) => o.id === "bilhete") as InteractiveObject;
+      const c = new THREE.Box3().setFromObject(note.roots[0]).getCenter(new THREE.Vector3());
+      player.lookAt(c.x, c.y, c.z, 0);
+      let t = 0;
+      for (let i = 0; i < 14; i++) {
+        t += 0.05;
+        player.update(0.05);
+        it.update(0.05, t);
+      }
+      it.update(0.05, phase * 2);
+      expect(it.state().glow).toBe("bilhete");
+      // a ordem da sessão: painel (apaga o brilho) e só então o exame lê os materiais
+      it.setPanel(true);
+      player.setPanel(true);
+      ex.open(note.roots[0], OPEN);
+      copies.push(ex.state().emissive);
+      ex.close();
+      it.dispose();
+      player.dispose();
+    }
+    expect(new Set(copies.map((v) => v.toFixed(8))).size).toBe(1);
   });
 });
 

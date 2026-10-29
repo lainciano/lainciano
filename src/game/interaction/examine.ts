@@ -1,5 +1,5 @@
 import type * as THREE from "three";
-import { applyPsx } from "../render/psx";
+import { applyPsx, createPsxUniforms } from "../render/psx";
 import type { Engine } from "../runtime/engine";
 
 /**
@@ -36,15 +36,28 @@ export const EXAMINE = {
    * Realce das cópias (o objeto a 30 cm do olho fica de costas para a luz da sala e lia escuro): a cor sobe e um
    * emissivo da própria cor entra. Só uniforms: o programa de shader é o mesmo do original.
    */
-  lift: 2.2,
-  selfLit: 0.05,
+  lift: 6,
+  selfLit: 0.06,
+  /** Tom quente da luz do pendente (RGB): a cópia lia cinza-azulada longe da luz. */
+  warm: [1, 0.8, 0.56],
   /** Taxas de suavização (1/s). */
   turnRate: 14,
   zoomRate: 10,
 } as const;
 
 export type ExamineOpen = { distance: number; title: string; text: string };
-export type ExamineState = { open: boolean; title: string; text: string; turn: number; tilt: number; distance: number };
+export type ExamineState = {
+  open: boolean;
+  title: string;
+  text: string;
+  turn: number;
+  tilt: number;
+  distance: number;
+  /** Emissivo (R) da 1ª cópia de material: determinístico (base + realce), nunca a fase do brilho da mira. */
+  emissive: number;
+  /** O original está escondido (`false`) enquanto o exame está aberto; `null` com o exame fechado. */
+  originalVisible: boolean | null;
+};
 
 export type Examine = {
   open(obj: THREE.Object3D, opts: ExamineOpen): void;
@@ -59,13 +72,18 @@ export type Examine = {
   dispose(): void;
 };
 
-type ExamineEngine = Pick<Engine, "three" | "camera" | "psx">;
+type ExamineEngine = Pick<Engine, "three" | "camera">;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 export function createExamine(engine: ExamineEngine, opts: { reduced?: () => boolean } = {}): Examine {
-  const { three: T, camera, psx } = engine;
+  const { three: T, camera } = engine;
   const reduced = opts.reduced ?? (() => false);
+  // PSX próprio das cópias: a 30 cm do olho o tremor de 280×160 faz as bordas saltarem e a UV afim entorta o texto.
+  // Mesmos programa e chave de cache (só os valores dos uniforms mudam: uSnap e uAff em 0).
+  const psxHeld = createPsxUniforms(T);
+  psxHeld.uSnap.value = 0;
+  psxHeld.uAff.value = 0;
 
   type Held = {
     rig: THREE.Group;
@@ -112,13 +130,16 @@ export function createExamine(engine: ExamineEngine, opts: { reduced?: () => boo
     const copy = (m: THREE.Material) => {
       let c = made.get(m);
       if (!c) {
-        c = applyPsx(m.clone(), psx);
+        c = applyPsx(m.clone(), psxHeld);
         const lit = c as THREE.Material & { color?: THREE.Color; emissive?: THREE.Color };
         if (lit.color?.isColor && lit.emissive?.isColor) {
-          lit.emissive.r += lit.color.r * EXAMINE.selfLit;
-          lit.emissive.g += lit.color.g * EXAMINE.selfLit;
-          lit.emissive.b += lit.color.b * EXAMINE.selfLit;
-          lit.color.multiplyScalar(EXAMINE.lift);
+          const [wr, wg, wb] = EXAMINE.warm;
+          lit.emissive.r += lit.color.r * EXAMINE.selfLit * wr;
+          lit.emissive.g += lit.color.g * EXAMINE.selfLit * wg;
+          lit.emissive.b += lit.color.b * EXAMINE.selfLit * wb;
+          lit.color.r *= EXAMINE.lift * wr;
+          lit.color.g *= EXAMINE.lift * wg;
+          lit.color.b *= EXAMINE.lift * wb;
         }
         made.set(m, c);
       }
@@ -224,7 +245,16 @@ export function createExamine(engine: ExamineEngine, opts: { reduced?: () => boo
     },
     close: release,
     isOpen: () => held !== null,
-    state: () => ({ open: held !== null, title, text, turn, tilt, distance: dist }),
+    state: () => ({
+      open: held !== null,
+      title,
+      text,
+      turn,
+      tilt,
+      distance: dist,
+      emissive: (held?.materials[0] as THREE.MeshPhongMaterial | undefined)?.emissive?.r ?? 0,
+      originalVisible: held ? held.original.visible : null,
+    }),
     dispose() {
       release();
       disposed = true;

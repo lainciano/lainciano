@@ -17,7 +17,8 @@ type Interact = {
   prompt: { text: string; key: "press" | "hold"; progress: number | null } | null;
   panels: number;
   mode: string;
-  examine: { open: boolean; title: string; text: string; turn: number; tilt: number; distance: number };
+  examine: { open: boolean; title: string; text: string; turn: number; tilt: number; distance: number; emissive: number; originalVisible: boolean | null };
+  cameraChildren: number;
 };
 type CriptaWindow = Window & {
   __cripta?: {
@@ -252,10 +253,14 @@ test.describe("examinar", () => {
     page.on("pageerror", (e) => errors.push(e.message));
     await openAt(page, "mesa");
     await aimAndWait(page, "bilhete", "ler o bilhete");
+    const childrenBefore = (await interact(page))?.cameraChildren ?? -1;
     await page.keyboard.press("KeyE");
     await expect(card(page)).toBeVisible({ timeout: 20_000 });
     await expect(card(page).getByRole("heading", { name: "bilhete" })).toBeVisible();
     let s = await interact(page);
+    // a cópia está na câmera e o original saiu da mesa enquanto está na mão
+    expect(s?.cameraChildren).toBe(childrenBefore + 1);
+    expect(s?.examine.originalVisible).toBe(false);
     expect(s?.mode).toBe("examine");
     expect(s?.panels).toBe(1);
     expect(s?.examine.open).toBe(true);
@@ -291,6 +296,9 @@ test.describe("examinar", () => {
     expect(s?.mode).toBe("walk");
     expect(s?.panels).toBe(0);
     expect(s?.examine.open).toBe(false);
+    // ao fechar: a cópia sai da câmera e o original volta a ser visível (`null` = nada escondido)
+    expect(s?.cameraChildren).toBe(childrenBefore);
+    expect(s?.examine.originalVisible).toBeNull();
     await expect(page.locator("[data-game-shell]")).toBeFocused();
     await expect.poll(async () => (await page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.handsState))?.mode, { timeout: 20_000 }).toBe("held");
     // de volta ao jogo: a mira e o aviso retornam
@@ -372,12 +380,21 @@ test.describe("examinar", () => {
     // A 1ª abertura sobe a mão esquerda (e outras peças) ao quadro pela primeira vez: a GPU recebe a geometria
     // delas. Depois do 3º ciclo o número assenta; é aí que se mede (medido: 129 → 169 → 172 → 172…).
     let settled = { geometries: 0, textures: 0, programs: 0 };
+    const childrenBefore = (await interact(page))?.cameraChildren ?? -1;
+    const emissives: number[] = [];
     for (let i = 0; i < 20; i++) {
       await page.keyboard.press("KeyE");
       await expect(card(page)).toBeVisible({ timeout: 20_000 });
-      await page.waitForTimeout(120);
+      // abrir a cada fase do pulso do brilho: o emissivo da cópia é sempre o mesmo (a base + o realce, nunca a fase)
+      await page.waitForTimeout(40 + ((i * 53) % 300));
+      const open = await interact(page);
+      emissives.push(Math.round((open?.examine.emissive ?? -1) * 1e6));
+      expect(open?.cameraChildren).toBe(childrenBefore + 1);
       await page.keyboard.press("KeyE");
       await expect(card(page)).toHaveCount(0);
+      const closed = await interact(page);
+      expect(closed?.cameraChildren, `ciclo ${i}: a cópia saiu da câmera`).toBe(childrenBefore);
+      expect(closed?.examine.originalVisible, `ciclo ${i}: o original voltou`).toBeNull();
       await expect(prompt(page)).toContainText("ler o bilhete", { timeout: 30_000 });
       if (i === 3) settled = await info();
     }

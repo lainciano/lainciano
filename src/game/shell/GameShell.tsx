@@ -34,6 +34,8 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   const [prompt, setPrompt] = useState<PromptModel | null>(null);
   const [reticle, setReticle] = useState<"off" | "idle" | "hot">("off");
   const [examine, setExamine] = useState<ExamineInfo | null>(null);
+  // Ponteiro grosso (toque): rótulos sem tecla. Decidido uma vez, ao abrir (o jogo só abre no cliente).
+  const [coarse] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches === true);
   useGameSession();
 
   // O site fica inerte: o foco vai para a casca (que não é tabulável) e o Tab segue dali para o botão.
@@ -49,7 +51,15 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
     let lineTimer = 0;
     const ui = {
       status: (s: SessionStatus) => {
-        if (!signal.aborted) setStatus(s);
+        if (signal.aborted) return;
+        setStatus(s);
+        // Fora de "live" (contexto perdido, erro, tentar de novo) nada da cena fica na tela: cartão, aviso, lista, mira.
+        if (s !== "live") {
+          setExamine(null);
+          setPrompt(null);
+          setPlaces(null);
+          setReticle("off");
+        }
       },
       places: (list: PlaceItem[] | null) => {
         if (!signal.aborted) setPlaces(list);
@@ -73,7 +83,8 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
         if (!signal.aborted) setExamine(info);
       },
       notice: (n: { kind: "nothing" } | { kind: "hold"; verb: string }) => {
-        const text = n.kind === "nothing" ? labels.nothingHere : labels.holdHint.replace("{verb}", n.verb);
+        const hold = coarse ? labels.holdHintTouch : labels.holdHint;
+        const text = n.kind === "nothing" ? labels.nothingHere : hold.replace("{verb}", n.verb);
         ui.say({ text, kind: "system" });
       },
     };
@@ -106,15 +117,17 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
 
   // Lista aberta: foco no primeiro lugar disponível; fechada: o foco volta à casca (o teclado segue no jogo).
   useEffect(() => {
+    if (status !== "live") return;
     if (places) placesRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus({ preventScroll: true });
     else if (shellRef.current?.contains(document.activeElement) || document.activeElement === document.body) shellRef.current?.focus({ preventScroll: true });
-  }, [places]);
+  }, [places, status]);
 
   // Exame fechado (E, ⌫, botão direito ou o botão): o foco volta à casca, onde o teclado do jogo mora.
   useEffect(() => {
-    if (examine) return;
+    // Só com o jogo vivo: num aviso de falha o foco é do botão de voltar (o efeito de status), não da casca.
+    if (examine || status !== "live") return;
     if (shellRef.current?.contains(document.activeElement) || document.activeElement === document.body) shellRef.current?.focus({ preventScroll: true });
-  }, [examine]);
+  }, [examine, status]);
 
   const onPlacesKey = (e: KeyboardEvent<HTMLUListElement>) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -160,13 +173,13 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
         </nav>
       )}
       {status === "live" && !examine && <div data-game-reticle data-state={reticle} aria-hidden="true" />}
-      <Prompt text={prompt?.text ?? null} keyLabel={prompt?.key === "hold" ? labels.holdKey : "E"} progress={prompt?.progress ?? null} />
+      <Prompt text={prompt?.text ?? null} keyLabel={prompt?.key === "hold" ? (coarse ? labels.holdKeyTouch : labels.holdKey) : "E"} progress={prompt?.progress ?? null} />
       <div data-game-subtitles aria-live="polite">
         {paused && <p data-game-paused>{labels.paused}</p>}
         {line && !paused && <p data-game-line>{line.text}</p>}
       </div>
       <div data-game-overlay>
-        {examine && <ExamineCard title={examine.title} text={examine.text} closeLabel={labels.examineClose} onClose={() => sessionRef.current?.closeExamine()} />}
+        {examine && <ExamineCard title={examine.title} text={examine.text} closeLabel={labels.examineClose} showKeys={!coarse} onClose={() => sessionRef.current?.closeExamine()} />}
       </div>
       <button type="button" data-game-exit onClick={onExit} className="focus-ring">
         {labels.exit}
