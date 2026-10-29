@@ -133,14 +133,41 @@ describe("celular na sessão (runtime/phone.ts)", () => {
     expect(s.views.at(-1)).toBeNull();
   });
 
-  it("mensagem lida marca a flag sms:<id>", () => {
+  it("sem mensagens na 1A: a lista abre vazia e ok nela não faz nada (nenhuma flag sms:)", () => {
     const s = setup();
     s.flow.open();
-    // sem mensagens na 1A: a tela abre vazia e o ok não faz nada
     s.flow.nav({ type: "ok" });
     expect(s.flow.state()?.screen).toBe("mensagens");
     s.flow.nav({ type: "ok" });
+    expect(s.flow.state()).toMatchObject({ screen: "mensagens", detail: null });
     expect(Object.keys(s.save.get().flags).filter((k) => k.startsWith("sms:"))).toEqual([]);
+  });
+
+  it("voltar + voltar rápido em arquivo (o 1º ainda na fila): o 2º fecha NA HORA e diz que esvaziou", () => {
+    const s = setup({ pressOk: true, flags: { [readFlag("bilhete")]: true } });
+    s.flow.open();
+    // vai ao arquivo sem fila (as teclas chegam ao fundo)
+    for (const a of ["down", "down", "down", "ok"] as const) {
+      s.flow.nav({ type: a });
+      s.fire(a === "ok" ? "ok" : "down");
+    }
+    expect(s.flow.state()?.screen).toBe("arquivo");
+    expect(s.flow.nav({ type: "back" })).toEqual({ closed: false, emptied: false });
+    expect(s.flow.nav({ type: "back" })).toEqual({ closed: true, emptied: true });
+    expect(s.panels.stack.size()).toBe(0);
+  });
+
+  it("ok em \"sair do jogo\" com up ainda na fila: projeta a fila e sai na hora", () => {
+    const s = setup({ pressOk: true });
+    s.flow.open();
+    s.flow.nav({ type: "up" });
+    s.fire("up");
+    s.flow.nav({ type: "ok" });
+    s.fire("ok");
+    expect(s.flow.state()?.screen).toBe("ajustes");
+    s.flow.nav({ type: "up" });
+    expect(s.flow.nav({ type: "ok" })).toEqual({ closed: true, emptied: true });
+    expect(s.ui.exit).toHaveBeenCalledTimes(1);
   });
 
   it("ir a um lugar: fecha primeiro, depois anda", () => {
@@ -187,14 +214,20 @@ describe("celular na sessão (runtime/phone.ts)", () => {
     expect(s.flow.state()).toMatchObject({ screen: "arquivo", index: 0 });
   });
 
-  it("Tab (ação phone) fecha de qualquer tela, soltar chega ao jogador, a fila não sobrevive ao fechar", () => {
+  it("Tab (ação phone) fecha de qualquer tela: o passo que estava na fila vale antes, a fila some e a pilha esvazia (o adaptador trava de novo)", () => {
     const s = setup({ pressOk: true });
     s.flow.open();
     s.flow.nav({ type: "down" });
     s.flow.handle({ type: "move", x: 0, z: 0 });
     expect(s.player.apply).toHaveBeenCalledWith({ type: "move", x: 0, z: 0 });
-    // o passo na fila vale antes de fechar
     expect(s.flow.handle({ type: "phone" })).toEqual({ closed: true, emptied: true });
+    // o "baixo" da fila foi aplicado antes de fechar (o último LCD mostrado já estava no item 1)
+    const shown = s.views.filter((v): v is PhoneView => v !== null);
+    expect(shown.at(-1)?.state.index).toBe(1);
+    expect(s.views.at(-1)).toBeNull();
+    // e não sobrou nada na fila: a tecla chegando depois não faz nada
+    s.fire("down");
     expect(s.flow.state()).toBeNull();
+    expect(s.views.at(-1)).toBeNull();
   });
 });

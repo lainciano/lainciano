@@ -68,8 +68,11 @@ export type PhoneFlow = {
   nav(a: PhoneAction): { closed: boolean; emptied: boolean };
   /** Ação do adaptador com o celular no topo (E/⌫ voltam, Tab fecha, soltar chega ao jogador). */
   handle(a: Action): { closed: boolean; emptied: boolean };
-  /** Quadro (depois das mãos): aplica os passos cujas teclas chegaram ao fundo e acompanha a tela do aparelho. */
-  frame(): void;
+  /**
+   * Quadro (depois das mãos): aplica os passos cujas teclas chegaram ao fundo e acompanha a tela do aparelho. Devolve
+   * se um passo da fila fechou o celular (não deveria: quem fecha vale na hora; é a rede de segurança da sessão).
+   */
+  frame(): { closed: boolean; emptied: boolean };
   state(): PhoneState | null;
   rect(): PhoneRect | null;
 };
@@ -166,8 +169,11 @@ export function createPhoneFlow(d: PhoneDeps): PhoneFlow {
     if (!state || !onTop()) return { ...NOTHING };
     const key = KEY_FOR[a.type];
     const pressed = d.player()?.hands.press(key) ?? false;
-    // passo que fecha: na hora (no gesto), depois dos que estavam na fila
-    if (phoneReducer(state, a).closed || !pressed) {
+    // passo que fecha: na hora (no gesto), depois dos que estavam na fila. "Fecha" é decidido sobre o estado que a
+    // fila vai deixar (voltar + voltar rápido em "arquivo": o 2º fecha), não sobre o de agora.
+    let projected = state;
+    for (const p of pending) projected = phoneReducer(projected, p.action);
+    if (phoneReducer(projected, a).closed || !pressed) {
       flush();
       return step(a);
     }
@@ -205,15 +211,15 @@ export function createPhoneFlow(d: PhoneDeps): PhoneFlow {
       return { ...NOTHING };
     },
     frame() {
-      if (!state) return;
+      if (!state) return NOTHING;
       const hands = d.player()?.hands;
-      if (!hands) return;
+      if (!hands) return NOTHING;
       for (const k of hands.keysFired()) {
         const i = pending.findIndex((p) => p.key === k);
         if (i < 0) continue;
         const [p] = pending.splice(i, 1);
-        step(p.action);
-        if (!state) return;
+        const out = step(p.action);
+        if (!state) return out;
       }
       const box = d.host.getBoundingClientRect();
       hands.setPhoneFrac(LCD_MIN_PX / Math.max(1, box.height));
@@ -223,7 +229,7 @@ export function createPhoneFlow(d: PhoneDeps): PhoneFlow {
           d.ui.phoneRect(null);
           show();
         }
-        return;
+        return NOTHING;
       }
       d.camera.updateMatrixWorld();
       const px = corners.map((c) => {
@@ -246,10 +252,11 @@ export function createPhoneFlow(d: PhoneDeps): PhoneFlow {
         Math.abs(next.w - rect!.w) > 0.25 ||
         Math.abs(next.h - rect!.h) > 0.25 ||
         Math.abs(next.angle - rect!.angle) > 0.001;
-      if (!moved) return;
+      if (!moved) return NOTHING;
       rect = next;
       d.ui.phoneRect(rect);
       if (appeared) show();
+      return NOTHING;
     },
     state: () => state,
     rect: () => rect,

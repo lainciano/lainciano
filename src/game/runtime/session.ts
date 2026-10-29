@@ -386,7 +386,8 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
         player?.update(dt);
         examine?.update(dt);
         interaction?.update(dt, t);
-        phone.frame();
+        // rede de segurança: um passo da fila que fechou o celular (fora de gesto) ainda sincroniza a entrada
+        if (phone.frame().emptied) input?.panelClosed();
       }),
     );
     if (standaloneShot(search)) {
