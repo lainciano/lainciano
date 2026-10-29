@@ -96,8 +96,8 @@ function stripUv(geo: THREE.BufferGeometry, u: readonly [number, number], v: rea
 
 /* ------------------------------------------------ pintura */
 
-const GRAPHITE = "#2c3035";
-const SILVER = "#7c8188";
+const GRAPHITE = "#353a40";
+const SILVER = "#9aa0a7";
 
 /** Plástico grafite com brilho escovado e grão. */
 function plastic(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: Rng, base = GRAPHITE) {
@@ -591,9 +591,14 @@ export function createPhoneModel(three: typeof THREE, kit: MaterialKit): PhoneMo
   const screenGeo = own(new T.PlaneGeometry(PHONE.screen.w, PHONE.screen.h));
 
   /* materiais e texturas (do kit) */
-  const bodyMat = kit.phong({ map: kit.texture("celular:base", drawBase, 256), shininess: 36, specular: 0x26262a });
-  const lidMat = kit.phong({ map: kit.texture("celular:tampa", drawLid, 256), shininess: 40, specular: 0x2a2a2e });
-  const keyMat = kit.phong({ map: kit.texture("celular:teclas", drawKeys, 256), shininess: 55, specular: 0x34343a });
+  // Um brilho próprio baixo (como a pele das mãos): o aparelho lê no escuro sem a lanterna, que está guardada.
+  const bodyMat = kit.phong({ map: kit.texture("celular:base", drawBase, 256), shininess: 36, specular: 0x26262a, emissive: 0x0b0c0e });
+  const lidMat = kit.phong({ map: kit.texture("celular:tampa", drawLid, 256), shininess: 40, specular: 0x2a2a2e, emissive: 0x0b0c0e });
+  // Luz de fundo do teclado (2005): as teclas acendem um pouco com a tampa aberta (o mapa é o próprio desenho).
+  const keyTex = kit.texture("celular:teclas", drawKeys, 256);
+  const keyMat = kit.phong({ map: keyTex, emissiveMap: keyTex, shininess: 55, specular: 0x34343a, emissive: 0x0e1012 });
+  const keyGlowOff = keyMat.emissive.clone();
+  const keyGlowOn = new T.Color().setHex(0x2a3036, T.LinearSRGBColorSpace);
   const screenMat = kit.basic({ color: 0x0a1210 });
   const backlightOff = screenMat.color.clone();
   const backlightOn = new T.Color().setHex(0x5a6a64, T.LinearSRGBColorSpace);
@@ -675,6 +680,7 @@ export function createPhoneModel(three: typeof THREE, kit: MaterialKit): PhoneMo
     },
     setBacklight(on) {
       screenMat.color.copy(on ? backlightOn : backlightOff);
+      keyMat.emissive.copy(on ? keyGlowOn : keyGlowOff);
     },
     stats: {
       triangles: [baseGeo, lidGeo, keysGeo, screenGeo].reduce((n, geo) => n + (geo.index ? geo.index.count : geo.getAttribute("position").count) / 3, 0),

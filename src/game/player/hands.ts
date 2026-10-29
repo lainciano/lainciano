@@ -64,6 +64,8 @@ export type Hands = {
   phoneScreen(out: THREE.Vector3[]): boolean;
   debug: {
     setStill(v: boolean): void;
+    /** Fotos: a animação só anda pelos passos do debug. */
+    setPaused(v: boolean): void;
     forceIdle(kind: Exclude<IdleKind, "none">): void;
     step(seconds: number, input: Partial<HandsUpdate>): void;
     /** Fotos: mostra uma mão no meio da tela num ângulo fixo; `null` volta ao normal. */
@@ -123,16 +125,23 @@ const HAND_SCALE = 1.12;
  * direita, o polegar do lado esquerdo, sobre o teclado. Eixos do aparelho no `handL`: x = −z (para onde os dedos
  * apontam), y = +x (lado do polegar), z = −y (para fora da palma).
  */
-const GRIP = { x: 0.028, y: -0.0208, z: -0.0555 } as const;
+const GRIP = { x: 0.018, y: -0.0208, z: -0.0855 } as const;
 /** Dedos da esquerda segurando o aparelho. */
 const GRIP_CURL = 1.05;
 /**
  * Onde a tela fica no quadro (fração da meia-altura e da meia-largura, a partir do centro) e quanto da altura ela
  * ocupa: a tela lê grande e ainda sobra o alto do teclado, onde o polegar aperta.
  */
-const HOLD = { x: -0.06, y: 0.2, frac: 0.36, roll: 0.035 } as const;
+const HOLD = { x: -0.1, y: 0.3, frac: 0.27, roll: 0.05 } as const;
 /** Polegar esquerdo: comprimento das falanges (as do esqueleto de antes) e o raio da ponta. */
 const LTHUMB = { proximal: 0.028, distal: 0.024, tip: 0.0074, hover: 0.0035 } as const;
+/**
+ * Com o celular, a junta da base do polegar (a ponta do metacarpo) vai para junto da borda esquerda do aparelho
+ * (no espaço do aparelho): o metacarpo sai do tenar até ela, e as duas falanges alcançam o teclado.
+ */
+const THUMB_MCP_ON_PHONE = { x: -0.03, y: 0.002, z: 0.0 } as const;
+/** Base do metacarpo do polegar esquerdo, dentro do tenar (no `handL`). */
+const THUMB_CMC = { x: 0.03, y: -0.006, z: -0.012 } as const;
 
 /* ------------------------------------------------ pintura (render/paint.ts) */
 
@@ -555,6 +564,8 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   const lThumbTip = new T.Group();
   lThumbTip.position.set(0, 0, -LTHUMB.proximal);
   lThumb.add(lThumbTip);
+  const lMeta = mesh(thumbGeo(0.0118, 0.0098), skin, handL);
+  const lMcp = mesh(knob(T, 0.0099), skin, handL);
   const lProx = mesh(thumbGeo(0.0095, 0.0086), skin, handL);
   const lDist = mesh(thumbGeo(0.0086, 0.0072), skin, handL);
   const lJoint = mesh(knob(T, 0.0089), skin, handL);
@@ -562,10 +573,21 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   const lNail = mesh(new T.BoxGeometry(0.0102, 0.0016, 0.0105), nail, handL);
   counting = null;
   const LEFT_BENDS = [0.6, 0.9, 0.7] as const;
+  /**
+   * Segurando o celular: a primeira falange corre rente ao verso, a do meio dobra em ~85° pela borda direita e a
+   * ponta volta sobre a frente (o mindinho, mais embaixo, fecha um pouco mais).
+   */
+  const GRIP_BENDS = [
+    [0.12, 1.5, 0.95],
+    [0.1, 1.48, 0.95],
+    [0.14, 1.5, 1.0],
+    [0.3, 1.45, 1.0],
+  ] as const;
+  let gripMix = 0;
   const curlLeft = (k: number, thumb: number) => {
     for (let c = 0; c < leftChains.length; c++) {
       const chain = leftChains[c];
-      for (let i = 0; i < chain.length; i++) chain[i].rotation.x = -k * LEFT_BENDS[i];
+      for (let i = 0; i < chain.length; i++) chain[i].rotation.x = -(k * LEFT_BENDS[i] * (1 - gripMix) + GRIP_BENDS[c][i] * gripMix);
     }
     lThumb.rotation.x = -k * 0.4 + thumb * 0.55;
     lThumb.rotation.z = -thumb * 0.25;
@@ -638,7 +660,10 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   };
 
   // polegar esquerdo: esqueleto solto, alvo no aparelho e o ponto em curso (no espaço do aparelho, suavizado)
-  const lThumbBase = lThumb.position;
+  const lThumbRest = lThumb.position.clone();
+  const lThumbBase = new T.Vector3();
+  const lCmc = new T.Vector3(THUMB_CMC.x, THUMB_CMC.y, THUMB_CMC.z);
+  const mcpPhone = new T.Vector3();
   const fkMid = new T.Vector3();
   const fkTip = new T.Vector3();
   const fkHint = new T.Vector3();
@@ -691,6 +716,14 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     return m.keyTop(aim, out).add(tmp2.set(0, 0, lift + LTHUMB.hover * (1 - depth) - PHONE.travel * depth));
   };
   const placeLeftThumb = (pose: HandsPose, raise: number, dt: number) => {
+    gripMix = raise;
+    lThumbBase.copy(lThumbRest);
+    if (raise > 0) {
+      phoneMount.updateMatrix();
+      mcpPhone.set(THUMB_MCP_ON_PHONE.x, THUMB_MCP_ON_PHONE.y, THUMB_MCP_ON_PHONE.z).applyMatrix4(phoneMount.matrix);
+      lThumbBase.lerp(mcpPhone, raise);
+    }
+    lThumb.position.copy(lThumbBase);
     lThumb.updateMatrix();
     lThumbTip.updateMatrix();
     fkMid.copy(lThumbTip.position).applyMatrix4(lThumb.matrix);
@@ -715,6 +748,8 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
       solveThumb(fkTip, fkHint);
     }
     handL.updateWorldMatrix(true, false);
+    boneIn(lMeta, lCmc, lThumbBase, handL);
+    lMcp.position.copy(lThumbBase);
     boneIn(lProx, lThumbBase, ikMid, handL);
     boneIn(lDist, ikMid, tipNow, handL);
     lJoint.position.copy(ikMid);
@@ -757,6 +792,7 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   let reduced = o.reduced;
   const anim = createHandsAnim({ seed: o.seed, reduced: o.reduced, still: o.still, flashOn: o.flashOn });
   let visible = true;
+  let paused = false;
   let lastLight = -1;
   let studio: StudioView | null = null;
   let studioScene: { hidden: THREE.Object3D[]; fog: THREE.Scene["fog"]; background: THREE.Scene["background"] } | null = null;
@@ -787,6 +823,7 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
       qBase.setFromEuler(eul.set(b.rx, b.ry, b.rz, "XYZ"));
       left.quaternion.slerpQuaternions(qBase, holdQuat, raise);
     } else left.rotation.set(l.rx, l.ry, l.rz, "XYZ");
+    gripMix = raise;
     curlLeft(l.curl, 0);
     left.visible = l.y > -0.52 || raise > 0;
     if (phoneModel) {
@@ -805,7 +842,9 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
         const m = ensurePhone();
         if (m.root.parent !== camera) camera.add(m.root);
         const [rx, ry] = PHONE_STUDIO[studio.angle];
-        m.root.position.set(0, -0.004, -0.2);
+        // aberto ele mede ~18 cm: mais longe e centrado na dobradiça
+        const open = (studio.lid ?? 0) > 0.5;
+        m.root.position.set(0, open ? -0.03 : -0.004, open ? -0.3 : -0.2);
         m.root.rotation.set(rx, ry, 0, "YXZ");
         m.root.visible = true;
         m.setLid(studio.lid ?? 0);
@@ -877,6 +916,8 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     update(dt, s) {
       // FOV ou aspecto mudaram (ajustes, janela): a pose de segurar se refaz (só recalcula quando muda)
       if (phoneModel) fitHold();
+      // fotos: com a animação parada, os passos vêm só do debug (`step`)
+      if (paused) return;
       const out = anim.step(dt, fill(s));
       if (o.onClick && out.events.includes("click")) o.onClick();
       apply(out.pose, dt);
@@ -888,6 +929,9 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     state: () => anim.state(),
     debug: {
       setStill: (v) => anim.setStill(v),
+      setPaused(v) {
+        paused = v;
+      },
       forceIdle: (kind) => anim.forceIdle(kind),
       step(seconds, s) {
         fill(s);

@@ -63,6 +63,8 @@ export type InteractDebugState = {
 export type HandsDebugState = { mode: string; flashOn: boolean; idle: string; holster: number; light: number; phone: string };
 export type HandsDebugInput = {
   still?: boolean;
+  /** Fotos: a animação das mãos só anda por `step`. */
+  paused?: boolean;
   toggle?: boolean;
   idle?: "regrip" | "sway" | "adjust";
   phone?: "open" | "close";

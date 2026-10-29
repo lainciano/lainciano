@@ -147,13 +147,13 @@ describe("mãos · celular real (T11)", () => {
     return { ...s, center, height, facing: normal.dot(toEye), distance: mid.distanceTo(s.camera.position) };
   }
 
-  it("a tela aberta ocupa ~36 % da altura, um pouco acima do centro, virada para o olho, em FOV 62 e 80", () => {
+  it("a tela aberta ocupa ~27 % da altura, um pouco acima do centro, virada para o olho, em FOV 62 e 80", () => {
     for (const fov of [62, 80]) {
       const { center, height, facing } = openAndProject(fov);
-      expect(height, `fov ${fov}`).toBeGreaterThan(0.34);
-      expect(height, `fov ${fov}`).toBeLessThan(0.38);
-      expect(center.y).toBeCloseTo(0.2, 1);
-      expect(Math.abs(center.x)).toBeLessThan(0.1);
+      expect(height, `fov ${fov}`).toBeGreaterThan(0.25);
+      expect(height, `fov ${fov}`).toBeLessThan(0.29);
+      expect(center.y).toBeCloseTo(0.3, 1);
+      expect(Math.abs(center.x)).toBeLessThan(0.15);
       expect(facing).toBeGreaterThan(0.995);
     }
     // FOV maior: o aparelho chega mais perto (a tela não encolhe na imagem)

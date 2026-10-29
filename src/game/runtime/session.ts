@@ -280,6 +280,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
           const h = player?.hands;
           if (!h) return;
           if (o.still !== undefined) h.debug.setStill(o.still);
+          if (o.paused !== undefined) h.debug.setPaused(o.paused);
           if (o.toggle) h.toggleFlash();
           if (o.idle) h.debug.forceIdle(o.idle);
           if (o.phone) h.phone(o.phone);
