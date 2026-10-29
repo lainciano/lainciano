@@ -13,7 +13,17 @@ describe("save schema", () => {
       subtitles: true,
       quality: "auto",
       sensitivity: 1,
+      volume: 1,
     });
+  });
+
+  it("volume (T11) é opcional no save gravado antes dele: entra como 1, sem virar save quebrado", () => {
+    const old = { ...initialSave(NOW), settings: { fov: 70, bob: false, scares: true, subtitles: true, quality: 360, sensitivity: 1.5 } };
+    const { save, broken } = parseSave(JSON.stringify(old), NOW);
+    expect(broken).toBeNull();
+    expect(save.settings).toEqual({ fov: 70, bob: false, scares: true, subtitles: true, quality: 360, sensitivity: 1.5, volume: 1 });
+    const bad = { ...initialSave(NOW), settings: { ...DEFAULT_SETTINGS, volume: 2 } };
+    expect(parseSave(JSON.stringify(bad), NOW).broken).not.toBeNull();
   });
 
   it("estado inicial: camada cinza, sem progresso", () => {

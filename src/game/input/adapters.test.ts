@@ -296,6 +296,19 @@ function setupMenuOnPlaces(f: Fake) {
   return () => open;
 }
 
+describe("bindInput · celular (T11)", () => {
+  it("Tab abre e fecha o celular e não move o foco do navegador (o celular é o dono do Tab)", () => {
+    const f = setup();
+    const open = key(f, "keydown", "Tab");
+    expect(f.actions).toContainEqual({ type: "phone" });
+    expect(open.defaultPrevented).toBe(true);
+    f.setMode("phone");
+    const close = key(f, "keydown", "Tab");
+    expect(f.actions.filter((a) => a.type === "phone")).toHaveLength(2);
+    expect(close.defaultPrevented).toBe(true);
+  });
+});
+
 describe("bindInput · exame (T9)", () => {
   it("setas giram e repetem enquanto seguradas (a repetição do teclado não é ignorada)", () => {
     const f = setup();

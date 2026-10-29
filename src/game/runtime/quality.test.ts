@@ -65,4 +65,14 @@ describe("createQualityControl", () => {
     expect(q.degrade()).toBe(false);
     expect(q.quality).toBe(360);
   });
+
+  it("resume (ajuste de volta em auto pelo celular): recomeça do degrau pedido e volta a descer", () => {
+    const q = createQualityControl(480, true);
+    q.choose(240);
+    q.resume(480);
+    expect(q.quality).toBe(480);
+    expect(q.auto).toBe(true);
+    expect(q.degrade()).toBe(true);
+    expect(q.quality).toBe(360);
+  });
 });

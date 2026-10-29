@@ -107,6 +107,7 @@ export const cinzaLayer: Layer = {
     const baseIntensity = lamp.intensity;
     const instance: LayerInstance = {
       places: CINZA_GRAPH,
+      catalog: { docs: [BILHETE] },
       colliders: [...WALL_COLLIDERS, ...FURNITURE_COLLIDERS],
       surfaces: [{ box: { minX: RUG.x0, maxX: RUG.x1, minZ: RUG.z0, maxZ: RUG.z1 }, surface: "tapete" }],
       objects,

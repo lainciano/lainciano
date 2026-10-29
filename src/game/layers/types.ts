@@ -105,8 +105,16 @@ export type InteractiveObject = {
   act(api: ActApi): void;
 };
 
+/** Item que o celular mostra (T11): nome e descrição curta. */
+export type ItemInfo = { name: string; desc: string };
+
 export type LayerInstance = {
   places: PlaceGraph;
+  /**
+   * Catálogo do celular (T11, emenda aditiva): os documentos que o Arquivo pode reabrir (o save guarda só o id lido,
+   * `flags["lido:<id>"]`) e o nome/descrição dos itens. Opcional: sem ele, o Arquivo e os itens mostram o id.
+   */
+  catalog?: { docs?: Doc[]; items?: Record<string, ItemInfo> };
   colliders: Box2[];
   surfaces: SurfaceZone[];
   objects: InteractiveObject[];

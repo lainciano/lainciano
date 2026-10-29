@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import type { PhoneRect } from "../runtime/phone";
 import type { ReaderView } from "./readerFlow";
 
 /**
@@ -13,6 +14,10 @@ import type { ReaderView } from "./readerFlow";
  * a quem abriu ao fechar. Quem manda no nível e no fechamento é a sessão (controlado): as teclas chegam pelo adaptador
  * de entrada e os cliques por aqui. Rótulos por props (nada de copy.ts); o canvas é zerado ao desmontar, e nenhuma
  * textura WebGL é criada.
+ *
+ * Aberto pelo celular (`returnTo: "phone"`, T11): é o próprio celular em tela cheia. O LCD gira para a horizontal e
+ * amplia a partir de onde a tela do aparelho está (`origin`), com a barra do LCD e as cores dele; fechar volta ao
+ * celular (o LCD desfaz o giro do outro lado). Movimento reduzido: corte direto.
  */
 export default function Reader({
   view,
@@ -22,8 +27,14 @@ export default function Reader({
   showKeys,
   onToggle,
   onClose,
+  origin = null,
+  network = "",
 }: {
   view: ReaderView;
+  /** Tela do celular de onde o documento saiu (só com `returnTo: "phone"`). */
+  origin?: PhoneRect | null;
+  /** Rótulo da barra do LCD (variante do celular). */
+  network?: string;
   readLabel: string;
   paperLabel: string;
   closeLabel: string;
@@ -108,12 +119,15 @@ export default function Reader({
   };
 
   const paragraphs = doc.text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const phone = view.returnTo === "phone";
 
   return (
     <dialog
       ref={dialogRef}
       data-game-reader
       data-level={clean ? "clean" : "paper"}
+      data-variant={phone ? "phone" : undefined}
+      style={phone ? turnFrom(origin) : undefined}
       aria-labelledby={titleId}
       aria-describedby={textId}
       onKeyDown={onKeyDown}
@@ -125,6 +139,13 @@ export default function Reader({
         onClose();
       }}
     >
+      {phone && (
+        <div data-lcd-bar aria-hidden="true">
+          <span>▂▄▆ {network}</span>
+          <span>{doc.title}</span>
+          <span>▮▮▯</span>
+        </div>
+      )}
       <h2 id={titleId}>{doc.title}</h2>
       <div data-reader-stage>
         <canvas ref={canvasRef} data-reader-paper data-ready={painted ? "" : undefined} hidden={clean} aria-hidden="true" />
@@ -146,4 +167,22 @@ export default function Reader({
       </div>
     </dialog>
   );
+}
+
+/**
+ * De onde a tela cheia do celular parte: a tela do aparelho, em pé (girada 90° em relação ao documento deitado) e
+ * do tamanho dela. Sem `origin` (a tela ainda não foi medida), parte do meio, pequena.
+ */
+function turnFrom(origin: PhoneRect | null): CSSProperties {
+  const vw = typeof window === "undefined" ? 1280 : window.innerWidth;
+  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
+  const o = origin ?? { x: vw / 2, y: vh / 2, w: vh * 0.2, h: vh * 0.26, angle: 0 };
+  // deitado, a largura do documento é a altura do LCD em pé
+  const zoom = Math.min(o.h / vw, o.w / vh);
+  return {
+    "--turn-x": `${o.x - vw / 2}px`,
+    "--turn-y": `${o.y - vh / 2}px`,
+    "--turn-rot": `${Math.PI / 2 + o.angle}rad`,
+    "--turn-zoom": `${zoom}`,
+  } as CSSProperties;
 }

@@ -52,10 +52,12 @@ export type Engine = {
   /** Debug/fotos: prende o tempo dos callbacks e do pós em `t` (dt 0); `null` solta. */
   freezeTime(t: number | null): void;
   /**
-   * Escolha manual: troca as linhas e desliga a descida automática (manual vence). Ainda não há volta a "auto"
-   * em execução (`createQualityControl`); só reabrindo o jogo com o ajuste em "auto".
+   * Escolha manual: troca as linhas e desliga a descida automática (manual vence). A volta a "auto" é
+   * `setQualitySetting("auto")`.
    */
   setQuality(q: QualityLines): void;
+  /** Ajuste do jogador (celular): uma qualidade fixa, ou "auto" (degrau do aparelho e descida automática de volta). */
+  setQualitySetting(q: Settings["quality"]): void;
   setPostMode(m: PostMode): void;
   setFade(v: number): void;
   glitch(seconds: number, strength: number): void;
@@ -428,6 +430,13 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
         if (disposed) return;
         // Manual vence: escolhida uma qualidade, o FpsGuard não a muda mais (ajustes, fotos de referência).
         qualityControl.choose(q);
+        guard = createFpsGuard();
+        rebuildTarget();
+      },
+      setQualitySetting(q) {
+        if (disposed) return;
+        if (q === "auto") qualityControl.resume(initialQuality(coarse, "auto"));
+        else qualityControl.choose(q);
         guard = createFpsGuard();
         rebuildTarget();
       },

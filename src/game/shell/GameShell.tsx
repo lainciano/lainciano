@@ -5,7 +5,10 @@ import type { GameLabels } from "../labels";
 import type { Line } from "../layers/types";
 import type { PromptModel } from "../interaction/targeting";
 import type { ExamineInfo, PlaceItem, Session, SessionStatus } from "../runtime/session";
+import type { PhoneView } from "../runtime/phone";
+import type { Settings } from "../save/schema";
 import ExamineCard from "./ExamineCard";
+import Phone from "./Phone";
 import Prompt from "./Prompt";
 import type { ReaderView } from "./readerFlow";
 import Subtitles from "./Subtitles";
@@ -71,6 +74,9 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   const [lineSeq, setLineSeq] = useState(0);
   const [reader, setReader] = useState<ReaderView | null>(null);
   const [ReaderPanel, setReaderPanel] = useState<ReaderModule["default"] | null>(null);
+  const [phone, setPhone] = useState<PhoneView | null>(null);
+  // Legendas desligadas nos ajustes do celular: some a fala e o som; as dicas do jogo (sistema) ficam.
+  const subtitlesRef = useRef(true);
   const reduced = useReducedMotion();
   const [prompt, setPrompt] = useState<PromptModel | null>(null);
   const [reticle, setReticle] = useState<"off" | "idle" | "hot">("off");
@@ -98,6 +104,7 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
         if (s !== "live") {
           setExamine(null);
           setReader(null);
+          setPhone(null);
           setPrompt(null);
           setPlaces(null);
           setReticle("off");
@@ -113,6 +120,7 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       },
       say: (l: Line) => {
         if (signal.aborted) return;
+        if (!subtitlesRef.current && (l.kind ?? "speech") !== "system") return;
         // Fala nova (mesmo texto de novo, inclusive) recomeça a entrada; o tempo cresce com o texto (bíblia 12b.2).
         setLine(l);
         setLineSeq((n) => n + 1);
@@ -130,6 +138,17 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       },
       reader: (view: ReaderView | null) => {
         if (!signal.aborted) setReader(view);
+      },
+      phone: (view: PhoneView | null) => {
+        if (!signal.aborted) setPhone(view);
+      },
+      settings: (s: Settings) => {
+        if (signal.aborted) return;
+        subtitlesRef.current = s.subtitles;
+        if (!s.subtitles) setLine((l) => (l && (l.kind ?? "speech") !== "system" ? null : l));
+      },
+      exit: () => {
+        if (!signal.aborted) onExit();
       },
       notice: (n: { kind: "nothing" } | { kind: "hold"; verb: string }) => {
         const hold = coarse ? labels.holdHintTouch : labels.holdHint;
@@ -209,12 +228,13 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   useEffect(() => {
     // Só quando o painel fechou de fato e com o jogo vivo: num aviso de falha o foco é do botão de voltar (o efeito
     // de status), e a transição para "live" não rouba o foco de ninguém.
-    const open = examine !== null || reader !== null;
+    const open = examine !== null || reader !== null || phone !== null;
     const closed = prevPanel.current && !open;
     prevPanel.current = open;
+    // Com o celular embaixo do leitor, quem cuida do foco é o celular (volta ao mesmo item).
     if (!closed || status !== "live") return;
     if (shellRef.current?.contains(document.activeElement) || document.activeElement === document.body) shellRef.current?.focus({ preventScroll: true });
-  }, [examine, reader, status]);
+  }, [examine, reader, phone, status]);
 
   const onPlacesKey = (e: KeyboardEvent<HTMLUListElement>) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -259,15 +279,26 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
           </ul>
         </nav>
       )}
-      {status === "live" && !examine && !reader && <div data-game-reticle data-state={reticle} aria-hidden="true" />}
+      {status === "live" && !examine && !reader && !phone && <div data-game-reticle data-state={reticle} aria-hidden="true" />}
       <Prompt text={prompt?.text ?? null} keyLabel={prompt?.key === "hold" ? (coarse ? labels.holdKeyTouch : labels.holdKey) : "E"} progress={prompt?.progress ?? null} />
       <Subtitles line={line} seq={lineSeq} reduced={reduced} notice={paused ? labels.paused : null} />
       <div data-game-overlay>
         {examine && <ExamineCard title={examine.title} text={examine.text} closeLabel={labels.examineClose} showKeys={!coarse} onClose={() => sessionRef.current?.closeExamine()} />}
       </div>
+      {phone && (
+        <Phone
+          view={phone}
+          labels={labels.phone}
+          covered={reader !== null}
+          reduced={reduced}
+          onNav={(a) => sessionRef.current?.phoneNav(a)}
+        />
+      )}
       {reader && ReaderPanel && (
         <ReaderPanel
           view={reader}
+          origin={phone?.rect ?? null}
+          network={labels.phone.network}
           readLabel={labels.readerRead}
           paperLabel={labels.readerPaper}
           closeLabel={labels.readerClose}

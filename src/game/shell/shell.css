@@ -630,3 +630,257 @@
     animation: none;
   }
 }
+
+/* ---------- Celular de 2005 (T11, protótipo 7 `.phone`/`.lcd-*`): LCD de DOM por cima da tela do modelo 3D ---------- */
+[data-game-phone] {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+  outline: none;
+}
+
+[data-game-phone]::backdrop {
+  background: transparent;
+}
+
+[data-phone-lcd] {
+  position: absolute;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  box-sizing: border-box;
+  overflow: hidden;
+  transform: rotate(var(--lcd-rot, 0rad));
+  transform-origin: 50% 50%;
+  background: var(--lcd);
+  color: var(--lcd-ink);
+  font-family: var(--font-jetbrains), monospace;
+  font-size: var(--lcd-fs, 12px);
+  line-height: 1.3;
+  box-shadow:
+    inset 0 0 0 2px var(--lcd-bar),
+    inset 0 0 22px color-mix(in srgb, var(--lcd-ink) 35%, transparent);
+  animation: game-lcd-on var(--motion-lcd-on) var(--ease-out) both;
+}
+
+/* Pixels do LCD: grade fina por cima de tudo. */
+[data-phone-lcd]::after,
+[data-game-reader][data-variant="phone"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--lcd-ink) 6%, transparent) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--lcd-ink) 4.5%, transparent) 0 1px, transparent 1px 3px);
+}
+
+[data-phone-lcd][data-returning] {
+  animation: game-lcd-return var(--motion-phone-turn) var(--ease-out) both;
+}
+
+[data-lcd-bar] {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-tick);
+  padding: 2px 6px;
+  background: var(--lcd-bar);
+  color: var(--lcd);
+  font-size: 0.82em;
+  white-space: nowrap;
+}
+
+[data-lcd-body] {
+  min-height: 0;
+  overflow: auto;
+  padding: 3px 0;
+  scrollbar-width: none;
+}
+
+[data-lcd-title] {
+  margin-bottom: 2px;
+  padding: 2px 8px 4px;
+  border-bottom: 1px dashed var(--lcd-line);
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
+[data-lcd-body] button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+:root[data-game="open"] [data-game-phone] button {
+  cursor: pointer;
+}
+
+[data-lcd-body] button[data-selected],
+[data-lcd-body] button:hover {
+  background: var(--lcd-ink);
+  color: var(--lcd);
+}
+
+[data-lcd-body] button[aria-disabled="true"] {
+  opacity: 0.45;
+}
+
+[data-lcd-right] {
+  margin-left: auto;
+  opacity: 0.8;
+}
+
+[data-lcd-text] {
+  padding: 4px 8px;
+  white-space: pre-wrap;
+}
+
+[data-lcd-from] {
+  padding: 0 8px;
+  font-size: 0.85em;
+  opacity: 0.75;
+}
+
+[data-lcd-soft] {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 6px;
+  border-top: 1px solid var(--lcd-line);
+  font-size: 0.82em;
+}
+
+[data-lcd-soft] button {
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+[data-lcd-soft] button:disabled {
+  opacity: 0.4;
+}
+
+/* O anel de foco do site é claro; no LCD o item marcado já inverte as cores: o anel vira tinta do LCD. */
+[data-game-phone] .focus-ring:focus-visible {
+  outline-color: var(--lcd-ink);
+  outline-offset: -2px;
+}
+
+/* Documento aberto pelo celular: o próprio LCD, deitado, em tela cheia. */
+[data-game-reader][data-variant="phone"] {
+  padding: 0;
+  background: var(--lcd);
+  color: var(--lcd-ink);
+}
+
+[data-game-reader][data-variant="phone"][open] {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 0;
+  justify-items: stretch;
+  animation: game-phone-turn var(--motion-phone-turn) var(--ease-out) both;
+}
+
+[data-game-reader][data-variant="phone"]::backdrop {
+  background: color-mix(in srgb, var(--poco) 70%, transparent);
+}
+
+[data-game-reader][data-variant="phone"] [data-lcd-bar] {
+  font-size: 0.8125rem;
+}
+
+[data-game-reader][data-variant="phone"] h2 {
+  padding: var(--space-2xs) var(--space-sm);
+  border-bottom: 1px dashed var(--lcd-line);
+  color: var(--lcd-ink);
+  text-align: left;
+}
+
+[data-game-reader][data-variant="phone"] [data-reader-stage] {
+  padding: var(--space-xs);
+  box-sizing: border-box;
+}
+
+/* A "foto" do papel na tela do celular: tons do LCD por cima, pixel duro. */
+[data-game-reader][data-variant="phone"] [data-reader-paper] {
+  filter: grayscale(1) sepia(0.35) hue-rotate(110deg) saturate(0.6) contrast(1.05);
+  mix-blend-mode: multiply;
+}
+
+[data-game-reader][data-variant="phone"] [data-reader-clean] {
+  border-color: var(--lcd-line);
+  background: none;
+  color: var(--lcd-ink);
+  font-family: var(--font-jetbrains), monospace;
+  font-size: clamp(0.875rem, 1.6vw, 1.125rem);
+}
+
+[data-game-reader][data-variant="phone"] [data-reader-acts] {
+  justify-content: space-between;
+  padding: 0 var(--space-xs);
+  border-top: 1px solid var(--lcd-line);
+}
+
+[data-game-reader][data-variant="phone"] [data-reader-acts] button {
+  border: 0;
+  background: none;
+  color: var(--lcd-ink);
+  text-transform: lowercase;
+}
+
+[data-game-reader][data-variant="phone"] [data-reader-acts] button:hover {
+  background: var(--lcd-ink);
+  color: var(--lcd);
+}
+
+[data-game-reader][data-variant="phone"] [data-reader-acts] kbd {
+  border-color: var(--lcd-line);
+}
+
+@keyframes game-lcd-on {
+  from {
+    filter: brightness(0.55);
+  }
+}
+
+/* Abrir do Arquivo: a tela do aparelho (em pé, do tamanho dela) gira para a horizontal e amplia até a tela cheia. */
+@keyframes game-phone-turn {
+  from {
+    transform: translate(var(--turn-x, 0), var(--turn-y, 0)) rotate(var(--turn-rot, 1.5708rad)) scale(var(--turn-zoom, 0.25));
+  }
+  to {
+    transform: translate(0, 0) rotate(0rad) scale(1);
+  }
+}
+
+/* Voltar do documento: o LCD parte da tela cheia deitada e volta, girando, para a mão. */
+@keyframes game-lcd-return {
+  from {
+    transform: translate(var(--lcd-from-x, 0), var(--lcd-from-y, 0)) rotate(-1.5708rad) scale(var(--lcd-from-zoom, 4));
+  }
+  to {
+    transform: translate(0, 0) rotate(var(--lcd-rot, 0rad)) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-phone-lcd],
+  [data-phone-lcd][data-returning],
+  [data-game-reader][data-variant="phone"][open] {
+    animation: none;
+  }
+}

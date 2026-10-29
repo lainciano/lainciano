@@ -13,6 +13,9 @@ import { createSaveStore, type SaveApi } from "../save/store";
 import { debugEnabled, installDebug, layerShot, loadShot, standaloneShot } from "./debug";
 import { createEngine, type Engine } from "./engine";
 import { createPanels, type PanelsUi } from "./panels";
+import { createPhoneFlow, readFlag, type PhoneUi } from "./phone";
+import type { PhoneAction } from "../shell/phone-menu";
+import type { Settings } from "../save/schema";
 
 /**
  * Sessão do jogo aberto (fora do React, carregada por `import()` com o three): engine, save, debug, a camada pelo
@@ -29,7 +32,8 @@ export type SessionStatus = "loading" | "live" | "failed" | "stuck";
 export type { ExamineInfo, PlaceItem } from "./panels";
 
 export type SessionUi = InteractionUi &
-  PanelsUi & {
+  PanelsUi &
+  PhoneUi & {
     status(s: SessionStatus): void;
     paused(on: boolean): void;
     say(line: Line): void;
@@ -41,6 +45,10 @@ export type Session = {
   closeExamine(): void;
   /** Fecha o leitor pelo botão ou pelo botão direito sobre o diálogo (gesto: o mouse pode travar de novo aqui). */
   closeReader(): void;
+  /** Celular: um passo do menu (setas, Enter, toque numa linha) vindo da casca. */
+  phoneNav(a: PhoneAction): void;
+  /** Celular: fechar pelo botão da casca. */
+  closePhone(): void;
   /** Alterna papel e texto limpo pelo botão do leitor. */
   toggleReader(): void;
   /** Escolha na lista (clique/Enter num botão: é gesto, então o mouse pode travar de novo aqui). */
@@ -169,11 +177,41 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   });
   const mode = panels.mode;
   const reader = panels.reader;
-  const actApi: ActApi = { save, say, sfx: () => {}, examine: (o) => panels.openExamine(o), read: (doc) => panels.openReader(doc) };
+  const applySettings = (s: Settings) => {
+    eng.camera.fov = s.fov;
+    eng.camera.updateProjectionMatrix();
+    eng.setQualitySetting(s.quality);
+    player?.updateSettings(s);
+  };
+  /** Celular (T11): mesma pilha; o Arquivo reabre o que já foi lido (`flags["lido:<id>"]`). */
+  const phone = createPhoneFlow({
+    panels,
+    ui,
+    save,
+    three: eng.three,
+    camera: eng.camera,
+    host,
+    player: () => player,
+    input: () => input,
+    layer: () => runner?.current() ?? null,
+    applySettings,
+  });
+  ui.settings(save.get().settings);
+  const actApi: ActApi = {
+    save,
+    say,
+    sfx: () => {},
+    examine: (o) => panels.openExamine(o),
+    read: (doc) => {
+      if (save.get().flags[readFlag(doc.id)] !== true) save.patch({ flags: { [readFlag(doc.id)]: true } });
+      panels.openReader(doc);
+    },
+  };
   const ctx: GameCtx = { three: eng.three, scene: eng.scene, camera: eng.camera, kit: eng.kit, audio: silentAudio, say, save };
 
   const onAction = (a: Action) => {
     if (!player) return;
+    if (mode() === "phone") return phone.handle(a);
     if (mode() !== "walk") {
       if (panels.handle(a)) return;
       // O celular (T11) trata as próprias teclas; soltar sempre chega.
@@ -181,6 +219,10 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
       return;
     }
     if (a.type === "places") return panels.openPlaces();
+    if (a.type === "phone") {
+      phone.open();
+      return;
+    }
     if (a.type === "cycle") return interaction?.cycle();
     player.apply(a);
     if (a.type === "interact") {
@@ -297,6 +339,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
                 panels: panels.stack.size(),
                 mode: mode(),
                 examine: examine.state(),
+                phone: { open: phone.state() !== null, screen: phone.state()?.screen ?? null, index: phone.state()?.index ?? 0, detail: phone.state()?.detail ?? null, rect: phone.rect() },
                 reader: { open: reader.view() !== null, id: reader.view()?.doc.id ?? null, clean: reader.view()?.clean ?? false, returnTo: reader.view()?.returnTo ?? null },
                 cameraChildren: eng.camera.children.length,
               }
@@ -318,6 +361,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
         player?.update(dt);
         examine?.update(dt);
         interaction?.update(dt, t);
+        phone.frame();
       }),
     );
     if (standaloneShot(search)) {
@@ -346,6 +390,13 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     closeReader() {
       // Só quando a pilha esvazia o jogo volta a andar e o mouse pode travar de novo (com o celular embaixo, não).
       if (panels.closeReader().emptied) input?.panelClosed();
+    },
+    phoneNav(a) {
+      // Tecla ou clique na casca: é gesto, o mouse pode travar de novo se o celular fechou e a pilha esvaziou.
+      if (phone.nav(a).emptied) input?.panelClosed();
+    },
+    closePhone() {
+      if (phone.close().emptied) input?.panelClosed();
     },
     toggleReader() {
       reader.toggle();

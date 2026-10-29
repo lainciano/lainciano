@@ -79,6 +79,14 @@
      Com o jogo aberto o cursor do site fica coberto (o mouse é do jogo) e os avisos do site não aparecem por cima. */
   --z-game: 10010;
   --z-game-ui: 10011; /* prompt, legendas, painéis e botão de sair: acima do palco */
+  /* Celular de 2005 do jogo (T11, protótipo 7): LCD verde-acinzentado, tinta, barra e linhas. */
+  --lcd: #b4c4bf;
+  --lcd-ink: #142019;
+  --lcd-bar: #17221d;
+  --lcd-line: #6d7f78;
+  --lcd-key: #a3b5af;
+  --motion-phone-turn: 420ms; /* girar o celular para a horizontal e ampliar o documento */
+  --motion-lcd-on: 140ms; /* luz de fundo do LCD acendendo */
   --limiar-ember: 4.5rem; /* brasa --sangue da transição do ato Som (spec Limiar 4) */
   --limiar-clarao: 80vmax; /* clarão desfocado da entrada "brasa" */
   --limiar-grao-opacidade: 0.07; /* grão de filme sobre o palco do Limiar (spec Limiar 5) */

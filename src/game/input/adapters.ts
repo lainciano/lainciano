@@ -216,7 +216,8 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
     }
     const a = keyToAction(e.code, true, m);
     if (!a) return;
-    if (a.type !== "phone") e.preventDefault();
+    // Tab abre/fecha o celular (T11): o foco do navegador não anda junto.
+    e.preventDefault();
     // girar e ampliar o exame repetem enquanto a tecla está segurada; o resto só conta a primeira batida
     if (a.type === "rotate" || a.type === "zoom") {
       onAction(a);

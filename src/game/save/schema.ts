@@ -12,6 +12,8 @@ const settingsSchema = z.object({
   subtitles: z.boolean(),
   quality: z.union([z.literal("auto"), z.literal(480), z.literal(360), z.literal(240)]),
   sensitivity: z.number().positive().finite(),
+  /** T11: volume do jogo (0..1). Saves de antes dele não o têm: entra 1. */
+  volume: z.number().min(0).max(1).default(1),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -23,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
   subtitles: true,
   quality: "auto",
   sensitivity: 1,
+  volume: 1,
 };
 
 // Sem `.strict()`: campos extras são ignorados para tolerar versões futuras da mesma major.

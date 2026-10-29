@@ -84,7 +84,7 @@ export type Player = {
   lookAt(x: number, y: number, z: number, seconds?: number): void;
   /** `prefers-reduced-motion` do sistema (reativo). */
   readonly reduced: boolean;
-  /** Ajustes mudaram (balanço): as mãos e a câmera seguem na hora. */
+  /** Ajustes mudaram (balanço, sensibilidade): as mãos e a câmera seguem na hora (o celular chama, T11). */
   updateSettings(s: Settings): void;
 };
 
@@ -141,7 +141,7 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
     refreshMotion();
   };
   media?.addEventListener?.("change", onMedia);
-  const sens = PLAYER.sensitivity * settings.sensitivity;
+  let sens = PLAYER.sensitivity * settings.sensitivity;
 
   let pos: Vec2 = { x: 0, z: 0 };
   let yaw = 0;
@@ -403,6 +403,7 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
     },
     updateSettings(next) {
       bobSetting = next.bob;
+      sens = PLAYER.sensitivity * next.sensitivity;
       refreshMotion();
     },
     goTo(id) {

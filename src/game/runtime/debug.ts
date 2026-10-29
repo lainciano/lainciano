@@ -55,6 +55,8 @@ export type InteractDebugState = {
   prompt: { text: string; key: "press" | "hold"; progress: number | null } | null;
   panels: number;
   mode: string;
+  /** T11: celular aberto, tela, item marcado, detalhe e onde a tela do aparelho está (px). */
+  phone: { open: boolean; screen: string | null; index: number; detail: string | null; rect: { x: number; y: number; w: number; h: number; angle: number } | null };
   examine: { open: boolean; title: string; text: string; turn: number; tilt: number; distance: number; emissive: number; originalVisible: boolean | null };
   /** Filhos da câmera (mãos, exame): volta ao valor de antes ao fechar o exame. */
   cameraChildren: number;
