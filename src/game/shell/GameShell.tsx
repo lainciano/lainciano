@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { GameLabels } from "../labels";
 import type { Line } from "../layers/types";
 import type { PromptModel } from "../interaction/targeting";
@@ -13,8 +13,28 @@ import { lineDuration } from "./subtitles";
 import "./shell.css";
 import { useGameSession } from "./useGameSession";
 
-// O leitor (e o pincel do papel, que ele carrega por import()) só baixa na primeira leitura.
-const Reader = lazy(() => import("./Reader"));
+type ReaderModule = typeof import("./Reader");
+let readerChunk: Promise<ReaderModule> | null = null;
+/**
+ * O leitor (e o pincel do papel, que ele carrega por import()) fica fora do chunk da casca: pré-carregado quando o
+ * jogo fica vivo (ocioso) e carregado de vez na primeira leitura. Falhou (rede): a promessa é esquecida, a próxima
+ * leitura tenta de novo, e quem pediu fecha o painel (nada de modo "ler" preso sem diálogo).
+ */
+function loadReader(): Promise<ReaderModule> {
+  readerChunk ??= import("./Reader").catch((error: unknown) => {
+    readerChunk = null;
+    throw error;
+  });
+  return readerChunk;
+}
+/** Pré-carga ociosa: o chunk do leitor e o do papel (o primeiro `E` no bilhete já abre sem esperar a rede). */
+function preloadReader(): void {
+  loadReader()
+    .then(() => import("../render/paper"))
+    .catch(() => {
+      /* sem rede agora: a leitura tenta de novo quando for pedida */
+    });
+}
 
 /** Movimento reduzido ao vivo: a legenda aparece direta, sem palavra a palavra. */
 function useReducedMotion(): boolean {
@@ -50,6 +70,7 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   const [line, setLine] = useState<Line | null>(null);
   const [lineSeq, setLineSeq] = useState(0);
   const [reader, setReader] = useState<ReaderView | null>(null);
+  const [ReaderPanel, setReaderPanel] = useState<ReaderModule["default"] | null>(null);
   const reduced = useReducedMotion();
   const [prompt, setPrompt] = useState<PromptModel | null>(null);
   const [reticle, setReticle] = useState<"off" | "idle" | "hot">("off");
@@ -141,7 +162,36 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   useEffect(() => {
     if (status === "failed") backRef.current?.focus({ preventScroll: true });
     if (status === "stuck") retryRef.current?.focus({ preventScroll: true });
+    if (status !== "live") return;
+    // Jogo vivo: o leitor e o papel baixam no ocioso (sem disputar o primeiro quadro).
+    const idle = window.requestIdleCallback?.(preloadReader, { timeout: 4000 });
+    const timer = idle === undefined ? window.setTimeout(preloadReader, 1500) : 0;
+    return () => {
+      if (idle !== undefined) window.cancelIdleCallback?.(idle);
+      window.clearTimeout(timer);
+    };
   }, [status]);
+
+  // Leitor pedido e o chunk ainda não está aqui: carrega; se falhar, fecha o painel pela sessão (pilha coerente).
+  useEffect(() => {
+    if (!reader || ReaderPanel) return;
+    let alive = true;
+    loadReader().then(
+      (m) => {
+        if (alive) setReaderPanel(() => m.default);
+      },
+      (error: unknown) => {
+        console.error("[jogo] o leitor não carregou", error);
+        if (!alive) return;
+        sessionRef.current?.closeReader();
+        setLine({ text: labels.readerFailed, kind: "system" });
+        setLineSeq((n) => n + 1);
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [reader, ReaderPanel, labels.readerFailed]);
 
   // Lista aberta: foco no primeiro lugar disponível; fechada: o foco volta à casca (o teclado segue no jogo).
   const prevPlaces = useRef<PlaceItem[] | null>(null);
@@ -215,18 +265,16 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       <div data-game-overlay>
         {examine && <ExamineCard title={examine.title} text={examine.text} closeLabel={labels.examineClose} showKeys={!coarse} onClose={() => sessionRef.current?.closeExamine()} />}
       </div>
-      {reader && (
-        <Suspense fallback={null}>
-          <Reader
-            view={reader}
-            readLabel={labels.readerRead}
-            paperLabel={labels.readerPaper}
-            closeLabel={labels.readerClose}
-            showKeys={!coarse}
-            onToggle={() => sessionRef.current?.toggleReader()}
-            onClose={() => sessionRef.current?.closeReader()}
-          />
-        </Suspense>
+      {reader && ReaderPanel && (
+        <ReaderPanel
+          view={reader}
+          readLabel={labels.readerRead}
+          paperLabel={labels.readerPaper}
+          closeLabel={labels.readerClose}
+          showKeys={!coarse}
+          onToggle={() => sessionRef.current?.toggleReader()}
+          onClose={() => sessionRef.current?.closeReader()}
+        />
       )}
       <button type="button" data-game-exit onClick={onExit} className="focus-ring">
         {labels.exit}

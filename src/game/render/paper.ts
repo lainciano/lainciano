@@ -4,7 +4,8 @@ import { blotches, edgeWear, jagged, mulberry, type Rng } from "./paint";
 /**
  * Nível 1 do leitor (T10): o papel do documento pintado em código, no mesmo espírito do protótipo 7 (letra à mão,
  * papel envelhecido, pontilhado), sem asset externo. Roda UMA vez por abertura, num `<canvas>` do DOM (nada de
- * textura WebGL, nada redesenhado por quadro); `releasePaper` devolve a memória do canvas ao fechar.
+ * textura WebGL, nada redesenhado por quadro); quem mostra o canvas o zera ao fechar (`Reader.tsx`, largura e altura
+ * 0); o canvas da medida nasce 0×0 e os rascunhos internos (`blotches`) se zeram sozinhos.
  *
  * Camadas, de baixo para cima: contorno rasgado (com furos de espiral nas folhas de caderno) → papel com manchas,
  * fibras e pintas → pauta → letra à mão (tremor, inclinação, pressão, deriva da linha) → dobras com luz e sombra →
@@ -352,7 +353,11 @@ export async function paintPaper(canvas: HTMLCanvasElement, doc: Doc, signal?: A
   await fontReady(family, BASE_SIZE);
   if (signal?.aborted) return;
 
-  const probe = document.createElement("canvas").getContext("2d");
+  // Só mede texto: o canvas da medida nasce 0×0 (nada de buffer de 300×150 esperando o GC).
+  const probeCanvas = document.createElement("canvas");
+  probeCanvas.width = 0;
+  probeCanvas.height = 0;
+  const probe = probeCanvas.getContext("2d");
   if (!probe) return;
   probe.font = `italic ${BASE_SIZE}px ${family}`;
   const textW = PAPER_W - 2 * 84;

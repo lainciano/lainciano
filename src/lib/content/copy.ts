@@ -382,4 +382,6 @@ export const game = {
   readerRead: "ler",
   readerPaper: "ver o papel",
   readerClose: "fechar",
+  /** O chunk do leitor não chegou (rede): o painel fecha e esta dica aparece. */
+  readerFailed: "o papel não abriu. tente de novo.",
 };

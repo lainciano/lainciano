@@ -3,7 +3,10 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { splitWords, wordStagger, type Line } from "./subtitles";
 
-/** Quanto a fala demora para sair (espelha o `--motion-base` do tema): a palavra se apaga antes de sumir do DOM. */
+/**
+ * Quanto a fala fica no DOM saindo: a transição de saída usa o `--motion-base` do tema (300 ms) e isto dá 20 ms de
+ * folga, para a palavra terminar de se apagar antes de sumir. Mudou o token, mude aqui.
+ */
 const LEAVE_MS = 320;
 
 /**

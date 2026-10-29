@@ -1,18 +1,17 @@
 import type { GameAudio } from "../audio/types";
 import { bindInput, type InputBinding } from "../input/adapters";
-import { isRelease, type Action, type InputMode } from "../input/actions";
+import { isRelease, type Action } from "../input/actions";
 import { cinzaLayer } from "../layers/cinza";
 import { createExamine, type Examine } from "../interaction/examine";
 import { createInteraction, type Interaction, type InteractionUi } from "../interaction/interaction";
 import type { PromptModel } from "../interaction/targeting";
 import { createLayerRunner, type LayerRunner } from "../layers/loader";
-import type { ActApi, Doc, GameCtx, Layer, LayerInstance, Line } from "../layers/types";
+import type { ActApi, GameCtx, Layer, Line } from "../layers/types";
 import { createPlayer, type Player } from "../player/controller";
 import { createSaveStore, type SaveApi } from "../save/store";
-import { createPanelStack, openPanel } from "../shell/panelStack";
-import { createReaderFlow, type ReaderView } from "../shell/readerFlow";
 import { debugEnabled, installDebug, layerShot, loadShot, standaloneShot } from "./debug";
 import { createEngine, type Engine } from "./engine";
+import { createPanels, type PanelsUi } from "./panels";
 
 /**
  * Sessão do jogo aberto (fora do React, carregada por `import()` com o three): engine, save, debug, a camada pelo
@@ -26,21 +25,14 @@ import { createEngine, type Engine } from "./engine";
  */
 
 export type SessionStatus = "loading" | "live" | "failed" | "stuck";
-export type PlaceItem = { id: string; name: string; here: boolean };
+export type { ExamineInfo, PlaceItem } from "./panels";
 
-export type ExamineInfo = { title: string; text: string };
-
-export type SessionUi = InteractionUi & {
-  status(s: SessionStatus): void;
-  /** Lista de lugares aberta (`L`) ou fechada (`null`). */
-  places(list: PlaceItem[] | null): void;
-  paused(on: boolean): void;
-  say(line: Line): void;
-  /** Exame aberto (título e texto) ou fechado (`null`). */
-  examine(info: ExamineInfo | null): void;
-  /** Leitor aberto (documento e nível: papel ou texto limpo) ou fechado (`null`). */
-  reader(view: ReaderView | null): void;
-};
+export type SessionUi = InteractionUi &
+  PanelsUi & {
+    status(s: SessionStatus): void;
+    paused(on: boolean): void;
+    say(line: Line): void;
+  };
 
 export type Session = {
   retry(): void;
@@ -103,9 +95,6 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   let input: InputBinding | null = null;
   let interaction: Interaction | null = null;
   let examine: Examine | null = null;
-  /** Painéis abertos (lista de lugares, exame; o leitor e o celular entram aqui nas T10/T11). O modo é o do topo. */
-  const panels = createPanelStack();
-  const mode = (): InputMode => panels.mode();
   let lastPrompt: PromptModel | null = null;
   let lost = false;
   let disposed = false;
@@ -167,88 +156,30 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   const eng = created;
 
   const say = (line: Line) => ui.say(line);
-  const actApi: ActApi = { save, say, sfx: () => {}, examine: (o) => openExamine(o), read: (doc) => openReader(doc) };
+  /** Painéis abertos (lista de lugares, exame, leitor; o celular da T11 entra na mesma pilha). O modo é o do topo. */
+  const panels = createPanels({
+    ui,
+    save,
+    player: () => player,
+    interaction: () => interaction,
+    examine: () => examine,
+    input: () => input,
+    layer: () => runner?.current() ?? null,
+  });
+  const mode = panels.mode;
+  const reader = panels.reader;
+  const actApi: ActApi = { save, say, sfx: () => {}, examine: (o) => panels.openExamine(o), read: (doc) => panels.openReader(doc) };
   const ctx: GameCtx = { three: eng.three, scene: eng.scene, camera: eng.camera, kit: eng.kit, audio: silentAudio, say, save };
-
-  /** Com algum painel aberto a lanterna guarda, a mira e o aviso se apagam; pilha vazia, tudo volta. */
-  const syncPanels = () => {
-    const open = panels.size() > 0;
-    player?.setPanel(open);
-    interaction?.setPanel(open);
-  };
-  /** Leitor em dois níveis (T10): painel `read` na pilha; fechar volta ao que estava embaixo (o celular, na T11). */
-  const reader = createReaderFlow(panels, syncPanels, { reader: (view) => ui.reader(view) });
-  function openReader(doc: Doc) {
-    // Primeiro o painel (a lanterna guarda, a mira apaga), depois o diálogo. Aberto por um aperto ou por um segurar
-    // que completou no quadro: solta o mouse (idempotente quando o adaptador já viu).
-    if (reader.open(doc)) input?.panelOpened();
-  }
-  const closeReader = () => reader.close();
-  const closePlaces = () => {
-    if (panels.top()?.mode !== "menu") return;
-    panels.pop();
-    syncPanels();
-    ui.places(null);
-  };
-  function openExamine(o: Parameters<ActApi["examine"]>[0]) {
-    if (!examine || panels.has("examine")) return;
-    // Primeiro o painel (apaga o brilho do alvo e baixa a mira): a cópia lê o emissivo dos materiais, que não pode
-    // estar na fase do pulso. Vale também para o segurar que conclui dentro do quadro.
-    const held = examine;
-    openPanel(panels, { mode: "examine", id: o.title }, syncPanels, () => held.open(o.root, { distance: o.distance, title: o.title, text: o.text }));
-    ui.examine({ title: o.title, text: o.text });
-    // Aberto por um aperto (adaptador já viu) ou por um segurar que completou no quadro (não viu): solta o mouse.
-    input?.panelOpened();
-  }
-  const closeExamine = () => {
-    if (panels.top()?.mode !== "examine") return;
-    examine?.close();
-    panels.pop();
-    syncPanels();
-    ui.examine(null);
-  };
-  const openPlaces = () => {
-    if (!player || !runner?.current()) return;
-    const inst = runner.current() as LayerInstance;
-    const state = save.get();
-    const here = player.place;
-    const list = Object.values(inst.places.places)
-      .filter((p) => !p.hidden && !(p.locked && p.locked(state)))
-      .map((p) => ({ id: p.id, name: p.name, here: p.id === here }));
-    panels.push({ mode: "menu" });
-    syncPanels();
-    ui.places(list);
-  };
 
   const onAction = (a: Action) => {
     if (!player) return;
-    const m = mode();
-    if (m === "menu") {
-      if (a.type === "places" || a.type === "back") closePlaces();
-      // Soltar (parar, deixar de correr/agachar/espiar) chega sempre ao jogador: abrir a lista com W segurado
-      // não deixa o jogador andando sozinho depois.
-      else if (isRelease(a)) player.apply(a);
-      return;
-    }
-    if (m === "examine") {
-      if (a.type === "back") closeExamine();
-      else if (a.type === "rotate") examine?.rotate(a.dx, a.dy);
-      else if (a.type === "zoom") examine?.zoom(a.delta);
-      else if (isRelease(a)) player.apply(a);
-      return;
-    }
-    if (m === "read") {
-      if (a.type === "back") closeReader();
-      else if (a.type === "read") reader.toggle();
-      else if (isRelease(a)) player.apply(a);
-      return;
-    }
-    if (m !== "walk") {
+    if (mode() !== "walk") {
+      if (panels.handle(a)) return;
       // O celular (T11) trata as próprias teclas; soltar sempre chega.
       if (isRelease(a)) player.apply(a);
       return;
     }
-    if (a.type === "places") return openPlaces();
+    if (a.type === "places") return panels.openPlaces();
     if (a.type === "cycle") return interaction?.cycle();
     player.apply(a);
     if (a.type === "interact") {
@@ -361,7 +292,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
                 ...interaction.state(),
                 target: player.aimTarget,
                 prompt: lastPrompt,
-                panels: panels.size(),
+                panels: panels.stack.size(),
                 mode: mode(),
                 examine: examine.state(),
                 reader: { open: reader.view() !== null, id: reader.view()?.doc.id ?? null, clean: reader.view()?.clean ?? false, returnTo: reader.view()?.returnTo ?? null },
@@ -406,13 +337,13 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
 
   return {
     closeExamine() {
-      closeExamine();
+      panels.closeExamine();
       // Clique no botão da casca: é gesto, o mouse pode travar de novo aqui.
       input?.panelClosed();
     },
     closeReader() {
       // Só quando a pilha esvazia o jogo volta a andar e o mouse pode travar de novo (com o celular embaixo, não).
-      if (closeReader().emptied) input?.panelClosed();
+      if (panels.closeReader().emptied) input?.panelClosed();
     },
     toggleReader() {
       reader.toggle();
@@ -429,13 +360,13 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
         });
     },
     choosePlace(id) {
-      closePlaces();
+      panels.closePlaces();
       // Ainda dentro do clique/Enter no botão: o adaptador pode travar o mouse de novo (bíblia 12b.5).
       input?.panelClosed();
       void player?.goTo(id);
     },
     closePlaces() {
-      closePlaces();
+      panels.closePlaces();
       input?.panelClosed();
     },
     dispose: teardown,
