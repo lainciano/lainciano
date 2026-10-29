@@ -302,7 +302,7 @@ test.describe("celular de 2005", () => {
     const reader = page.getByRole("dialog", { name: "bilhete" });
     await expect(reader).toBeVisible({ timeout: 20_000 });
     await expect(page.locator("[data-reader-clean]")).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator("[data-reader-clean]")).toContainText("o que abre a porta");
+    await expect(page.locator("[data-reader-clean]")).toContainText("na prateleira de cima");
     await expect(page.locator("[data-reader-paper]")).toBeHidden();
     await expect(page.locator("[data-game-subtitles]")).toContainText("o papel não abriu", { timeout: 20_000 });
     expect(paperRequests).toBeGreaterThan(0);
