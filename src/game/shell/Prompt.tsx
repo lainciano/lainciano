@@ -4,7 +4,8 @@
  * descem por props (nada de copy.ts aqui) e nenhum módulo lazy importa o react-dom.
  */
 export default function Prompt({ text, keyLabel, progress }: { text: string | null; keyLabel: string; progress: number | null }) {
-  if (!text) return null;
+  // O contêiner existe sempre (a casca o espera como camada); sem texto fica vazio e o CSS o esconde (:empty).
+  if (!text) return <div data-game-prompt />;
   const ring = progress !== null;
   return (
     <div data-game-prompt data-hold={ring ? "" : undefined}>

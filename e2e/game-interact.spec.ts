@@ -107,7 +107,7 @@ test.describe("aviso só de perto", () => {
     await expect.poll(async () => (await interact(page))?.target, { timeout: 30_000 }).toEqual({ id: "mesa", inReach: false });
     // dá tempo da histerese: o aviso continua ausente
     await page.waitForTimeout(1500);
-    await expect(prompt(page)).toHaveCount(0);
+    await expect(prompt(page)).toBeEmpty();
     const s = await interact(page);
     expect(s?.aimedId).toBeNull();
     expect(s?.glow).toBeNull();
@@ -150,7 +150,7 @@ test.describe("aviso só de perto", () => {
     await page.keyboard.down("ArrowRight");
     await page.waitForTimeout(3000);
     await page.keyboard.up("ArrowRight");
-    await expect(prompt(page)).toHaveCount(0, { timeout: 20_000 });
+    await expect(prompt(page)).toBeEmpty({ timeout: 20_000 });
     expect((await interact(page))?.glow).toBeNull();
     await expect(page.locator("[data-game-reticle]")).toHaveAttribute("data-state", "idle");
   });
@@ -260,7 +260,7 @@ test.describe("examinar", () => {
     expect(s?.panels).toBe(1);
     expect(s?.examine.open).toBe(true);
     // painel: sem aviso nem brilho; a lanterna é guardada
-    await expect(prompt(page)).toHaveCount(0);
+    await expect(prompt(page)).toBeEmpty();
     expect(s?.glow).toBeNull();
     await expect.poll(async () => (await page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.handsState))?.mode, { timeout: 20_000 }).toBe("holstered");
     // E fecha ou ⌫ ou botão direito, nunca um rótulo de Esc

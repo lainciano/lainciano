@@ -94,6 +94,10 @@
   color: var(--osso);
 }
 
+[data-game-prompt]:empty {
+  display: none;
+}
+
 [data-game-prompt] kbd {
   min-width: 1.25rem;
   padding: 0 var(--space-tick);
