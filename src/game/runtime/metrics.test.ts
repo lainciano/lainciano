@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createFrameMetrics } from "./metrics";
+import { createFailureStreak, createFrameMetrics, MAX_FAILED_FRAMES } from "./metrics";
 
 describe("createFrameMetrics", () => {
   it("vazio dá 0", () => {
@@ -40,5 +40,30 @@ describe("createFrameMetrics", () => {
     expect(m.p50()).toBe(0);
     m.push(16);
     expect(m.p50()).toBe(16);
+  });
+});
+
+describe("createFailureStreak", () => {
+  it("só dispara com N falhas SEGUIDAS; um quadro bom zera a conta", () => {
+    const s = createFailureStreak(3);
+    expect([s.record(true), s.record(true), s.record(false), s.record(true), s.record(true)]).toEqual([false, false, false, false, false]);
+    expect(s.record(true)).toBe(true);
+  });
+
+  it("continua verdadeiro enquanto falhar e volta a falso depois de um quadro bom", () => {
+    const s = createFailureStreak(2);
+    s.record(true);
+    expect(s.record(true)).toBe(true);
+    expect(s.record(true)).toBe(true);
+    expect(s.record(false)).toBe(false);
+  });
+
+  it("reset zera; o limite padrão é 30", () => {
+    const s = createFailureStreak();
+    for (let i = 0; i < 29; i++) expect(s.record(true)).toBe(false);
+    s.reset();
+    for (let i = 0; i < 29; i++) expect(s.record(true)).toBe(false);
+    expect(s.record(true)).toBe(true);
+    expect(MAX_FAILED_FRAMES).toBe(30);
   });
 });

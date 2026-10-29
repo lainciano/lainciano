@@ -158,6 +158,11 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
       fail();
       teardown();
     },
+    // Erro persistente por quadro (30 seguidos): o loop já parou; mesmo caminho da perda (aviso + voltar ao site).
+    onBroken: () => {
+      fail();
+      teardown();
+    },
   });
   if (signal.aborted) {
     created?.dispose();

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS, initialSave } from "./schema";
-import { SAVE_KEY, BROKEN_KEY, createSaveStore } from "./store";
+import { ACTIVATION_KEY, SAVE_KEY, BROKEN_KEY, createSaveStore } from "./store";
 
 const NOW = 1_700_000_000_000;
 
@@ -87,18 +87,57 @@ describe("save store", () => {
     expect(JSON.parse(s.map.get(SAVE_KEY)!)).toEqual(initialSave(NOW));
   });
 
-  it("wipeGame remove só chaves lainciano:jogo:", () => {
+  it("wipeGame remove as chaves lainciano:jogo: do progresso e preserva a chave de ativação (só `jogo off` a apaga)", () => {
     const s = memoryStorage({
       "lainciano:reliquias:v1": "x",
       "outra:chave": "y",
+      [ACTIVATION_KEY]: "on",
     });
     const store = createSaveStore(s, () => NOW);
     store.patch({ items: ["a"] });
     s.map.set("lainciano:jogo:save:quebrado", "z");
-    s.map.set("lainciano:jogo:ativo", "on");
+    s.map.set("lainciano:jogo:memoria:v1", "m");
     store.wipeGame();
-    expect([...s.map.keys()].sort()).toEqual(["lainciano:reliquias:v1", "outra:chave"]);
+    expect([...s.map.keys()].sort()).toEqual([ACTIVATION_KEY, "lainciano:reliquias:v1", "outra:chave"].sort());
+    expect(s.map.get(ACTIVATION_KEY)).toBe("on");
     expect(store.get()).toEqual(initialSave(NOW));
+  });
+
+  it("a chave de ativação é a do site (`lainciano:jogo:v1`)", () => {
+    expect(ACTIVATION_KEY).toBe("lainciano:jogo:v1");
+  });
+
+  describe("patch validado contra o schema", () => {
+    const error = () => vi.spyOn(console, "error").mockImplementation(() => {});
+
+    it("patch fora do schema é rejeitado: estado e storage ficam como estavam, com aviso", () => {
+      const spy = error();
+      const s = memoryStorage();
+      const store = createSaveStore(s, () => NOW);
+      store.patch({ place: "mesa" });
+      const written = s.map.get(SAVE_KEY);
+      store.patch({ settings: { ...store.get().settings, fov: 90 } });
+      store.patch({ settings: { ...store.get().settings, volume: 2 } });
+      store.patch({ items: [1 as unknown as string] });
+      expect(store.get().settings.fov).toBe(62);
+      expect(store.get().items).toEqual([]);
+      expect(s.map.get(SAVE_KEY)).toBe(written);
+      expect(spy).toHaveBeenCalledTimes(3);
+      spy.mockRestore();
+    });
+
+    it("patch válido e chave `undefined` (ignorada) seguem funcionando, e o save regravado recarrega igual", () => {
+      const spy = error();
+      const s = memoryStorage();
+      const store = createSaveStore(s, () => NOW);
+      store.patch({ place: undefined as unknown as string });
+      store.patch({ settings: { ...store.get().settings, fov: 70, volume: 0.4 }, flags: { a: true }, puzzles: { cinza: { hints: 1 } } });
+      expect(spy).not.toHaveBeenCalled();
+      const again = createSaveStore(s, () => NOW);
+      expect(again.get()).toEqual(store.get());
+      expect(again.get().settings.fov).toBe(70);
+      spy.mockRestore();
+    });
   });
 
   it("setItem que lança (cota) não derruba patch; o estado em memória segue", () => {

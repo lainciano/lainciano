@@ -105,7 +105,30 @@ test("abre um canvas no palco, mede quadros e respeita a qualidade do aparelho",
   expect(errors).toEqual([]);
 });
 
-test("um quadro que lança conta o erro, mostra os primeiros no console e o loop segue", async ({ page }, testInfo) => {
+test("alguns quadros que lançam contam o erro, mostram os primeiros no console e o loop segue", async ({ page }, testInfo) => {
+  await lightGame(page, testInfo);
+  await page.goto("/?jogo=1&debug=1");
+  await hydrated(page);
+  await expectRunning(page);
+  const errors = collectErrors(page);
+
+  // 12 quadros ruins e depois bons: abaixo do limite de 30 seguidos, o loop tolera e segue
+  await page.evaluate(() => {
+    let left = 12;
+    (window as unknown as CriptaWindow).__cripta?.onFrame(() => {
+      if (left-- > 0) throw new Error("quadro de teste");
+    });
+  });
+  await expect.poll(async () => (await debug(page))?.frameErrors ?? 0, { timeout: 30_000 }).toBeGreaterThanOrEqual(12);
+  const before = (await debug(page))?.frames ?? 0;
+  await expect.poll(async () => (await debug(page))?.frames ?? 0, { timeout: 30_000 }).toBeGreaterThan(before + 5);
+  const reported = await page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.errors);
+  expect(reported?.last).toBe("quadro de teste");
+  // Não engole em silêncio, mas também não inunda: só os 3 primeiros vão ao console.
+  expect(errors.filter((text) => text.includes("[jogo] erro no quadro"))).toHaveLength(3);
+});
+
+test("erro em TODO quadro: depois de 30 seguidos o loop para, solta o contexto e mostra o aviso com voltar ao site", async ({ page }, testInfo) => {
   await lightGame(page, testInfo);
   await page.goto("/?jogo=1&debug=1");
   await hydrated(page);
@@ -117,13 +140,16 @@ test("um quadro que lança conta o erro, mostra os primeiros no console e o loop
       throw new Error("quadro de teste");
     });
   });
-  await expect.poll(async () => (await debug(page))?.frameErrors ?? 0, { timeout: 30_000 }).toBeGreaterThan(10);
-  const before = (await debug(page))?.frames ?? 0;
-  await expect.poll(async () => (await debug(page))?.frames ?? 0, { timeout: 30_000 }).toBeGreaterThan(before + 5);
-  const reported = await page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.errors);
-  expect(reported?.last).toBe("quadro de teste");
-  // Não engole em silêncio, mas também não inunda: só os 3 primeiros vão ao console.
-  expect(errors.filter((text) => text.includes("[jogo] erro no quadro"))).toHaveLength(3);
+  await expect(page.getByText(NO_WEBGL)).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("button", { name: "Voltar ao site" })).toBeFocused();
+  await expect(page.locator("[data-game-stage] canvas")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => (window as unknown as CriptaWindow).__gl.lost)).toBe(1);
+  expect(await page.evaluate(() => (window as unknown as CriptaWindow).__cripta)).toBeUndefined();
+  // só os 3 primeiros erros com pilha e a linha do limite; nada inunda
+  expect(errors.filter((t) => t.includes("[jogo] erro no quadro"))).toHaveLength(3);
+  expect(errors.filter((t) => t.includes("quadros seguidos falharam"))).toHaveLength(1);
+  await page.getByRole("button", { name: "Voltar ao site" }).click();
+  await expect(page.locator("[data-game-shell]")).toHaveCount(0);
 });
 
 test("aba escondida para o loop; ao voltar ele retoma", async ({ page }, testInfo) => {

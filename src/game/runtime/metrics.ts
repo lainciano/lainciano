@@ -33,3 +33,24 @@ export function createFrameMetrics(size = 240): FrameMetrics {
     p95: () => percentile(0.95),
   };
 }
+
+/** Quantos quadros seguidos podem falhar antes de o jogo desistir (≈ 0,5 s a 60 fps): erro de uma vez só é tolerado. */
+export const MAX_FAILED_FRAMES = 30;
+
+/**
+ * Sequência de quadros que falharam. `record(falhou)` devolve `true` quando chegou a `limit` seguidos (um quadro bom
+ * zera a conta). Um erro persistente por quadro deixaria uma tela morta (o loop gira, nada muda): o engine para e
+ * pede o aviso de falha com "voltar ao site".
+ */
+export function createFailureStreak(limit = MAX_FAILED_FRAMES) {
+  let run = 0;
+  return {
+    record(failed: boolean): boolean {
+      run = failed ? run + 1 : 0;
+      return run >= limit;
+    },
+    reset() {
+      run = 0;
+    },
+  };
+}

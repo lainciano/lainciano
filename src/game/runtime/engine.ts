@@ -5,7 +5,7 @@ import { createPost } from "../render/post";
 import { createPsxUniforms, PSX_DEFAULTS, type PsxUniforms } from "../render/psx";
 import type { Settings } from "../save/schema";
 import { createClock } from "./clock";
-import { createFrameMetrics } from "./metrics";
+import { createFailureStreak, createFrameMetrics, MAX_FAILED_FRAMES } from "./metrics";
 import { createQualityControl, initialQuality, targetSize, type QualityLines } from "./quality";
 
 export type PostMode = 0 | 1 | 2;
@@ -77,6 +77,11 @@ export type EngineOptions = {
   settings: Settings;
   /** Contexto perdido: o loop já parou; quem chamou mostra o aviso e descarta o engine. */
   onLost(): void;
+  /**
+   * Erro persistente por quadro (30 quadros seguidos falharam): o loop já parou; quem chamou mostra o aviso de falha
+   * com "voltar ao site" e descarta o engine, como na perda de contexto. Opcional (testes de engine isolado).
+   */
+  onBroken?(): void;
   /** Abortado antes de nascer (desmontou, StrictMode): resolve null e não fica com o orçamento. */
   signal?: AbortSignal;
 };
@@ -294,11 +299,14 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
     undo.push(() => callbacks.clear());
     let frames = 0;
     let frameErrors = 0;
+    let frameFailed = false;
+    const streak = createFailureStreak();
     let lastError: string | null = null;
     let lastNow: number | null = null;
 
     const report = (error: unknown) => {
       frameErrors += 1;
+      frameFailed = true;
       lastError = error instanceof Error ? error.message : String(error);
       if (frameErrors <= LOGGED_ERRORS) console.error("[jogo] erro no quadro", error);
     };
@@ -317,6 +325,7 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
         }
       }
       lastNow = now;
+      frameFailed = false;
       const tick = clock.tick(now);
       const { dt, t } = frozenTime === null ? tick : { dt: 0, t: frozenTime };
       for (const fn of callbacks) {
@@ -343,6 +352,12 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
       } catch (error) {
         renderer.setRenderTarget(null);
         report(error);
+      }
+      // Erro em todo quadro = tela morta: depois de N seguidos o loop para e o aviso de falha entra.
+      if (streak.record(frameFailed) && !lost && !disposed) {
+        console.error(`[jogo] ${MAX_FAILED_FRAMES} quadros seguidos falharam; o jogo parou`, lastError);
+        stop();
+        opts.onBroken?.();
       }
     };
 

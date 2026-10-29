@@ -159,3 +159,21 @@ test("Esc não fecha o jogo", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(shell).toBeVisible();
 });
+
+test("/ com o jogo aberto não abre o console do site (a pilha, o inert e o mouse seguem do jogo); fora do jogo abre", async ({ page }) => {
+  await page.goto("/?jogo=1");
+  await hydrated(page);
+  const shell = page.locator("[data-game-shell]");
+  await expect(shell).toBeVisible();
+  await page.keyboard.press("/");
+  // dá tempo de um console aparecer, se aparecesse (o atalho é síncrono; o diálogo abre no mesmo quadro)
+  await page.waitForTimeout(400);
+  await expect(page.locator(".console-overlay input")).toBeHidden();
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
+  await expect(page.locator(".page-shell")).toHaveAttribute("inert", "");
+
+  await shell.getByRole("button", { name: "Sair do jogo" }).click();
+  await expect(shell).toHaveCount(0);
+  await page.locator("body").press("/");
+  await expect(page.locator(".console-overlay input")).toBeVisible();
+});

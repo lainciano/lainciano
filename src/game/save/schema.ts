@@ -70,6 +70,11 @@ export function initialSave(now: number): SaveV1 {
   };
 }
 
+/** O save cumpre o schema? Barato (uma passada de zod): `SaveApi.patch` o usa antes de gravar. */
+export function isValidSave(candidate: unknown): boolean {
+  return saveV1Schema.safeParse(candidate).success;
+}
+
 /** Sobe versões antigas uma a uma. Na v1 não há o que subir; o que não se reconhece passa intacto e o schema decide. */
 export function migrate(data: unknown): unknown {
   return data;
