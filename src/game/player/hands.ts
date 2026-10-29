@@ -22,7 +22,7 @@ import { createPhoneModel, PHONE, type PhoneKey, type PhoneModel } from "./phone
  */
 
 export type HandsUpdate = { moving: boolean; run: boolean; bob: number; crouch: boolean; panel: boolean; aiming: boolean };
-export type StudioView = { hand: "right" | "left" | "phone"; angle: "front" | "left" | "right" | "top" | "back"; lid?: number };
+export type StudioView = { hand: "right" | "left" | "phone" | "grip"; angle: "front" | "left" | "right" | "top" | "back"; lid?: number };
 
 export type HandsRig = {
   grip: THREE.Group;
@@ -135,6 +135,8 @@ const HAND_SCALE = 1.12;
  * apontam), y = +x (lado do polegar), z = −y (para fora da palma).
  */
 const GRIP = { x: 0.018, y: -0.0208, z: -0.0855 } as const;
+/** Giro do aparelho na palma, em volta da normal dela (rad). */
+const GRIP_TWIST = -0.32;
 /** Dedos da esquerda segurando o aparelho. */
 const GRIP_CURL = 1.05;
 /**
@@ -145,7 +147,7 @@ const HOLD = { x: -0.1, y: 0.3, frac: 0.27, roll: 0.05 } as const;
 /** Quanto a mão recua no meio do giro da tampa (m): a ponta livre não chega a 3,5 cm do olho em FOV 55–80. */
 const LID_CLEARANCE = 0.075;
 /** Polegar esquerdo: comprimento das falanges (as do esqueleto de antes) e o raio da ponta. */
-const LTHUMB = { proximal: 0.028, distal: 0.024, tip: 0.0074, hover: 0.0035 } as const;
+const LTHUMB = { proximal: 0.028, distal: 0.021, tip: 0.0062, hover: 0.0035 } as const;
 /**
  * Com o celular, a junta da base do polegar (a ponta do metacarpo) vai para junto da borda esquerda do aparelho
  * (no espaço do aparelho): o metacarpo sai do tenar até ela, e as duas falanges alcançam o teclado.
@@ -277,8 +279,8 @@ const drawAnodized: Draw = (g, w, h) => {
  * Falange afilada (raio r0 na base, r1 na ponta), seção oval, levemente arqueada para o dorso (+y), ao longo de +x
  * de 0 a `len`, aberta nas pontas (o nó e a ponta redonda fecham). 6 lados × 2 anéis = 24 triângulos.
  */
-function phalanx(T: typeof THREE, len: number, r0: number, r1: number, bow: number): THREE.BufferGeometry {
-  const geo = new T.CylinderGeometry(r1, r0, len, 6, 2, true);
+function phalanx(T: typeof THREE, len: number, r0: number, r1: number, bow: number, sides = 6): THREE.BufferGeometry {
+  const geo = new T.CylinderGeometry(r1, r0, len, sides, 2, true);
   geo.rotateZ(-Math.PI / 2);
   geo.translate(len / 2, 0, 0);
   const pos = geo.getAttribute("position");
@@ -473,8 +475,8 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   const thenar = mesh(knob(T, 0.013), skin, handR, thumbBase.x + 0.004, thumbBase.y - 0.004, thumbBase.z + 0.008);
   thenar.scale.set(1.25, 0.95, 1.6);
   // comprimento 1 ao longo de +z (o `bone` estica só em z): o arco tem de ser absoluto (~1,5 mm), não 5 % de 1 m
-  const thumbGeo = (r0: number, r1: number) => {
-    const geo = phalanx(T, 1, r0, r1, 0.0015);
+  const thumbGeo = (r0: number, r1: number, sides = 6) => {
+    const geo = phalanx(T, 1, r0, r1, 0.0015, sides);
     geo.rotateY(-Math.PI / 2);
     return geo;
   };
@@ -577,11 +579,14 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   lThumb.add(lThumbTip);
   const lMeta = mesh(thumbGeo(0.0118, 0.0098), skin, handL);
   const lMcp = mesh(knob(T, 0.0099), skin, handL);
-  const lProx = mesh(thumbGeo(0.0095, 0.0086), skin, handL);
-  const lDist = mesh(thumbGeo(0.0086, 0.0072), skin, handL);
-  const lJoint = mesh(knob(T, 0.0089), skin, handL);
-  const lTip = mesh(knob(T, LTHUMB.tip), skin, handL);
-  const lNail = mesh(new T.BoxGeometry(0.0102, 0.0016, 0.0105), nail, handL);
+  // polegar afilado (8 lados: não lê como cunha de perto), ponta mais fina e unha pequena e curva
+  const lProx = mesh(thumbGeo(0.0092, 0.0082, 8), skin, handL);
+  const lDist = mesh(thumbGeo(0.008, 0.0062, 8), skin, handL);
+  const lJoint = mesh(knob(T, 0.0085), skin, handL);
+  const lTip = mesh(new T.SphereGeometry(LTHUMB.tip, 7, 4), skin, handL);
+  const nailGeo = new T.SphereGeometry(1, 6, 2, 0, Math.PI * 2, 0, Math.PI / 2);
+  nailGeo.scale(0.0037, 0.0011, 0.0047);
+  const lNail = mesh(nailGeo, nail, handL);
   counting = null;
   const LEFT_BENDS = [0.6, 0.9, 0.7] as const;
   /**
@@ -589,16 +594,20 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
    * ponta volta sobre a frente (o mindinho, mais embaixo, fecha um pouco mais).
    */
   const GRIP_BENDS = [
-    [0.12, 1.5, 0.95],
-    [0.1, 1.48, 0.95],
-    [0.14, 1.5, 1.0],
-    [0.3, 1.45, 1.0],
+    [0.06, 1.42, 0.6],
+    [0.05, 1.42, 0.6],
+    [0.08, 1.45, 0.62],
+    [0.2, 1.45, 0.66],
   ] as const;
+  /** Segurando, os dedos afinam um pouco (a pegada lia como um bloco de pele). */
+  const GRIP_THIN = 0.84;
   let gripMix = 0;
   const curlLeft = (k: number, thumb: number) => {
     for (let c = 0; c < leftChains.length; c++) {
       const chain = leftChains[c];
       for (let i = 0; i < chain.length; i++) chain[i].rotation.x = -(k * LEFT_BENDS[i] * (1 - gripMix) + GRIP_BENDS[c][i] * gripMix);
+      const thin = 1 + (GRIP_THIN - 1) * gripMix;
+      chain[0].scale.set(thin, thin, 1);
     }
     lThumb.rotation.x = -k * 0.4 + thumb * 0.55;
     lThumb.rotation.z = -thumb * 0.25;
@@ -610,7 +619,10 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   const phoneMount = new T.Group();
   phoneMount.name = "celular-na-mao";
   phoneMount.position.set(GRIP.x, GRIP.y, GRIP.z);
-  phoneMount.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(new T.Vector3(0, 0, -1), new T.Vector3(1, 0, 0), new T.Vector3(0, -1, 0)));
+  phoneMount.quaternion
+    .setFromRotationMatrix(new T.Matrix4().makeBasis(new T.Vector3(0, 0, -1), new T.Vector3(1, 0, 0), new T.Vector3(0, -1, 0)))
+    // na diagonal da palma (o pé do aparelho vai para o lado do pulso): a palma fica atrás dele, não sobra ao lado
+    .multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 0, 1), GRIP_TWIST));
   // a mão inteira está em escala HAND_SCALE: o aparelho volta ao tamanho real
   phoneMount.scale.setScalar(1 / HAND_SCALE);
   phoneMount.visible = false;
@@ -619,6 +631,8 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   const holdQuat = new T.Quaternion();
   /** Do olho para a tela segurada: abrindo e fechando, a mão recua por aqui (a tampa gira na direção do olho). */
   const holdDir = new T.Vector3(0, 0, -1);
+  /** Centro da tela segurada, na câmera (estúdio da pegada gira em volta dele). */
+  const holdS = new T.Vector3();
   const cornerBuf = [0, 1, 2, 3].map(() => new T.Vector3());
   let fitKey = "";
   /** Fração da altura do quadro que a tela ocupa (sobe em janela baixa: o LCD não cai abaixo de ~200 px). */
@@ -645,6 +659,7 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     const d = PHONE.screen.h / (2 * tanH * phoneFrac);
     const S = new T.Vector3(HOLD.x * tanH * aspect * d, HOLD.y * tanH * d, -d);
     holdDir.copy(S).normalize();
+    holdS.copy(S);
     // moldura da tela no aparelho, com a tampa aberta
     const lidNow = phoneModel.lid.rotation.x;
     phoneModel.setLid(1);
@@ -719,6 +734,7 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   const tmp = new T.Vector3();
   const tmp2 = new T.Vector3();
   const nailBasis = new T.Matrix4();
+  const restBuf = new T.Vector3();
   /** IK de dois ossos (base → junta → ponta) com a junta dobrando para o lado de `hint`. */
   const solveThumb = (tip: THREE.Vector3, hint: THREE.Vector3) => {
     const a = LTHUMB.proximal;
@@ -747,7 +763,7 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     if (ph.flick > 0) {
       const edge = m.lidEdge(out).add(tmp2.set(-0.004, -0.005, 0.002));
       const k = smoothStep((ph.flick - 0.3) / 0.6);
-      return k > 0 ? edge.lerp(rest(tmp2.clone()), k) : edge;
+      return k > 0 ? edge.lerp(rest(restBuf), k) : edge;
     }
     if (ph.lid < 1) return rest(out);
     const aim = (ph.aim || "") as PhoneKey | "";
@@ -800,7 +816,7 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     const y = tmp2.copy(ikHint.lengthSq() > 0 ? ikHint : fkHint).addScaledVector(z, -(ikHint.lengthSq() > 0 ? ikHint : fkHint).dot(z)).normalize();
     const x = keyN.crossVectors(y, z).normalize();
     lNail.quaternion.setFromRotationMatrix(nailBasis.makeBasis(x, y, z));
-    lNail.position.copy(tipNow).addScaledVector(y, LTHUMB.tip * 0.86).addScaledVector(z, -0.0015);
+    lNail.position.copy(tipNow).addScaledVector(y, LTHUMB.tip * 0.8).addScaledVector(z, -0.0012);
   };
 
   /* ------------------------------------------------ corpo de sombra */
@@ -843,6 +859,8 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   /** Estúdio do celular sozinho: três quartos de frente, de trás, de lado, a dobradiça de cima. */
   const PHONE_STUDIO: Record<StudioView["angle"], [number, number]> = { front: [-0.2, 0.38], back: [-0.15, Math.PI + 0.4], left: [-0.1, Math.PI / 2 - 0.25], right: [-0.1, -Math.PI / 2 + 0.25], top: [0.9, 0.3] };
   const qBase = new T.Quaternion();
+  const qStudio = new T.Quaternion();
+  const STUDIO_GRIP: Record<StudioView["angle"], [number, number]> = { front: [0, 0], left: [0, 0.75], right: [0, -0.75], back: [0.1, Math.PI - 0.5], top: [0.8, 0.2] };
   const eul = new T.Euler();
   const lensOn = protoColor(T, 0xfff4dc);
   const lensOff = protoColor(T, 0x4a4740);
@@ -883,7 +901,15 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     }
     placeLeftThumb(pose, raise, dt);
     if (studio) {
-      if (studio.hand === "phone") {
+      if (studio.hand === "grip") {
+        // a mão esquerda segurando o celular, com a pose de segurar de verdade, girada em volta da tela
+        const [rx, ry] = STUDIO_GRIP[studio.angle];
+        qStudio.setFromEuler(eul.set(rx, ry, 0, "YXZ"));
+        left.quaternion.copy(qStudio).multiply(holdQuat);
+        left.position.copy(holdPos).sub(holdS).applyQuaternion(qStudio).add(tmp.set(0.01, 0.01, -0.36));
+        left.visible = true;
+        right.visible = false;
+      } else if (studio.hand === "phone") {
         const m = ensurePhone();
         if (m.root.parent !== camera) camera.add(m.root);
         const [rx, ry] = PHONE_STUDIO[studio.angle];

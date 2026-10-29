@@ -188,9 +188,9 @@ describe("mãos · celular real (T11)", () => {
         ph.model.root.updateWorldMatrix(true, false);
         const world = top.applyMatrix4(ph.model.root.matrixWorld);
         // a ponta é uma esfera de 7,4 mm (× escala da mão): a distância do centro ao tampo, menos o raio
-        best = Math.min(best, ph.thumbTip.distanceTo(world) - 0.0074 * 1.12 * 0.92);
+        best = Math.min(best, ph.thumbTip.distanceTo(world) - 0.0062 * 1.12 * 0.92);
         expect(ph.thumbBones.proximal).toBeCloseTo(0.028, 4);
-        expect(ph.thumbBones.distal).toBeCloseTo(0.024, 4);
+        expect(ph.thumbBones.distal).toBeCloseTo(0.021, 4);
       }
       expect(best, key).toBeLessThan(0.0015);
       hands.debug.step(1.5, {});
