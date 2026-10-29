@@ -50,6 +50,9 @@ export type Session = {
   phoneNav(a: PhoneAction): void;
   /** Celular: fechar pelo botão da casca. */
   closePhone(): void;
+  /** Toque: abre o celular / a lista de lugares pelos botões da casca (só andando, sem painel). */
+  openPhone(): void;
+  openPlaces(): void;
   /**
    * O leitor não pôde abrir (o chunk não chegou): desempilha sem tentar travar o mouse (não há gesto aqui; um clique
    * na cena trava de novo, como sempre).
@@ -416,6 +419,12 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     phoneNav(a) {
       // Tecla ou clique na casca: é gesto, o mouse pode travar de novo se o celular fechou e a pilha esvaziou.
       if (phone.nav(a).emptied) input?.panelClosed();
+    },
+    openPhone() {
+      if (mode() === "walk") phone.open();
+    },
+    openPlaces() {
+      if (mode() === "walk") panels.openPlaces();
     },
     closePhone() {
       if (phone.close().emptied) input?.panelClosed();

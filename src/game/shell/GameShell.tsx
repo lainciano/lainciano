@@ -292,6 +292,23 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
           </ul>
         </nav>
       )}
+      {coarse && status === "live" && !examine && !reader && !phone && !places && (
+        <div data-game-touch-tools>
+          <button type="button" className="focus-ring" aria-label={labels.phone.places} onClick={() => sessionRef.current?.openPlaces()}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 21s-6-5.6-6-10.2A6 6 0 0 1 18 10.8C18 15.4 12 21 12 21z" />
+              <circle cx="12" cy="10.5" r="2.2" />
+            </svg>
+          </button>
+          <button type="button" className="focus-ring" aria-label={labels.phone.open} onClick={() => sessionRef.current?.openPhone()}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="7" y="2.5" width="10" height="19" rx="1.5" />
+              <rect x="9" y="5" width="6" height="6" />
+              <path d="M9 14h6M9 17h6" />
+            </svg>
+          </button>
+        </div>
+      )}
       {status === "live" && !examine && !reader && !phone && <div data-game-reticle data-state={reticle} aria-hidden="true" />}
       <Prompt text={prompt?.text ?? null} keyLabel={prompt?.key === "hold" ? (coarse ? labels.holdKeyTouch : labels.holdKey) : "E"} progress={prompt?.progress ?? null} />
       <Subtitles line={line} seq={lineSeq} reduced={reduced} notice={paused ? labels.paused : null} />

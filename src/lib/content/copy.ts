@@ -387,6 +387,9 @@ export const game = {
   /** Celular de 2005 (T11): menu do LCD (minúsculas, como no aparelho), ajustes e teclas de função. */
   phone: {
     name: "celular",
+    /** Toque (T11): botões discretos que abrem o celular e a lista de lugares (no teclado: Tab e L). */
+    open: "abrir o celular",
+    places: "abrir os lugares",
     network: "rede",
     menu: "menu",
     mensagens: "mensagens",

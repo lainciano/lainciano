@@ -894,3 +894,34 @@
     animation: none;
   }
 }
+
+/* Toque (T11): dois botões discretos no pé da tela, só em ponteiro grosso (no teclado: L e Tab). */
+[data-game-touch-tools] {
+  position: absolute;
+  inset: auto var(--space-sm) var(--space-sm);
+  z-index: var(--z-game-ui);
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+[data-game-touch-tools] button {
+  display: grid;
+  place-items: center;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  padding: 0;
+  border: var(--frame-w) solid var(--linha);
+  background: color-mix(in srgb, var(--poco) 70%, transparent);
+  color: var(--osso);
+  opacity: 0.72;
+  pointer-events: auto;
+}
+
+[data-game-touch-tools] svg {
+  width: 60%;
+  height: 60%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}

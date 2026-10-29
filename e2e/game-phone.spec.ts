@@ -24,7 +24,6 @@ type CriptaWindow = Window & {
 };
 
 test.describe.configure({ timeout: 150_000 });
-test.skip(({ isMobile }) => isMobile, "celular com teclado e mouse: desktop");
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/run", (route) =>
@@ -64,11 +63,16 @@ async function openPhone(page: Page) {
   await expect(lcd(page)).toBeVisible({ timeout: 30_000 });
 }
 
-/** Desce até a linha `id` (pelas setas) e aperta Enter. */
+/**
+ * Desce até a linha `id` (pelas setas) e aperta Enter. O LCD responde quando a tecla chega ao fundo (~0,1–0,2 s):
+ * cada seta espera o item marcado mudar antes da próxima.
+ */
 async function choose(page: Page, id: string) {
   for (let i = 0; i < 12; i++) {
-    if ((await selected(page).getAttribute("data-row-id")) === id) break;
+    const now = await selected(page).getAttribute("data-row-id");
+    if (now === id) break;
     await page.keyboard.press("ArrowDown");
+    await expect(selected(page)).not.toHaveAttribute("data-row-id", now ?? "", { timeout: 10_000 });
   }
   await expect(selected(page)).toHaveAttribute("data-row-id", id);
   await page.keyboard.press("Enter");
@@ -98,6 +102,7 @@ async function fakePointerLock(page: Page) {
 const lock = (page: Page) => page.evaluate(() => ({ ...(window as unknown as CriptaWindow).__lock!, locked: !!document.pointerLockElement }));
 
 test.describe("celular de 2005", () => {
+  test.skip(({ isMobile }) => isMobile, "celular com teclado e mouse: desktop");
   test("Tab abre (modal, lanterna guardada, LCD sobre a tela do aparelho); setas e Enter navegam; FOV 70 muda a câmera e fica depois de recarregar; sair do jogo fecha", async ({ page }, testInfo) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
@@ -269,5 +274,112 @@ test.describe("celular de 2005", () => {
     expect(new Set(seen.slice(10).map((x) => x.geometries)).size, "geometrias nos últimos 10 ciclos").toBe(1);
     expect(seen[19].geometries - seen[0].geometries, "geometrias de mão vistas pela 1ª vez").toBeLessThanOrEqual(6);
     expect((await interact(page))?.panels).toBe(0);
+  });
+
+  test("o chunk do leitor não chega: o painel fecha (pilha vazia, andando), a dica aparece e o mouse não é pedido fora do gesto", async ({ page }, testInfo) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await fakePointerLock(page);
+    // derruba só o chunk do leitor (o que tem o diálogo do papel); o resto do jogo carrega
+    await page.route("**/_next/static/chunks/*.js", async (route) => {
+      const res = await route.fetch();
+      const body = await res.text();
+      if (body.includes("data-reader-paper") && !body.includes("data-game-shell")) return route.abort();
+      return route.fulfill({ response: res, body });
+    });
+    await lightGame(page, testInfo, { place: "mesa" });
+    await openGame(page);
+    await page.mouse.click(400, 250);
+    await expect.poll(() => lock(page)).toMatchObject({ requests: 1, locked: true });
+    expect(await page.evaluate(() => (window as unknown as { __cripta: { aimAt(id: string): boolean } }).__cripta.aimAt("bilhete"))).toBe(true);
+    await expect(page.locator("[data-game-prompt]")).toContainText("ler o bilhete", { timeout: 30_000 });
+    await page.keyboard.press("KeyE");
+    await expect(page.locator("[data-game-subtitles]")).toContainText("o papel não abriu", { timeout: 20_000 });
+    const s = await interact(page);
+    expect(s).toMatchObject({ mode: "walk", panels: 0, reader: { open: false } });
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    // o leitor soltou o mouse ao abrir; fechar sem gesto não pede o travamento (um clique na cena trava de novo)
+    expect(await lock(page)).toMatchObject({ requests: 1, locked: false });
+    await page.mouse.click(400, 250);
+    await expect.poll(() => lock(page)).toMatchObject({ requests: 2, locked: true });
+    expect(errors).toEqual([]);
+  });
+
+  test("@slow celular em movimento: preso à câmera, não nada nem cintila (dois quadros com a câmera deslocada)", async ({ page }, testInfo) => {
+    await lightGame(page, testInfo, { place: "mesa" });
+    await openGame(page);
+    await page.evaluate(() => (window as unknown as { __cripta: { handsDebug(o: { still: boolean }): void } }).__cripta.handsDebug({ still: true }));
+    await openPhone(page);
+    const rect = (await interact(page))!.phone.rect!;
+    // a moldura da tampa em volta do LCD (o LCD é DOM e ficaria igual de qualquer jeito: esconde para medir a tampa)
+    await page.addStyleTag({ content: "[data-phone-lcd] { visibility: hidden !important; }" });
+    const region = [Math.round(rect.x - rect.w * 0.75), Math.round(rect.y - rect.h * 0.62), Math.round(rect.w * 1.5), Math.round(rect.h * 1.2)];
+    const shot = async (pose: { x: number; y: number; z: number; yaw: number; pitch: number }) => {
+      await page.evaluate((p) => (window as unknown as { __cripta: { setCamera(p: unknown): void } }).__cripta.setCamera(p), pose);
+      const f0 = (await w(page))!.renderer.frames;
+      await expect.poll(async () => (await w(page))!.renderer.frames).toBeGreaterThan(f0 + 2);
+      return page.screenshot();
+    };
+    const cam = (await w(page)) as unknown as { camera: { position: [number, number, number]; rotation: [number, number, number] } };
+    const [x, y, z] = cam.camera.position;
+    const [pitch, yaw] = cam.camera.rotation;
+    const a = await shot({ x, y, z, yaw, pitch });
+    const b = await shot({ x: x + 0.05, y, z: z + 0.03, yaw: yaw + 0.02, pitch });
+    const diff = await page.evaluate(
+      async ({ a, b, region }) => {
+        const pixels = async (b64: string) => {
+          const img = new Image();
+          img.src = `data:image/png;base64,${b64}`;
+          await img.decode();
+          const c = document.createElement("canvas");
+          c.width = img.width;
+          c.height = img.height;
+          const g = c.getContext("2d")!;
+          g.drawImage(img, 0, 0);
+          const [rx, ry, rw, rh] = region;
+          return g.getImageData(rx, ry, rw, rh).data;
+        };
+        const [pa, pb] = await Promise.all([pixels(a), pixels(b)]);
+        let sum = 0;
+        for (let i = 0; i < pa.length; i += 4) sum += (Math.abs(pa[i] - pb[i]) + Math.abs(pa[i + 1] - pb[i + 1]) + Math.abs(pa[i + 2] - pb[i + 2])) / 3;
+        return sum / (pa.length / 4);
+      },
+      { a: a.toString("base64"), b: b.toString("base64"), region },
+    );
+    testInfo.annotations.push({ type: "diferença média na moldura da tampa", description: diff.toFixed(2) });
+    // a sala atrás aparece pelos cantos da região; o aparelho em si não muda (diferença média baixa)
+    expect(diff).toBeLessThan(6);
+  });
+});
+
+test.describe("celular por toque (mobile)", () => {
+  test.skip(({ isMobile }) => !isMobile, "só no projeto mobile (ponteiro grosso)");
+  test.describe.configure({ timeout: 180_000 });
+
+  test("botões de toque: o celular abre, navega por toque, abre o arquivo e fecha; os lugares abrem e levam até o lugar", async ({ page }, testInfo) => {
+    await lightGame(page, testInfo, { place: "entrada", flags: { "lido:bilhete": true } });
+    await openGame(page);
+    await page.getByRole("button", { name: "abrir o celular" }).tap();
+    await expect(lcd(page)).toBeVisible({ timeout: 40_000 });
+    await page.locator('[data-row-id="arquivo"]').tap();
+    await expect(page.locator("[data-lcd-title]")).toHaveText("arquivo", { timeout: 10_000 });
+    await page.locator('[data-row-id="doc:bilhete"]').tap();
+    const reader = page.getByRole("dialog", { name: "bilhete" });
+    await expect(reader).toBeVisible({ timeout: 20_000 });
+    await expect(reader).toHaveAttribute("data-variant", "phone");
+    await page.locator("[data-reader-close]").tap();
+    await expect(reader).toHaveCount(0);
+    await expect(page.locator("[data-lcd-title]")).toHaveText("arquivo");
+    await page.locator("[data-lcd-soft] button").last().tap();
+    await expect(page.locator("[data-lcd-title]")).toHaveText("menu", { timeout: 10_000 });
+    await page.locator("[data-lcd-soft] button").last().tap();
+    await expect(phoneDialog(page)).toHaveCount(0);
+    expect((await interact(page))?.mode).toBe("walk");
+
+    await page.getByRole("button", { name: "abrir os lugares" }).tap();
+    const places = page.getByRole("navigation", { name: "Lugares" });
+    await expect(places).toBeVisible();
+    await places.getByRole("button", { name: /mesa/ }).tap();
+    await expect.poll(async () => (await w(page))?.place, { timeout: 40_000 }).toBe("mesa");
   });
 });
