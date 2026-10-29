@@ -14,7 +14,16 @@ export type { LayerId };
 export type SavePatch = Partial<SaveV1>;
 
 /** Fala/legenda. A T10 reexporta este tipo de `shell/subtitles.ts`. */
-export type Line = { text: string; label?: string; kind?: "speech" | "sound" | "system" };
+export type Line = {
+  text: string;
+  label?: string;
+  kind?: "speech" | "sound" | "system";
+  /**
+   * Pista da escada (T12): fala como as outras (faixa, serifa), mas com prioridade menor que a da história (nunca a
+   * corta; espera na fila curta, ver `shell/lineQueue.ts`) e maior que a dos avisos de sistema.
+   */
+  hint?: boolean;
+};
 
 /**
  * Documento lido em dois níveis (T10, bíblia 12b): o nível 1 é a imagem do papel pintada em código (letra à mão,
@@ -105,6 +114,21 @@ export type InteractiveObject = {
   act(api: ActApi): void;
 };
 
+/**
+ * Puzzle da camada visto pela sessão (T12, emenda aditiva): o que a escada de pistas precisa. O redutor e o estado
+ * são da camada (`puzzles/types.ts`, `save.puzzles[id]`); a sessão só corre o relógio e fala as pistas.
+ */
+export type LayerPuzzle = {
+  hints: readonly string[];
+  /** Pistas já dadas, segundo o save (recarregar não repete). */
+  given(state: SaveV1): number;
+  /** Passos dados no puzzle: quando muda, o relógio da escada zera. */
+  steps(state: SaveV1): number;
+  solved(state: SaveV1): boolean;
+  /** A escada soltou mais uma pista: a camada grava (e a 3ª libera a saída). */
+  hint(): void;
+};
+
 /** Item que o celular mostra (T11): nome e descrição curta. */
 export type ItemInfo = { name: string; desc: string };
 
@@ -117,6 +141,8 @@ export type LayerInstance = {
   catalog?: { docs?: Doc[]; items?: Record<string, ItemInfo> };
   colliders: Box2[];
   surfaces: SurfaceZone[];
+  /** Puzzle da camada para a escada de pistas (T12). Opcional: camada sem puzzle não tem pistas. */
+  puzzle?: LayerPuzzle;
   objects: InteractiveObject[];
   /** Aplica o estado salvo (portas abertas, itens pegos). */
   enter(save: SaveV1): void;
