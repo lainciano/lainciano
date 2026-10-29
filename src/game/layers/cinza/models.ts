@@ -370,24 +370,25 @@ export function buildDoor(m: Maker): THREE.Group {
   const trimX = half - JAMB + TRIM / 2;
   for (const s of [1, -1]) m.box(TRIM, DOOR.top - JAMB, TRIM_T, faces(frame, {}), root, s * trimX, (DOOR.top - JAMB) / 2, TRIM_T / 2, { chamfer: 0.005, uv: jambUv });
   m.box(2 * (half - JAMB + TRIM), TRIM, TRIM_T, frame, root, 0, DOOR.top - JAMB + TRIM / 2, TRIM_T / 2, { chamfer: 0.005, uv: jambUv });
-  // batente de encosto (onde a folha bate), atrás da folha
+  // batente de encosto (onde a folha bate), do lado da sala: a porta abre para FORA (para o corredor, longe de quem
+  // a abre; T12), então o encosto fica na frente da folha, com 1 mm de folga (nada coplanar)
   const leafBack = -0.04 - 0.035;
-  for (const s of [1, -1]) m.box(0.012, DOOR.top - SILL - JAMB, 0.02, frame, root, s * (half - JAMB - 0.006), SILL + (DOOR.top - SILL - JAMB) / 2, leafBack - 0.01, { cast: false });
+  for (const s of [1, -1]) m.box(0.012, DOOR.top - SILL - JAMB, 0.02, frame, root, s * (half - JAMB - 0.006), SILL + (DOOR.top - SILL - JAMB) / 2, -0.039 + 0.01, { cast: false });
 
   // folha: 3 mm de folga dos batentes e em cima, 8 mm embaixo (o fio de luz)
   const LW = DOOR_LEAF.w;
   const LH = DOOR_LEAF.h;
   const LT = 0.035;
-  // dobradiça (T12): pivô na borda esquerda, na face de dentro da folha (abre para a sala, girando em −y; o batente
-  // de encosto fica atrás). A folha continua com o centro como origem, como antes.
+  // dobradiça (T12): pivô na borda esquerda, na face de FORA da folha (abre para o corredor, girando em +y, longe de
+  // quem a abre: a folha nunca entra na sala nem passa pela mão). A folha continua com o centro como origem.
   const leafY0 = SILL + 0.008;
   const hinge = new T.Group();
   hinge.name = DOOR_HINGE;
-  hinge.position.set(-LW / 2, leafY0, -0.04);
+  hinge.position.set(-LW / 2, leafY0, -0.04 - LT);
   root.add(hinge);
   const leaf = new T.Group();
   leaf.name = "porta-folha";
-  leaf.position.set(LW / 2, 0, -LT / 2);
+  leaf.position.set(LW / 2, 0, LT / 2);
   hinge.add(leaf);
   /** Peça da folha com a pintura em metros da folha (a textura continua de uma peça para a outra). */
   const paint = kit.phong({ map: paintTex, shininess: 34, specular: 0x101412 });
@@ -428,18 +429,21 @@ export function buildDoor(m: Maker): THREE.Group {
 
   // fio de luz fria por baixo da folha: um plano emissivo atrás dela, visível só pela fresta
   m.mesh(new T.PlaneGeometry(LW, 0.02), leak, root, 0, SILL + 0.009, leafBack - 0.002, { cast: false, recv: false, name: DOOR_LEAK });
-  // do outro lado (T12): um vão escuro e frio, visto quando a porta abre (a 1B põe o corredor de verdade aqui). Caixa
-  // vista por dentro, sem luz, fora das sombras; o fundo um pouco mais claro dá profundidade em vez de um buraco liso.
+  // do outro lado (T12): um corredor curto, escuro e frio, visto quando a porta abre (a 1B põe o corredor de verdade).
+  // Paredes foscas quase pretas (a cor do kit é linear: 0x1a1d21 aparece como um cinza-azulado bem escuro): sem luz
+  // própria somem no breu, e a lanterna ou a lâmpada pela porta as revelam (profundidade, não um painel chapado). No
+  // fundo, à direita, a fresta de uma porta distante com o mesmo frio do fio de luz de antes.
   const beyond = new T.Group();
   beyond.name = "porta-alem";
   beyond.visible = false;
   root.add(beyond);
-  const BW = DOOR.x1 - DOOR.x0 + 0.5;
-  const BH = DOOR.top + 0.3;
-  const BD = 1.8;
-  const dark = kit.basic({ color: 0x0b1014, side: T.BackSide });
-  m.mesh(new T.BoxGeometry(BW, BH, BD), dark, beyond, 0, BH / 2 - 0.01, -DEPTH - BD / 2, { cast: false, recv: false });
-  m.mesh(new T.PlaneGeometry(BW * 0.6, BH * 0.55), kit.basic({ color: 0x1a252d }), beyond, 0.12, BH * 0.36, -DEPTH - BD + 0.01, { cast: false, recv: false });
+  const BW = 1.3;
+  const BH = 2.4;
+  const BD = 2.4;
+  const hall = kit.phong({ color: 0x1a1d21, specular: 0x000000, shininess: 2, side: T.BackSide });
+  m.mesh(new T.BoxGeometry(BW, BH, BD, 2, 2, 4), hall, beyond, 0.12, BH / 2 - 0.005, -DEPTH - BD / 2, { cast: false, recv: false });
+  const crack = kit.basic({ color: 0x04080b });
+  m.mesh(new T.PlaneGeometry(0.02, 1.9), crack, beyond, 0.12 + BW / 2 - 0.25, 0.97, -DEPTH - BD + 0.01, { cast: false, recv: false });
   return root;
 }
 

@@ -6,7 +6,6 @@ import { cinzaWorld } from "../../interaction/testWorld";
 import type { ActApi, Doc } from "../types";
 import { moveWithCollision, segmentClear } from "../../world/collision";
 import { pathBetween } from "../../world/places";
-import { openLeafColliders } from "./index";
 import { DOOR_HINGE } from "./models";
 import { DOOR_FLAG, PLAYER_RADIUS } from "./places";
 import { CINZA_LINES, KEY_ITEM, readCinza } from "./puzzle";
@@ -93,9 +92,10 @@ describe("sala cinza · objetos interativos", () => {
     expect(save.get().flags[DOOR_FLAG]).toBe(true);
     expect(save.get().items).toEqual([]);
     expect(layer.puzzle?.solved(save.get())).toBe(true);
-    expect(layer.colliders.length).toBe(colliders + 3);
+    // abre para fora: nenhuma colisão nova (a folha não entra na sala)
+    expect(layer.colliders.length).toBe(colliders);
     for (let i = 0; i < 50; i++) layer.update(0.05, i * 0.05);
-    expect(hinge.rotation.y).toBeCloseTo(-1.45, 3);
+    expect(hinge.rotation.y).toBeCloseTo(1.45, 3);
     expect(scene.getObjectByName("porta-alem")?.visible).toBe(true);
   });
 
@@ -111,38 +111,38 @@ describe("sala cinza · objetos interativos", () => {
 
   it("entrar com a porta aberta no save: já aberta (sem animar), com a colisão da folha", async () => {
     const { layer, scene } = await cinzaWorld({ puzzles: { cinza: { doorOpen: true, keyTaken: true, noteRead: true } } });
-    expect(scene.getObjectByName(DOOR_HINGE)?.rotation.y).toBeCloseTo(-1.45, 5);
-    expect(layer.colliders).toEqual(expect.arrayContaining(openLeafColliders(1.45)));
+    expect(scene.getObjectByName(DOOR_HINGE)?.rotation.y).toBeCloseTo(1.45, 5);
+    expect(layer.colliders.length).toBeGreaterThan(0);
     // um save antigo só com a flag da porta também abre (e o puzzle lê aberta)
     const flagOnly = await cinzaWorld({ flags: { [DOOR_FLAG]: true } });
-    expect(flagOnly.scene.getObjectByName(DOOR_HINGE)?.rotation.y).toBeCloseTo(-1.45, 5);
+    expect(flagOnly.scene.getObjectByName(DOOR_HINGE)?.rotation.y).toBeCloseTo(1.45, 5);
     expect(readCinza(flagOnly.save.get()).doorOpen).toBe(true);
   });
 
-  for (const [name, cinza, angle] of [
-    ["normal", { doorOpen: true, keyTaken: true, noteRead: true }, 1.45],
-    ["forçada", { doorOpen: true, forced: true, hints: 3 }, 1.2],
+  for (const [name, cinza] of [
+    ["normal", { doorOpen: true, keyTaken: true, noteRead: true }],
+    ["forçada", { doorOpen: true, forced: true, hints: 3 }],
   ] as const) {
-    it(`porta aberta (${name}): todo lugar é livre e toda aresta andável com as colisões vivas; o jogador não atravessa a folha`, async () => {
-      const { layer } = await cinzaWorld({ puzzles: { cinza } });
+    it(`porta aberta (${name}): a folha fica toda do outro lado da parede (nunca na sala, nunca na mão); lugares e arestas livres com as colisões vivas`, async () => {
+      const { layer, scene } = await cinzaWorld({ puzzles: { cinza } });
+      scene.updateMatrixWorld(true);
+      const leaf = new THREE.Box3().setFromObject(scene.getObjectByName("porta-folha")!);
+      expect(leaf.max.z, "a folha não passa da parede norte").toBeLessThan(-2);
+      // fechada, a folha fica no vão (as fotos de referência não mudam): mesma caixa de antes
+      const closed = await cinzaWorld();
+      closed.scene.updateMatrixWorld(true);
+      const shut = new THREE.Box3().setFromObject(closed.scene.getObjectByName("porta-folha")!);
+      expect(shut.min.x).toBeCloseTo(0.405, 2);
+      expect(shut.max.z).toBeLessThan(-1.99);
       const NO_BOUNDS = { minX: -Infinity, maxX: Infinity, minZ: -Infinity, maxZ: Infinity };
       const { places, edges } = layer.places;
       for (const p of Object.values(places)) expect(segmentClear(p, p, PLAYER_RADIUS, layer.colliders, NO_BOUNDS), `${p.id} livre`).toBe(true);
       for (const [a, list] of Object.entries(edges)) for (const b of list) expect(segmentClear(places[a], places[b], PLAYER_RADIUS, layer.colliders, NO_BOUNDS), `${a}–${b}`).toBe(true);
       const ids = Object.keys(places);
       for (const a of ids) for (const b of ids) expect(pathBetween(layer.places, a, b, () => true), `${a} → ${b}`).not.toBeNull();
-      // atravessar a folha pelo meio, de leste para oeste: para do lado de cá
-      const hx = 0.413;
-      const hz = -2.04;
-      const mid = { x: hx + 0.377 * Math.cos(angle), z: hz + 0.377 * Math.sin(angle) };
-      const from = { x: mid.x + 0.4, z: mid.z };
-      const to = moveWithCollision(from, { x: -0.9, z: 0 }, PLAYER_RADIUS, layer.colliders, NO_BOUNDS);
-      expect(to.x, "não passa da folha").toBeGreaterThan(mid.x);
-      // as caixas seguem a folha: nenhuma cobre o triângulo vazio entre a diagonal e o batente
-      // (ponto a 12 cm da folha, do lado do batente, a 60% do comprimento: dentro da caixa única de antes)
-      const L = 0.754;
-      const empty = { x: hx + 0.6 * L * Math.cos(angle) + 0.12 * Math.sin(angle), z: hz + 0.6 * L * Math.sin(angle) - 0.12 * Math.cos(angle) };
-      expect(segmentClear(empty, empty, 0.03, openLeafColliders(angle), NO_BOUNDS), "canto vazio fora da colisão").toBe(true);
+      // e ninguém atravessa o vão: a parede norte segue fechando a passagem (a 1B abre o corredor)
+      const from = { x: 0.79, z: -1.1 };
+      expect(moveWithCollision(from, { x: 0, z: -1.5 }, PLAYER_RADIUS, layer.colliders, NO_BOUNDS).z).toBeGreaterThan(-2 + PLAYER_RADIUS - 0.01);
     });
   }
 

@@ -2,7 +2,7 @@ import type * as THREE from "three";
 import type { Box2 } from "../../world/collision";
 import type { ActApi, Doc, InteractiveObject, Layer, LayerInstance, LayerPuzzle } from "../types";
 import { createMaker, DOOR_HINGE, DOOR_LEAK } from "./models";
-import { CINZA_GRAPH, DOOR, DOOR_FLAG, DOOR_LEAF, FURNITURE_COLLIDERS, RUG, WALL_COLLIDERS } from "./places";
+import { CINZA_GRAPH, DOOR_FLAG, FURNITURE_COLLIDERS, RUG, WALL_COLLIDERS } from "./places";
 import { cinzaPatch, cinzaPuzzle, cinzaSteps, doorHold, DOOR_TARGET, KEY_ITEM, readCinza, type CinzaAction } from "./puzzle";
 import { buildCinzaScene } from "./scene";
 
@@ -41,39 +41,15 @@ export const BILHETE: Doc = {
 /** A chave no celular (Itens). Rascunho. */
 const ITEMS = { [KEY_ITEM]: { name: "chave da porta", desc: "ferro escuro, comprida, o dente gasto. estava no fundo da prateleira de cima." } };
 
-/** Quanto a porta abre (rad, para dentro da sala) e em quanto tempo (s). Forçada, abre menos (torta). */
+/**
+ * Quanto a porta abre (rad, para FORA da sala, para o corredor) e em quanto tempo (s). Forçada, abre menos (torta).
+ * Abrindo para fora, a folha nunca entra na sala: não precisa de colisão (a parede norte já fecha o vão) e não passa
+ * pela mão nem pela lanterna de quem está no lugar da porta.
+ */
 const DOOR_SWING = 1.45;
 const DOOR_SWING_FORCED = 1.2;
 const DOOR_OPEN_SECONDS = 1.6;
 
-/** Espessura da folha (m), como em `buildDoor`. */
-const LEAF_T = 0.035;
-/** Pedaços de colisão ao longo da folha aberta (uma caixa só cobriria o triângulo vazio da diagonal). */
-const LEAF_PIECES = 3;
-
-/**
- * Colisão da folha aberta no chão: `LEAF_PIECES` caixas ao longo dela, da dobradiça à ponta, cada uma envolvendo as
- * duas faces daquele trecho (+1 cm). A folha gira em −y a partir da dobradiça (x0 + batente + folga, 4 cm para
- * dentro da parede) e a espessura fica do lado do batente de encosto.
- */
-export function openLeafColliders(angle: number): Box2[] {
-  const hx = DOOR.x0 + 0.033;
-  const hz = DOOR.wallZ - 0.04;
-  const c = Math.cos(angle);
-  const sn = Math.sin(angle);
-  // espessura: o vetor (0, 0, −t) girado junto com a folha
-  const tx = sn * LEAF_T;
-  const tz = -c * LEAF_T;
-  const out: Box2[] = [];
-  for (let i = 0; i < LEAF_PIECES; i++) {
-    const a = (i / LEAF_PIECES) * DOOR_LEAF.w;
-    const b = ((i + 1) / LEAF_PIECES) * DOOR_LEAF.w;
-    const xs = [hx + a * c, hx + b * c, hx + a * c + tx, hx + b * c + tx];
-    const zs = [hz + a * sn, hz + b * sn, hz + a * sn + tz, hz + b * sn + tz];
-    out.push({ minX: Math.min(...xs) - 0.01, maxX: Math.max(...xs) + 0.01, minZ: Math.max(DOOR.wallZ, Math.min(...zs) - 0.01), maxZ: Math.max(...zs) + 0.01 });
-  }
-  return out;
-}
 
 export const cinzaLayer: Layer = {
   id: "cinza",
@@ -100,7 +76,7 @@ export const cinzaLayer: Layer = {
 
     const speak = (api: Pick<ActApi, "say">, text: string) => api.say({ text, kind: "speech" });
 
-    // porta norte: a folha gira na dobradiça; aberta, ganha colisão e mostra o escuro do outro lado
+    // porta norte: a folha gira na dobradiça para o corredor e mostra o escuro do outro lado
     const hinge = built.door.getObjectByName(DOOR_HINGE);
     const leak = built.door.getObjectByName(DOOR_LEAK);
     const beyond = built.door.getObjectByName("porta-alem");
@@ -115,10 +91,9 @@ export const cinzaLayer: Layer = {
     const showDoorOpen = (forced: boolean, animate: boolean) => {
       if (doorShown) return;
       doorShown = true;
-      const to = -(forced ? DOOR_SWING_FORCED : DOOR_SWING);
+      const to = forced ? DOOR_SWING_FORCED : DOOR_SWING;
       beyond.visible = true;
       leak.visible = false;
-      colliders.push(...openLeafColliders(-to));
       if (animate && !prefersReducedMotion()) swing = { from: hinge.rotation.y, to, t: 0 };
       else {
         hinge.rotation.y = to;
