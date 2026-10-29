@@ -12,7 +12,7 @@ import type { PhoneKey } from "../player/phone";
 import { createSaveStore, type SaveApi } from "../save/store";
 import { debugEnabled, installDebug, layerShot, loadShot, standaloneShot } from "./debug";
 import { createEngine, type Engine } from "./engine";
-import { createHintDriver, hintGapFrom, type HintDriver } from "./hints";
+import { createHintDriver, hintClockRuns, hintGapFrom, type HintDriver } from "./hints";
 import { createPanels, type PanelsUi } from "./panels";
 import { createPhoneFlow, readFlag, type PhoneUi } from "./phone";
 import { createSettingsApplier } from "./settingsApply";
@@ -111,6 +111,8 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   let examine: Examine | null = null;
   /** Escada de pistas do puzzle da camada (T12): o relógio só corre andando, sem painel. */
   let hints: HintDriver | null = null;
+  /** "Pausado" (o mouse caiu pelo Esc): a escada não anda (a pista sairia invisível sob o aviso). */
+  let paused = false;
   let lastPrompt: PromptModel | null = null;
   let lost = false;
   let disposed = false;
@@ -307,7 +309,10 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     input = bindInput(host, onAction, {
       coarse,
       mode,
-      onPause: (on) => ui.paused(on),
+      onPause: (on) => {
+        paused = on;
+        ui.paused(on);
+      },
       onTap: (cx, cy, run) => {
         const p = ndc(cx, cy);
         player?.tap(p.x, p.y, run);
@@ -409,7 +414,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
         player?.update(dt);
         examine?.update(dt);
         interaction?.update(dt, t);
-        hints?.update(dt, mode() === "walk");
+        hints?.update(dt, hintClockRuns(mode(), paused));
         // rede de segurança: um passo da fila que fechou o celular (fora de gesto) ainda sincroniza a entrada
         if (phone.frame().emptied) input?.panelClosed();
       }),

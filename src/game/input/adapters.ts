@@ -117,11 +117,16 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
     if (held.interact) onAction({ type: "interact", down: false });
     held = { run: false, crouch: false, peek: 0, interact: false };
     cancelTouchHold();
+    pinch = null;
+    fingers.clear();
   };
 
   /* ------------------------------------------------ segurar por toque (declarado antes: releaseAll cancela) */
   type Down = { id: number; x: number; y: number; lx: number; ly: number; moved: boolean; touch: boolean; hold: boolean };
   let down: Down | null = null;
+  /** Dedos no palco durante o exame (pinça). */
+  const fingers = new Map<number, { x: number; y: number }>();
+  let pinch: { dist: number } | null = null;
   /** O segurar por toque cai: o resto do gesto (se o dedo continua) vira olhar. */
   function cancelTouchHold() {
     if (!down?.hold) return;
@@ -305,9 +310,6 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
 
   /* ------------------------------------------------ mouse e toque */
   let lastTap = { t: 0, x: 0, y: 0 };
-  /** Dedos no palco durante o exame (pinça). */
-  const fingers = new Map<number, { x: number; y: number }>();
-  let pinch: { dist: number } | null = null;
   const fingerDistance = () => {
     const [a, b] = [...fingers.values()];
     return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
@@ -323,8 +325,14 @@ export function bindInput(target: HTMLElement, onAction: (a: Action) => void, op
       return;
     }
     if (e.button !== 0) return;
+    if (touch && down && down.id !== e.pointerId && e.isPrimary !== false) {
+      // Dedo fantasma: um toque PRIMÁRIO novo com um `down` velho quer dizer que o fim do anterior se perdeu (o
+      // navegador engoliu o pointerup). O novo substitui o velho; o segurar velho cai.
+      cancelTouchHold();
+      down = null;
+    }
     if (touch && down && down.id !== e.pointerId) {
-      // 2º dedo: o segurar cai; no exame, começa a pinça (e o 1º dedo para de girar)
+      // 2º dedo de verdade: o segurar cai; no exame, começa a pinça (e o 1º dedo para de girar)
       cancelTouchHold();
       if (m === "examine") {
         fingers.set(down.id, { x: down.lx, y: down.ly });

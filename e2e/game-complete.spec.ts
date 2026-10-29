@@ -107,6 +107,15 @@ test.describe("desktop · só teclado", () => {
     await openGame(page);
     expect((await cripta(page))?.place).toBe("entrada");
 
+    // sem a chave e sem a 3ª pista, a porta não é de segurar: aviso "E" sem anel; E bate e diz "trancada."
+    await goPlace(page, "porta", /porta/);
+    await cycleTo(page, "abrir a porta");
+    await expect(prompt(page).locator("kbd")).toHaveText("E");
+    await expect(page.locator("[data-game-ring]")).toHaveCount(0);
+    await page.keyboard.press("KeyE");
+    await expect(line(page)).toContainText("trancada.", { timeout: 20_000 });
+    expect((await save(page))?.flags[DOOR_FLAG]).not.toBe(true);
+
     await goPlace(page, "mesa", /mesa/);
     await cycleTo(page, "ler o bilhete");
     await page.keyboard.press("KeyE");
@@ -163,6 +172,30 @@ test.describe("desktop · só teclado", () => {
     await page.keyboard.up("KeyE");
     expect((await save(page))?.puzzles.cinza).toMatchObject({ doorOpen: true, forced: true, keyTaken: false });
     await expect.poll(() => lines(page)).toContain("a fechadura estala e cede. a porta abre torta.");
+  });
+
+  test("pausado (Esc) a escada não anda: 2× o intervalo sem pista nova; voltar à cena retoma", async ({ page }, testInfo) => {
+    await lightGame(page, testInfo, { place: "porta" });
+    await openGame(page, "&hintgap=3");
+    const box = await stage(page).boundingBox();
+    if (!box) throw new Error("sem palco");
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect.poll(() => locked(page), { timeout: 10_000 }).toBe(true);
+    await page.keyboard.press("Escape");
+    await page.evaluate(() => document.exitPointerLock());
+    await expect(page.locator("[data-game-paused]")).toBeVisible({ timeout: 10_000 });
+    const before = (await save(page))?.puzzles.cinza?.hints ?? 0;
+    expect(before).toBeLessThan(3);
+    // 2× o intervalo em tempo de JOGO: ≥ 6,5 s de relógio E ≥ 120 quadros (o dt é preso em 0,05 s por quadro)
+    const f0 = (await cripta(page))?.frames ?? 0;
+    await page.waitForTimeout(6_500);
+    await expect.poll(async () => (await cripta(page))?.frames ?? 0, { timeout: 60_000 }).toBeGreaterThan(f0 + 2 * 3 / 0.05);
+    expect((await save(page))?.puzzles.cinza?.hints ?? 0).toBe(before);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.locator("[data-game-paused]")).toHaveCount(0);
+    await expect.poll(async () => (await save(page))?.puzzles.cinza?.hints ?? 0, { timeout: 40_000 }).toBeGreaterThan(before);
+    // a pista aparece na tela (não foi gasta invisível)
+    await expect.poll(() => lines(page), { timeout: 20_000 }).toContain(HINTS[before]);
   });
 
   test("Review Focus 5 (mouse travado de verdade): E abre o bilhete e solta, E fecha e trava; Tab/Tab no celular; E/⌫ no exame; Tab preso no leitor; Esc → pausado e o jogo continua", async ({ page }, testInfo) => {

@@ -23,6 +23,8 @@ export type Line = {
    * corta; espera na fila curta, ver `shell/lineQueue.ts`) e maior que a dos avisos de sistema.
    */
   hint?: boolean;
+  /** Aviso de sistema que responde a um gesto do jogador (T12): corta a pista na tela (ela volta para a fila). */
+  gesture?: boolean;
 };
 
 /**

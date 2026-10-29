@@ -93,13 +93,15 @@ export const cinzaPuzzle: Puzzle<CinzaState, CinzaAction> = {
   },
 };
 
-/** Estado do puzzle no save; ausente, estragado ou de outro formato vira o inicial (campo a campo). */
+/** Estado do puzzle no save; ausente, estragado ou de outro formato vira o inicial (campo a campo). A flag `cinza:porta-norte` também abre. */
 export function readCinza(save: SaveV1): CinzaState {
+  // a flag da porta (a T8 já a usava; o `enter` abre a folha por ela) também conta como porta aberta
+  const flagOpen = save.flags[DOOR_FLAG] === true;
   const raw = save.puzzles.cinza;
-  if (!raw || typeof raw !== "object") return INITIAL;
+  if (!raw || typeof raw !== "object") return flagOpen ? { ...INITIAL, doorOpen: true } : INITIAL;
   const p = raw as Record<string, unknown>;
   const hints = typeof p.hints === "number" && Number.isFinite(p.hints) ? Math.min(CINZA_HINTS.length, Math.max(0, Math.floor(p.hints))) : 0;
-  return { keyTaken: p.keyTaken === true, noteRead: p.noteRead === true, doorOpen: p.doorOpen === true, forced: p.forced === true, hints };
+  return { keyTaken: p.keyTaken === true, noteRead: p.noteRead === true, doorOpen: p.doorOpen === true || flagOpen, forced: p.forced === true, hints };
 }
 
 /** A chave está na mão: pegou e ainda não a deixou na fechadura da porta (abrir forçando não gasta a chave). */

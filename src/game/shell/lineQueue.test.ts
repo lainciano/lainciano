@@ -110,4 +110,52 @@ describe("fila de falas com prioridade", () => {
     expect(f.current()).toBeNull();
     expect(f.expire(10)).toBeNull();
   });
+
+  it("aviso de gesto (segure E…) corta a pista, que volta para a fila; nunca corta a história", () => {
+    const f = q();
+    f.offer(hint("pista"), 0);
+    const g: Line = { text: "segure E para forçar a porta.", kind: "system", gesture: true };
+    expect(f.offer(g, 1)).toEqual(g);
+    expect(f.expire(5)).toEqual(hint("pista"));
+    const h = q();
+    h.offer(story("trancada."), 0);
+    expect(h.offer(g, 1)).toBeNull();
+    // aviso de sistema sem gesto (ambiente) continua sem cortar a pista
+    const k = q();
+    k.offer(hint("pista"), 0);
+    expect(k.offer(sys("nada"), 1)).toBeNull();
+  });
+
+  it("pausado: a pista na tela volta para a fila e nenhuma pista sai até retomar", () => {
+    const f = q();
+    f.offer(hint("p1"), 0);
+    f.pause(true);
+    expect(f.current()).toBeNull();
+    expect(f.expire(10)).toBeNull();
+    f.offer(hint("p2"), 11);
+    expect(f.expire(30)).toBeNull();
+    f.pause(false);
+    expect(f.expire(31)).toEqual(hint("p1"));
+    expect(f.expire(35)).toEqual(hint("p2"));
+    // pista esperando atrás de uma fala que acaba durante a pausa: espera a pausa acabar
+    const g = q();
+    g.offer(story("fala"), 0);
+    g.offer(hint("p"), 1);
+    g.pause(true);
+    g.pause(true);
+    expect(g.expire(5)).toBeNull();
+    g.pause(false);
+    expect(g.expire(6)).toEqual(hint("p"));
+  });
+
+  it("legendas desligadas tiram a fala de história e preservam as pistas da fila", () => {
+    const f = q();
+    f.offer(story("fala"), 0);
+    f.offer(hint("p"), 1);
+    f.dropStory();
+    expect(f.current()).toBeNull();
+    expect(f.expire(1.5)).toEqual(hint("p"));
+    f.dropStory();
+    expect(f.current()).toEqual(hint("p"));
+  });
 });

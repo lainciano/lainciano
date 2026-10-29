@@ -4,8 +4,11 @@ import { createGlow } from "../../interaction/glow";
 import { holdFor } from "../../interaction/hold";
 import { cinzaWorld } from "../../interaction/testWorld";
 import type { ActApi, Doc } from "../types";
+import { moveWithCollision, segmentClear } from "../../world/collision";
+import { pathBetween } from "../../world/places";
+import { openLeafColliders } from "./index";
 import { DOOR_HINGE } from "./models";
-import { DOOR_FLAG } from "./places";
+import { DOOR_FLAG, PLAYER_RADIUS } from "./places";
 import { CINZA_LINES, KEY_ITEM, readCinza } from "./puzzle";
 
 // Interação dos objetos da sala cinza (T9): o que cada um faz ao ser acionado e se o brilho da mira pode acender
@@ -90,7 +93,7 @@ describe("sala cinza · objetos interativos", () => {
     expect(save.get().flags[DOOR_FLAG]).toBe(true);
     expect(save.get().items).toEqual([]);
     expect(layer.puzzle?.solved(save.get())).toBe(true);
-    expect(layer.colliders.length).toBe(colliders + 1);
+    expect(layer.colliders.length).toBe(colliders + 3);
     for (let i = 0; i < 50; i++) layer.update(0.05, i * 0.05);
     expect(hinge.rotation.y).toBeCloseTo(-1.45, 3);
     expect(scene.getObjectByName("porta-alem")?.visible).toBe(true);
@@ -109,10 +112,39 @@ describe("sala cinza · objetos interativos", () => {
   it("entrar com a porta aberta no save: já aberta (sem animar), com a colisão da folha", async () => {
     const { layer, scene } = await cinzaWorld({ puzzles: { cinza: { doorOpen: true, keyTaken: true, noteRead: true } } });
     expect(scene.getObjectByName(DOOR_HINGE)?.rotation.y).toBeCloseTo(-1.45, 5);
-    const leaf = layer.colliders[layer.colliders.length - 1];
-    expect(leaf.minZ).toBe(-2);
-    expect(leaf.maxZ).toBeGreaterThan(-1.4);
+    expect(layer.colliders).toEqual(expect.arrayContaining(openLeafColliders(1.45)));
+    // um save antigo só com a flag da porta também abre (e o puzzle lê aberta)
+    const flagOnly = await cinzaWorld({ flags: { [DOOR_FLAG]: true } });
+    expect(flagOnly.scene.getObjectByName(DOOR_HINGE)?.rotation.y).toBeCloseTo(-1.45, 5);
+    expect(readCinza(flagOnly.save.get()).doorOpen).toBe(true);
   });
+
+  for (const [name, cinza, angle] of [
+    ["normal", { doorOpen: true, keyTaken: true, noteRead: true }, 1.45],
+    ["forçada", { doorOpen: true, forced: true, hints: 3 }, 1.2],
+  ] as const) {
+    it(`porta aberta (${name}): todo lugar é livre e toda aresta andável com as colisões vivas; o jogador não atravessa a folha`, async () => {
+      const { layer } = await cinzaWorld({ puzzles: { cinza } });
+      const NO_BOUNDS = { minX: -Infinity, maxX: Infinity, minZ: -Infinity, maxZ: Infinity };
+      const { places, edges } = layer.places;
+      for (const p of Object.values(places)) expect(segmentClear(p, p, PLAYER_RADIUS, layer.colliders, NO_BOUNDS), `${p.id} livre`).toBe(true);
+      for (const [a, list] of Object.entries(edges)) for (const b of list) expect(segmentClear(places[a], places[b], PLAYER_RADIUS, layer.colliders, NO_BOUNDS), `${a}–${b}`).toBe(true);
+      const ids = Object.keys(places);
+      for (const a of ids) for (const b of ids) expect(pathBetween(layer.places, a, b, () => true), `${a} → ${b}`).not.toBeNull();
+      // atravessar a folha pelo meio, de leste para oeste: para do lado de cá
+      const hx = 0.413;
+      const hz = -2.04;
+      const mid = { x: hx + 0.377 * Math.cos(angle), z: hz + 0.377 * Math.sin(angle) };
+      const from = { x: mid.x + 0.4, z: mid.z };
+      const to = moveWithCollision(from, { x: -0.9, z: 0 }, PLAYER_RADIUS, layer.colliders, NO_BOUNDS);
+      expect(to.x, "não passa da folha").toBeGreaterThan(mid.x);
+      // as caixas seguem a folha: nenhuma cobre o triângulo vazio entre a diagonal e o batente
+      // (ponto a 12 cm da folha, do lado do batente, a 60% do comprimento: dentro da caixa única de antes)
+      const L = 0.754;
+      const empty = { x: hx + 0.6 * L * Math.cos(angle) + 0.12 * Math.sin(angle), z: hz + 0.6 * L * Math.sin(angle) - 0.12 * Math.cos(angle) };
+      expect(segmentClear(empty, empty, 0.03, openLeafColliders(angle), NO_BOUNDS), "canto vazio fora da colisão").toBe(true);
+    });
+  }
 
   it("a escada grava cada pista no save (puzzles.cinza.hints) pela própria camada", async () => {
     const { layer, save } = await cinzaWorld();

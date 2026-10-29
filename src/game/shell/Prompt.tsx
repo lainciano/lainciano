@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 /**
  * Aviso de interação (T9): uma linha pequena sob a mira, só com o objeto mirado e ao alcance. Sem caixa pesada:
  * a tecla (E, ou "segure E"), o verbo e, nos objetos de segurar, o anel de progresso. Ilha da casca: os rótulos
@@ -10,7 +12,7 @@ export default function Prompt({ text, keyLabel, progress, at = null }: { text: 
   const ring = progress !== null;
   return (
     // segurar por toque (T12): o aviso e o anel vão para cima do dedo (posição em px do palco), não sob a mira
-    <div data-game-prompt data-hold={ring ? "" : undefined} data-at={at ? "" : undefined} style={at ? { left: at.x, top: at.y } : undefined}>
+    <div data-game-prompt data-hold={ring ? "" : undefined} data-at={at ? "" : undefined} style={at ? ({ "--at-x": `${at.x}px`, "--at-y": `${at.y}px` } as CSSProperties) : undefined}>
       {ring && (
         <svg data-game-ring viewBox="0 0 20 20" aria-hidden="true" focusable="false">
           <circle className="track" cx="10" cy="10" r="7" />

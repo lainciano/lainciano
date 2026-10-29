@@ -124,6 +124,12 @@ describe("puzzle da sala cinza · save (save.puzzles.cinza, itens e a flag da po
     expect(readCinza(withPuzzle({ noteRead: true, keyTaken: true }))).toEqual({ ...S0, noteRead: true, keyTaken: true });
   });
 
+  it("readCinza: um save só com a flag da porta (sem puzzles.cinza) lê a porta aberta, como o enter", () => {
+    expect(readCinza({ ...initialSave(0), flags: { [DOOR_FLAG]: true } })).toEqual({ ...S0, doorOpen: true });
+    expect(readCinza({ ...initialSave(0), flags: { [DOOR_FLAG]: true }, puzzles: { cinza: { hints: 2 } } })).toEqual({ ...S0, doorOpen: true, hints: 2 });
+    expect(doorHold({ ...initialSave(0), flags: { [DOOR_FLAG]: true }, puzzles: { cinza: { hints: 3 } } })).toBeUndefined();
+  });
+
   it("cinzaPatch: estado inteiro em puzzles.cinza, a chave no inventário enquanto está na mão, a flag da porta", () => {
     const base = initialSave(0);
     const taken = { ...S0, noteRead: true, keyTaken: true };

@@ -19,6 +19,11 @@ export function hintGapFrom(search: string, debug: boolean): number {
   return Number.isFinite(n) && n > 0 ? n : HINT_GAP;
 }
 
+/** O relógio da escada corre só andando, sem painel e sem "pausado" (mouse solto pelo Esc). */
+export function hintClockRuns(mode: string, paused: boolean): boolean {
+  return mode === "walk" && !paused;
+}
+
 export type HintDriver = { update(dt: number, active: boolean): void };
 
 export function createHintDriver(puzzle: LayerPuzzle, save: () => SaveV1, gap: number, say: (l: Line) => void): HintDriver {

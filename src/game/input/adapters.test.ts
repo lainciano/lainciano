@@ -77,7 +77,7 @@ function key(f: Fake, type: "keydown" | "keyup", code: string, mods: Partial<{ c
   return e;
 }
 
-function pointer(f: Fake, type: string, o: Partial<{ button: number; pointerType: string; clientX: number; clientY: number; movementX: number; movementY: number; pointerId: number }> = {}) {
+function pointer(f: Fake, type: string, o: Partial<{ button: number; pointerType: string; clientX: number; clientY: number; movementX: number; movementY: number; pointerId: number; isPrimary: boolean }> = {}) {
   const e = Object.assign(new Event(type, { cancelable: true }), { button: 0, pointerType: "mouse", clientX: 0, clientY: 0, movementX: 0, movementY: 0, pointerId: 1, ...o });
   (type === "pointerdown" ? f.target : f.doc).dispatchEvent(e);
   return e;
@@ -424,7 +424,7 @@ describe("bindInput · segurar por toque (T12)", () => {
     });
     return { f, log, leave: () => (onTarget = false) };
   }
-  const touch = (f: Fake, type: string, x: number, y: number, id = 1) => pointer(f, type, { pointerType: "touch", clientX: x, clientY: y, pointerId: id });
+  const touch = (f: Fake, type: string, x: number, y: number, id = 1) => pointer(f, type, { pointerType: "touch", clientX: x, clientY: y, pointerId: id, isPrimary: id === 1 });
 
   it("dedo parado num objeto de segurar: começa no pousar e solta no levantar; não vira toque nem olhar", () => {
     const { f, log } = touchHold();
@@ -469,6 +469,30 @@ describe("bindInput · segurar por toque (T12)", () => {
     }
   });
 
+  it("dedo fantasma: um toque primário novo com o anterior sem fim substitui o velho (o segurar velho cai, o novo toque vale)", () => {
+    const { f, log } = touchHold({ start: false });
+    touch(f, "pointerdown", 100, 200, 1);
+    // o pointerup do 1º se perdeu; vem um toque primário novo
+    pointer(f, "pointerdown", { pointerType: "touch", clientX: 300, clientY: 300, pointerId: 7, isPrimary: true });
+    pointer(f, "pointerup", { pointerType: "touch", clientX: 300, clientY: 300, pointerId: 7, isPrimary: true });
+    expect(f.taps).toBe(1);
+    expect(log).toEqual(["start 100,200", "start 300,300"]);
+    const h = touchHold();
+    touch(h.f, "pointerdown", 100, 200, 1);
+    pointer(h.f, "pointerdown", { pointerType: "touch", clientX: 300, clientY: 300, pointerId: 7, isPrimary: true });
+    expect(h.log).toEqual(["start 100,200", "cancel", "start 300,300"]);
+  });
+
+  it("perder o foco no meio da pinça limpa os dedos (a próxima pinça recomeça do zero)", () => {
+    const f = setup(true);
+    f.setMode("examine");
+    touch(f, "pointerdown", 100, 300, 1);
+    touch(f, "pointerdown", 200, 300, 2);
+    f.win.dispatchEvent(new Event("blur"));
+    touch(f, "pointermove", 400, 300, 2);
+    expect(f.actions.some((a) => a.type === "zoom")).toBe(false);
+  });
+
   it("sem objeto de segurar sob o dedo (onHoldStart falso), o toque segue normal", () => {
     const { f, log } = touchHold({ start: false });
     touch(f, "pointerdown", 100, 200);
@@ -491,7 +515,7 @@ describe("bindInput · segurar por toque (T12)", () => {
 });
 
 describe("bindInput · pinça no exame (T12)", () => {
-  const touch = (f: Fake, type: string, x: number, y: number, id: number) => pointer(f, type, { pointerType: "touch", clientX: x, clientY: y, pointerId: id });
+  const touch = (f: Fake, type: string, x: number, y: number, id: number) => pointer(f, type, { pointerType: "touch", clientX: x, clientY: y, pointerId: id, isPrimary: id === 1 });
   const zooms = (f: Fake) => f.actions.filter((a): a is Extract<Action, { type: "zoom" }> => a.type === "zoom").map((a) => a.delta);
 
   it("abrir os dedos aproxima (zoom −1 a cada passo), fechar afasta; dois dedos não giram", () => {

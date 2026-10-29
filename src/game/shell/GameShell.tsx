@@ -114,15 +114,34 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       if (next && next === before) schedule();
       else show(next);
     }
-    const clearLines = () => {
-      queue.clear();
-      window.clearTimeout(lineTimer);
-      setLine(null);
+    /**
+     * Pausado (mouse solto) ou fora de "live": a fala some sob o aviso, então a pista na tela volta para a fila e
+     * nenhuma pista sai até voltar (uma pista dada nunca expira invisível).
+     */
+    let pausedNow = false;
+    let liveNow = false;
+    const syncHold = () => {
+      const hold = pausedNow || !liveNow;
+      queue.pause(hold);
+      if (!liveNow) {
+        // fora de "live" (carregando, falha, contexto perdido) nada da cena fica na tela; pistas seguem na fila
+        queue.dropStory();
+        window.clearTimeout(lineTimer);
+        setLine(null);
+        return;
+      }
+      if (queue.current()) schedule();
+      else if (hold) {
+        window.clearTimeout(lineTimer);
+        setLine(null);
+      } else show(queue.expire(clock()));
     };
     const ui = {
       status: (s: SessionStatus) => {
         if (signal.aborted) return;
         setStatus(s);
+        liveNow = s === "live";
+        syncHold();
         // Fora de "live" (contexto perdido, erro, tentar de novo) nada da cena fica na tela: cartão, aviso, lista, mira.
         if (s !== "live") {
           setExamine(null);
@@ -131,7 +150,6 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
           setPrompt(null);
           setPlaces(null);
           setReticle("off");
-          clearLines();
           setPaused(false);
         }
       },
@@ -139,7 +157,10 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
         if (!signal.aborted) setPlaces(list);
       },
       paused: (on: boolean) => {
-        if (!signal.aborted) setPaused(on);
+        if (signal.aborted) return;
+        setPaused(on);
+        pausedNow = on;
+        syncHold();
       },
       say: (l: Line) => {
         if (signal.aborted) return;
@@ -172,7 +193,11 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
         if (signal.aborted) return;
         subtitlesRef.current = s.subtitles;
         const cur = queue.current();
-        if (!s.subtitles && cur && tierOf(cur) === TIER.story) clearLines();
+        // só a fala de história sai; as pistas (na tela ou na fila) ficam
+        if (!s.subtitles && cur && tierOf(cur) === TIER.story) {
+          queue.dropStory();
+          show(queue.expire(clock()));
+        }
       },
       exit: () => {
         if (!signal.aborted) onExit();
@@ -180,7 +205,8 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       notice: (n: { kind: "nothing" } | { kind: "hold"; verb: string }) => {
         const hold = coarse ? labels.holdHintTouch : labels.holdHint;
         const text = n.kind === "nothing" ? labels.nothingHere : hold.replace("{verb}", n.verb);
-        ui.say({ text, kind: "system" });
+        // resposta a um gesto do jogador: corta a pista na tela (ela volta para a fila), nunca a história
+        ui.say({ text, kind: "system", gesture: true });
       },
     };
     sayRef.current = ui.say;

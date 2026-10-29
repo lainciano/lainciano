@@ -100,6 +100,9 @@
 
 /* Segurar por toque (T12): o aviso com o anel fica acima do dedo (left/top em px vêm do jogo), longe da mão. */
 [data-game-prompt][data-at] {
+  /* perto do topo (dedo alto na tela) o aviso não sai: o ponto de ancoragem desce até caber acima do dedo */
+  left: var(--at-x);
+  top: max(var(--at-y), calc(var(--space-2xl) + var(--space-lg)));
   transform: translate(-50%, calc(-100% - var(--space-2xl)));
 }
 

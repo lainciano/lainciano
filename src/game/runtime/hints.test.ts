@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Line, LayerPuzzle } from "../layers/types";
 import { initialSave, type SaveV1 } from "../save/schema";
-import { createHintDriver, HINT_GAP, hintGapFrom } from "./hints";
+import { createHintDriver, HINT_GAP, hintClockRuns, hintGapFrom } from "./hints";
 
 /** Puzzle de mentira: as pistas dadas e os passos moram no "save" (como na camada). */
 function world(start: { given?: number; steps?: number; solved?: boolean } = {}) {
@@ -69,5 +69,16 @@ describe("escada de pistas na sessão", () => {
     const done = createHintDriver(s.puzzle, s.save, 2, (l) => s.said.push(l));
     tick(done, 10);
     expect(s.said).toEqual([]);
+  });
+
+  it("pausado (mouse solto) não anda o relógio: nem andando, nem em painel", () => {
+    expect(hintClockRuns("walk", false)).toBe(true);
+    expect(hintClockRuns("walk", true)).toBe(false);
+    expect(hintClockRuns("read", false)).toBe(false);
+    const w = world();
+    const d = createHintDriver(w.puzzle, w.save, 2, (l) => w.said.push(l));
+    for (let t = 0; t < 20; t += 0.05) d.update(0.05, hintClockRuns("walk", true));
+    expect(w.state.given).toBe(0);
+    expect(w.said).toEqual([]);
   });
 });

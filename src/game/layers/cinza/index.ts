@@ -46,13 +46,33 @@ const DOOR_SWING = 1.45;
 const DOOR_SWING_FORCED = 1.2;
 const DOOR_OPEN_SECONDS = 1.6;
 
-/** Caixa no chão da folha aberta (o jogador não atravessa a porta aberta). */
-function openLeafCollider(angle: number): Box2 {
+/** Espessura da folha (m), como em `buildDoor`. */
+const LEAF_T = 0.035;
+/** Pedaços de colisão ao longo da folha aberta (uma caixa só cobriria o triângulo vazio da diagonal). */
+const LEAF_PIECES = 3;
+
+/**
+ * Colisão da folha aberta no chão: `LEAF_PIECES` caixas ao longo dela, da dobradiça à ponta, cada uma envolvendo as
+ * duas faces daquele trecho (+1 cm). A folha gira em −y a partir da dobradiça (x0 + batente + folga, 4 cm para
+ * dentro da parede) e a espessura fica do lado do batente de encosto.
+ */
+export function openLeafColliders(angle: number): Box2[] {
   const hx = DOOR.x0 + 0.033;
   const hz = DOOR.wallZ - 0.04;
-  const tipX = hx + DOOR_LEAF.w * Math.cos(angle);
-  const tipZ = hz + DOOR_LEAF.w * Math.sin(angle);
-  return { minX: Math.min(hx, tipX) - 0.03, maxX: Math.max(hx, tipX) + 0.03, minZ: DOOR.wallZ, maxZ: tipZ + 0.03 };
+  const c = Math.cos(angle);
+  const sn = Math.sin(angle);
+  // espessura: o vetor (0, 0, −t) girado junto com a folha
+  const tx = sn * LEAF_T;
+  const tz = -c * LEAF_T;
+  const out: Box2[] = [];
+  for (let i = 0; i < LEAF_PIECES; i++) {
+    const a = (i / LEAF_PIECES) * DOOR_LEAF.w;
+    const b = ((i + 1) / LEAF_PIECES) * DOOR_LEAF.w;
+    const xs = [hx + a * c, hx + b * c, hx + a * c + tx, hx + b * c + tx];
+    const zs = [hz + a * sn, hz + b * sn, hz + a * sn + tz, hz + b * sn + tz];
+    out.push({ minX: Math.min(...xs) - 0.01, maxX: Math.max(...xs) + 0.01, minZ: Math.max(DOOR.wallZ, Math.min(...zs) - 0.01), maxZ: Math.max(...zs) + 0.01 });
+  }
+  return out;
 }
 
 export const cinzaLayer: Layer = {
@@ -98,7 +118,7 @@ export const cinzaLayer: Layer = {
       const to = -(forced ? DOOR_SWING_FORCED : DOOR_SWING);
       beyond.visible = true;
       leak.visible = false;
-      colliders.push(openLeafCollider(-to));
+      colliders.push(...openLeafColliders(-to));
       if (animate && !prefersReducedMotion()) swing = { from: hinge.rotation.y, to, t: 0 };
       else {
         hinge.rotation.y = to;
