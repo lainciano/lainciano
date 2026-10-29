@@ -375,6 +375,39 @@ describe("mãos · celular real (T11)", () => {
   });
 });
 
+describe("mãos · celular, fila de apertos (T11, revisão M4)", () => {
+  it("dois apertos em < 100 ms: o segundo só começa depois que o primeiro chega ao fundo; o polegar não salta antes", () => {
+    const anim = createHandsAnim({ seed: 9, reduced: false, still: false, flashOn: true });
+    anim.phone("open");
+    play(anim, 1.2);
+    anim.press("down");
+    anim.step(1 / 60, STILL);
+    anim.step(1 / 60, STILL);
+    anim.press("ok");
+    let firstFiredAt = -1;
+    let secondStartedAt = -1;
+    let aimSwitchedAt = -1;
+    for (let i = 0; i < 60; i++) {
+      const out = anim.step(1 / 60, STILL);
+      if (firstFiredAt < 0 && out.events.includes("key:down")) firstFiredAt = i;
+      if (secondStartedAt < 0 && depthOf(out.pose, "ok") > 0) secondStartedAt = i;
+      if (aimSwitchedAt < 0 && out.pose.phone.aim === "ok") aimSwitchedAt = i;
+    }
+    expect(firstFiredAt).toBeGreaterThanOrEqual(0);
+    expect(secondStartedAt).toBeGreaterThan(firstFiredAt);
+    expect(aimSwitchedAt).toBeGreaterThanOrEqual(firstFiredAt);
+  });
+
+  it("cada aperto aceito dispara exatamente um key: na ordem em que foi pedido", () => {
+    const anim = createHandsAnim({ seed: 9, reduced: false, still: false, flashOn: true });
+    anim.phone("open");
+    play(anim, 1.2);
+    for (const k of ["down", "down", "ok"]) expect(anim.press(k)).toBe(true);
+    const { events } = play(anim, 1.5);
+    expect(events.filter((e) => e.startsWith("key:"))).toEqual(["key:down", "key:down", "key:ok"]);
+  });
+});
+
 describe("mãos · revisão (rodada 4)", () => {
   /** Maior salto entre quadros consecutivos de um canal. */
   const maxJump = (poses: HandsPose[], f: (p: HandsPose) => number) => poses.slice(1).reduce((m, p, i) => Math.max(m, Math.abs(f(p) - f(poses[i]))), 0);

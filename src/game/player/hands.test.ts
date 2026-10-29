@@ -255,3 +255,90 @@ describe("mãos · celular real (T11)", () => {
     expect(Array.from(snapshot())).toEqual(Array.from(rest));
   });
 });
+
+describe("mãos · celular, plano próximo (T11, revisão M3)", () => {
+  /** Menor distância do olho a qualquer vértice da tampa enquanto ela abre. */
+  function minLidDistance(fov: number, aspect: number) {
+    const { hands, camera } = setup();
+    camera.fov = fov;
+    camera.aspect = aspect;
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+    hands.phone("open");
+    const eye = camera.getWorldPosition(new THREE.Vector3());
+    const v = new THREE.Vector3();
+    let min = Infinity;
+    for (let i = 0; i < 80; i++) {
+      hands.debug.step(1 / 60, {});
+      const lid = hands.debug.phone()!.model.lid;
+      lid.updateWorldMatrix(true, true);
+      lid.traverse((o) => {
+        if (!(o instanceof THREE.Mesh)) return;
+        const pos = o.geometry.getAttribute("position");
+        for (let k = 0; k < pos.count; k++) min = Math.min(min, v.fromBufferAttribute(pos, k).applyMatrix4(o.matrixWorld).distanceTo(eye));
+      });
+    }
+    return min;
+  }
+
+  it("a tampa nunca chega a 3,5 cm do olho abrindo (FOV 55, 62, 80; tela deitada e em pé)", () => {
+    for (const fov of [55, 62, 80]) for (const aspect of [1.6, 0.46]) expect(minLidDistance(fov, aspect), `fov ${fov} aspecto ${aspect}`).toBeGreaterThan(0.035);
+  });
+});
+
+describe("mãos · celular, FOV ao vivo e janelas (T11, revisão M6/M10)", () => {
+  const project = (hands: ReturnType<typeof setup>["hands"], camera: THREE.PerspectiveCamera) => {
+    camera.updateMatrixWorld(true);
+    const c = [0, 1, 2, 3].map(() => new THREE.Vector3());
+    if (!hands.phoneScreen(c)) return null;
+    const ndc = c.map((v) => v.project(camera));
+    return { ndc, center: ndc.reduce((a, v) => a.add(v), new THREE.Vector3()).multiplyScalar(0.25), height: (ndc[0].y + ndc[1].y - ndc[2].y - ndc[3].y) / 4 };
+  };
+
+  it("trocar o FOV com o celular na mão: a pose corre (sem salto por quadro) e assenta em ~0,3 s", () => {
+    const { hands, camera } = setup();
+    hands.phone("open");
+    hands.debug.step(1.2, {});
+    camera.fov = 80;
+    camera.updateProjectionMatrix();
+    let prev = project(hands, camera)!.center.clone();
+    let maxJump = 0;
+    for (let i = 0; i < 24; i++) {
+      hands.debug.step(1 / 60, {});
+      const now = project(hands, camera)!.center;
+      maxJump = Math.max(maxJump, now.distanceTo(prev));
+      prev = now.clone();
+    }
+    const settled = project(hands, camera)!;
+    expect(settled.height).toBeGreaterThan(0.25);
+    expect(settled.height).toBeLessThan(0.29);
+    // o 1º quadro depois da troca muda a projeção inteira (FOV); dali em diante, passos pequenos
+    expect(maxJump).toBeLessThan(0.2);
+  });
+
+  it("FOV 55 e tela em pé (aspecto 0,46): a tela inteira cabe no quadro", () => {
+    const { hands, camera } = setup();
+    camera.fov = 55;
+    camera.aspect = 0.46;
+    camera.updateProjectionMatrix();
+    hands.phone("open");
+    hands.debug.step(1.2, {});
+    const p = project(hands, camera)!;
+    for (const v of p.ndc) {
+      expect(Math.abs(v.x)).toBeLessThan(1);
+      expect(Math.abs(v.y)).toBeLessThan(1);
+    }
+  });
+
+  it("janela baixa: setPhoneFrac sobe a fração (limitada a 0,42)", () => {
+    const { hands, camera } = setup();
+    hands.phone("open");
+    hands.debug.step(1.2, {});
+    hands.setPhoneFrac(0.4);
+    hands.debug.step(0.5, {});
+    expect(project(hands, camera)!.height).toBeGreaterThan(0.37);
+    hands.setPhoneFrac(0.9);
+    hands.debug.step(0.5, {});
+    expect(project(hands, camera)!.height).toBeLessThan(0.45);
+  });
+});

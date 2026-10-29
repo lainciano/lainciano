@@ -131,7 +131,8 @@ export function createHandsAnim(o: HandsAnimOptions) {
   let phoneTarget: "open" | "closed" | null = null;
   let raise = 0;
   let lid = 0;
-  const presses = Array.from({ length: MAX_PRESSES }, () => ({ key: "", t: 0, dur: 0, fired: false }));
+  const presses = Array.from({ length: MAX_PRESSES }, () => ({ key: "", t: 0, dur: 0, fired: false, order: 0, aimed: false }));
+  let pressOrder = 0;
   let hold: LeftPose = LEFT_PHONE;
   let aimKey = "";
   let aimLeft = 0;
@@ -193,12 +194,16 @@ export function createHandsAnim(o: HandsAnimOptions) {
       if (phoneState() !== "holding") return false;
       const slot = presses.find((p) => p.key === "");
       if (!slot) return false;
+      // fila curta: um aperto novo só desce depois que o anterior chegou ao fundo e começou a subir (o polegar não
+      // salta de uma tecla para a outra no meio de um aperto)
+      let wait = 0;
+      for (const p of presses) if (p.key !== "") wait = Math.max(wait, p.dur * 0.6 - p.t);
       slot.key = key;
-      slot.t = -(0.03 + rng() * 0.05);
+      slot.t = -Math.max(0.03 + rng() * 0.05, wait + 0.07);
       slot.dur = 0.12 + rng() * 0.06;
       slot.fired = false;
-      aimKey = key;
-      aimLeft = slot.dur - slot.t + AIM_LINGER;
+      slot.order = ++pressOrder;
+      slot.aimed = false;
       return true;
     },
     /** Pose de segurar o celular (o rig a calcula para a tela caber no campo de visão); `null` volta à nominal. */
@@ -241,6 +246,12 @@ export function createHandsAnim(o: HandsAnimOptions) {
         out.depth = 0;
         if (p.key === "") continue;
         p.t += dt;
+        // o polegar parte para a tecla ~60 ms antes de ela começar a descer (o tempo de ir até lá)
+        if (!p.aimed && p.t >= -0.06) {
+          p.aimed = true;
+          aimKey = p.key;
+          aimLeft = p.dur - p.t + AIM_LINGER;
+        }
         const q = p.t / p.dur;
         let depth = q <= 0 ? 0 : q < 0.35 ? q / 0.35 : q < 0.6 ? 1 : 1 - (q - 0.6) / 0.4;
         if (!p.fired && q >= 0.35) {

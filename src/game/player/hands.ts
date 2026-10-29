@@ -60,6 +60,12 @@ export type Hands = {
    */
   phone(action: "open" | "close"): void;
   press(key: PhoneKey): boolean;
+  /** Teclas que chegaram ao fundo no último `update` (cópia não: o array é reaproveitado). */
+  keysFired(): readonly string[];
+  /** Fração mínima da altura do quadro para a tela (janela baixa: LCD legível); 0,27 a 0,42. */
+  setPhoneFrac(f: number): void;
+  /** Monta o aparelho já (ocioso, antes da 1ª abertura) e devolve o suporte dele, para pré-compilar o programa. */
+  preparePhone(): THREE.Object3D;
   /** Cantos da tela interna no mundo (sup.-esq., sup.-dir., inf.-dir., inf.-esq.), só com a tampa aberta. */
   phoneScreen(out: THREE.Vector3[]): boolean;
   debug: {
@@ -133,6 +139,8 @@ const GRIP_CURL = 1.05;
  * ocupa: a tela lê grande e ainda sobra o alto do teclado, onde o polegar aperta.
  */
 const HOLD = { x: -0.1, y: 0.3, frac: 0.27, roll: 0.05 } as const;
+/** Quanto a mão recua no meio do giro da tampa (m): a ponta livre não chega a 3,5 cm do olho em FOV 55–80. */
+const LID_CLEARANCE = 0.075;
 /** Polegar esquerdo: comprimento das falanges (as do esqueleto de antes) e o raio da ponta. */
 const LTHUMB = { proximal: 0.028, distal: 0.024, tip: 0.0074, hover: 0.0035 } as const;
 /**
@@ -606,8 +614,18 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   handL.add(phoneMount);
   const holdPose: Pose6 & { curl: number } = { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, curl: GRIP_CURL };
   const holdQuat = new T.Quaternion();
+  /** Do olho para a tela segurada: abrindo e fechando, a mão recua por aqui (a tampa gira na direção do olho). */
+  const holdDir = new T.Vector3(0, 0, -1);
   const cornerBuf = [0, 1, 2, 3].map(() => new T.Vector3());
   let fitKey = "";
+  /** Fração da altura do quadro que a tela ocupa (sobe em janela baixa: o LCD não cai abaixo de ~200 px). */
+  let phoneFrac: number = HOLD.frac;
+  // alvo da pose de segurar (refeito quando FOV, aspecto ou fração mudam) e a pose mostrada, que corre até ele
+  const holdTargetPos = new T.Vector3();
+  const holdTargetQuat = new T.Quaternion();
+  const holdPos = new T.Vector3();
+  let holdSnap = true;
+  const holdEuler = new T.Euler();
   /**
    * Pose da mão esquerda que põe a tela onde `HOLD` pede (fração do quadro, virada para o olho) no FOV e no aspecto
    * da câmera: a altura na tela não muda com o FOV dos ajustes (55–80°), só a distância.
@@ -617,12 +635,13 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     const cam = camera as THREE.PerspectiveCamera;
     const fov = cam.fov ?? 62;
     const aspect = cam.aspect ?? 1.6;
-    const key = `${fov}|${aspect.toFixed(4)}`;
+    const key = `${fov}|${aspect.toFixed(4)}|${phoneFrac.toFixed(3)}`;
     if (key === fitKey) return;
     fitKey = key;
     const tanH = Math.tan((fov * Math.PI) / 360);
-    const d = PHONE.screen.h / (2 * tanH * HOLD.frac);
+    const d = PHONE.screen.h / (2 * tanH * phoneFrac);
     const S = new T.Vector3(HOLD.x * tanH * aspect * d, HOLD.y * tanH * d, -d);
+    holdDir.copy(S).normalize();
     // moldura da tela no aparelho, com a tampa aberta
     const lidNow = phoneModel.lid.rotation.x;
     phoneModel.setLid(1);
@@ -644,11 +663,30 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     const rootPose = R.clone().setPosition(rootPos);
     phoneMount.updateMatrix();
     const L = rootPose.multiply(phoneMount.matrix.clone().invert());
-    const pos = new T.Vector3();
-    const scl = new T.Vector3();
-    L.decompose(pos, holdQuat, scl);
-    const e = new T.Euler().setFromQuaternion(holdQuat, "XYZ");
-    Object.assign(holdPose, { x: pos.x, y: pos.y, z: pos.z, rx: e.x, ry: e.y, rz: e.z, curl: GRIP_CURL });
+    L.decompose(holdTargetPos, holdTargetQuat, new T.Vector3());
+    stepHold(0);
+  };
+  /**
+   * A pose mostrada corre até o alvo em ~150 ms (FOV mudado nos ajustes com o celular na mão: nada de teleporte);
+   * com o celular guardado, ou na 1ª vez, encaixa direto.
+   */
+  const stepHold = (dt: number) => {
+    const snap = holdSnap || !phoneMount.visible;
+    const k = snap ? 1 : 1 - Math.exp(-dt / 0.05);
+    if (!snap && k === 0) return;
+    holdSnap = false;
+    holdPos.lerp(holdTargetPos, k);
+    if (snap) holdPos.copy(holdTargetPos);
+    holdQuat.slerp(holdTargetQuat, k);
+    if (snap) holdQuat.copy(holdTargetQuat);
+    holdEuler.setFromQuaternion(holdQuat, "XYZ");
+    holdPose.x = holdPos.x;
+    holdPose.y = holdPos.y;
+    holdPose.z = holdPos.z;
+    holdPose.rx = holdEuler.x;
+    holdPose.ry = holdEuler.y;
+    holdPose.rz = holdEuler.z;
+    holdPose.curl = GRIP_CURL;
     anim.setPhoneHold(holdPose);
   };
   const ensurePhone = (): PhoneModel => {
@@ -793,6 +831,8 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   const anim = createHandsAnim({ seed: o.seed, reduced: o.reduced, still: o.still, flashOn: o.flashOn });
   let visible = true;
   let paused = false;
+  /** Teclas que chegaram ao fundo no último `update` (o LCD responde nelas). */
+  const fired: string[] = [];
   let lastLight = -1;
   let studio: StudioView | null = null;
   let studioScene: { hidden: THREE.Object3D[]; fog: THREE.Scene["fog"]; background: THREE.Scene["background"] } | null = null;
@@ -822,6 +862,8 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
       const b = pose.leftBase;
       qBase.setFromEuler(eul.set(b.rx, b.ry, b.rz, "XYZ"));
       left.quaternion.slerpQuaternions(qBase, holdQuat, raise);
+      // a tampa passa perto do olho no meio do giro: a mão recua e volta (nunca cruza o plano próximo)
+      left.position.addScaledVector(holdDir, LID_CLEARANCE * Math.sin(Math.PI * pose.phone.lid) * raise);
     } else left.rotation.set(l.rx, l.ry, l.rz, "XYZ");
     gripMix = raise;
     curlLeft(l.curl, 0);
@@ -898,6 +940,15 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
       anim.phone(action);
     },
     press: (key) => anim.press(key),
+    keysFired: () => fired,
+    setPhoneFrac(f) {
+      phoneFrac = Math.min(0.42, Math.max(HOLD.frac, Number.isFinite(f) ? f : HOLD.frac));
+      if (phoneModel) fitHold();
+    },
+    preparePhone() {
+      ensurePhone();
+      return phoneMount;
+    },
     phoneScreen(out) {
       if (!phoneModel || !phoneMount.visible || phoneModel.root.parent !== phoneMount || anim.state().phone !== "holding") return false;
       phoneModel.root.updateWorldMatrix(true, false);
@@ -915,11 +966,16 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     },
     update(dt, s) {
       // FOV ou aspecto mudaram (ajustes, janela): a pose de segurar se refaz (só recalcula quando muda)
-      if (phoneModel) fitHold();
+      if (phoneModel) {
+        fitHold();
+        stepHold(dt);
+      }
       // fotos: com a animação parada, os passos vêm só do debug (`step`)
       if (paused) return;
       const out = anim.step(dt, fill(s));
       if (o.onClick && out.events.includes("click")) o.onClick();
+      fired.length = 0;
+      for (const e of out.events) if (e.startsWith("key:")) fired.push(e.slice(4));
       apply(out.pose, dt);
       const swing = s.moving && !reduced && !o.still ? Math.sin(s.bob) * (s.run ? 0.5 : 0.32) : 0;
       legs[0].rotation.x = swing;
@@ -935,7 +991,13 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
       forceIdle: (kind) => anim.forceIdle(kind),
       step(seconds, s) {
         fill(s);
-        for (let t = 0; t < seconds - 1e-9; t += 1 / 60) apply(anim.step(1 / 60, inp).pose);
+        for (let t = 0; t < seconds - 1e-9; t += 1 / 60) {
+          if (phoneModel) {
+            fitHold();
+            stepHold(1 / 60);
+          }
+          apply(anim.step(1 / 60, inp).pose);
+        }
       },
       view(v) {
         // Estúdio: só a mão sobre fundo liso neutro, sem névoa (a sala não entra na foto de referência: arte e
