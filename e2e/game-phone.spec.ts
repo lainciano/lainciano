@@ -276,19 +276,19 @@ test.describe("celular de 2005", () => {
     expect((await interact(page))?.panels).toBe(0);
   });
 
-  test("o chunk do leitor não chega: o painel fecha (pilha vazia, andando), a dica aparece e o mouse não é pedido fora do gesto", async ({ page }, testInfo) => {
+  test("o pincel do papel não chega (rede): o leitor abre mesmo assim, no texto limpo, com a dica; E fecha e o mouse trava de novo", async ({ page }, testInfo) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await fakePointerLock(page);
-    // derruba só o chunk do leitor (o que tem o diálogo do papel); o resto do jogo carrega
-    let failing = true;
-    let readerRequests = 0;
+    // derruba só o chunk do papel (o leitor mora na casca: um chunk próprio que falhasse ficaria falho para sempre,
+    // porque o navegador guarda o import() que falhou — medido na rodada 2: a 2ª tentativa nem pedia de novo)
+    let paperRequests = 0;
     await page.route("**/_next/static/chunks/*.js", async (route) => {
       const res = await route.fetch();
       const body = await res.text();
-      if (body.includes("data-reader-paper") && !body.includes("data-game-shell")) {
-        readerRequests += 1;
-        if (failing) return route.abort();
+      if (body.includes("rgba(168,52,42,0.34)")) {
+        paperRequests += 1;
+        return route.abort();
       }
       return route.fulfill({ response: res, body });
     });
@@ -299,20 +299,18 @@ test.describe("celular de 2005", () => {
     expect(await page.evaluate(() => (window as unknown as { __cripta: { aimAt(id: string): boolean } }).__cripta.aimAt("bilhete"))).toBe(true);
     await expect(page.locator("[data-game-prompt]")).toContainText("ler o bilhete", { timeout: 30_000 });
     await page.keyboard.press("KeyE");
+    const reader = page.getByRole("dialog", { name: "bilhete" });
+    await expect(reader).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator("[data-reader-clean]")).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator("[data-reader-clean]")).toContainText("o que abre a porta");
+    await expect(page.locator("[data-reader-paper]")).toBeHidden();
     await expect(page.locator("[data-game-subtitles]")).toContainText("o papel não abriu", { timeout: 20_000 });
-    const s = await interact(page);
-    expect(s).toMatchObject({ mode: "walk", panels: 0, reader: { open: false } });
-    await expect(page.locator("[data-game-reader], [data-game-phone]")).toHaveCount(0);
-    // o leitor soltou o mouse ao abrir; fechar sem gesto não pede o travamento (um clique na cena trava de novo)
-    expect(await lock(page)).toMatchObject({ requests: 1, locked: false });
-    await page.mouse.click(400, 250);
-    await expect.poll(() => lock(page)).toMatchObject({ requests: 2, locked: true });
-    // "tente de novo": a rede volta, a 2ª tentativa baixa o chunk de novo (nada de promessa rejeitada em cache)
-    const before = readerRequests;
-    failing = false;
+    expect(paperRequests).toBeGreaterThan(0);
+    expect(await interact(page)).toMatchObject({ mode: "read", panels: 1 });
     await page.keyboard.press("KeyE");
-    await expect(page.getByRole("dialog", { name: "bilhete" })).toBeVisible({ timeout: 20_000 });
-    expect(readerRequests).toBeGreaterThan(before);
+    await expect(reader).toHaveCount(0);
+    expect(await interact(page)).toMatchObject({ mode: "walk", panels: 0 });
+    await expect.poll(() => lock(page)).toMatchObject({ requests: 2, locked: true });
     expect(errors).toEqual([]);
   });
 

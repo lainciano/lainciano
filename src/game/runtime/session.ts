@@ -53,11 +53,6 @@ export type Session = {
   /** Toque: abre o celular / a lista de lugares pelos botões da casca (só andando, sem painel). */
   openPhone(): void;
   openPlaces(): void;
-  /**
-   * O leitor não pôde abrir (o chunk não chegou): desempilha sem tentar travar o mouse (não há gesto aqui; um clique
-   * na cena trava de novo, como sempre).
-   */
-  dropReader(): void;
   /** Alterna papel e texto limpo pelo botão do leitor. */
   toggleReader(): void;
   /** Escolha na lista (clique/Enter num botão: é gesto, então o mouse pode travar de novo aqui). */
@@ -429,9 +424,6 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     },
     closePhone() {
       if (phone.close().emptied) input?.panelClosed();
-    },
-    dropReader() {
-      panels.closeReader();
     },
     toggleReader() {
       reader.toggle();

@@ -9,6 +9,7 @@ import type { PhoneRect, PhoneView } from "../runtime/phone";
 import type { Settings } from "../save/schema";
 import ExamineCard from "./ExamineCard";
 import Phone from "./Phone";
+import Reader from "./Reader";
 import Prompt from "./Prompt";
 import type { ReaderView } from "./readerFlow";
 import Subtitles from "./Subtitles";
@@ -16,27 +17,15 @@ import { lineDuration } from "./subtitles";
 import "./shell.css";
 import { useGameSession } from "./useGameSession";
 
-type ReaderModule = typeof import("./Reader");
-let readerChunk: Promise<ReaderModule> | null = null;
 /**
- * O leitor (e o pincel do papel, que ele carrega por import()) fica fora do chunk da casca: pré-carregado quando o
- * jogo fica vivo (ocioso) e carregado de vez na primeira leitura. Falhou (rede): a promessa é esquecida, a próxima
- * leitura tenta de novo, e quem pediu fecha o painel (nada de modo "ler" preso sem diálogo).
+ * Pré-carga ociosa do pincel do papel (o primeiro `E` no bilhete já pinta sem esperar a rede). O leitor em si mora no
+ * chunk da casca (~1,3 KB): um chunk próprio que falhasse ficaria falho para sempre (o navegador guarda o import()
+ * que falhou), e "tente de novo" seria mentira. Se o papel não chegar, o leitor mostra o texto limpo.
  */
-function loadReader(): Promise<ReaderModule> {
-  readerChunk ??= import("./Reader").catch((error: unknown) => {
-    readerChunk = null;
-    throw error;
+function preloadPaper(): void {
+  import("../render/paper").catch(() => {
+    /* sem rede agora: o leitor cai no texto limpo */
   });
-  return readerChunk;
-}
-/** Pré-carga ociosa: o chunk do leitor e o do papel (o primeiro `E` no bilhete já abre sem esperar a rede). */
-function preloadReader(): void {
-  loadReader()
-    .then(() => import("../render/paper"))
-    .catch(() => {
-      /* sem rede agora: a leitura tenta de novo quando for pedida */
-    });
 }
 
 /** Movimento reduzido ao vivo: a legenda aparece direta, sem palavra a palavra. */
@@ -75,7 +64,6 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   const [line, setLine] = useState<Line | null>(null);
   const [lineSeq, setLineSeq] = useState(0);
   const [reader, setReader] = useState<ReaderView | null>(null);
-  const [ReaderPanel, setReaderPanel] = useState<ReaderModule["default"] | null>(null);
   const [phone, setPhone] = useState<PhoneView | null>(null);
   // a tela do aparelho anda quadro a quadro: vai direto ao elemento do LCD (sem estado do React)
   const phoneRectRef = useRef<PhoneRect | null>(null);
@@ -196,34 +184,14 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
     if (status === "failed") backRef.current?.focus({ preventScroll: true });
     if (status === "stuck") retryRef.current?.focus({ preventScroll: true });
     if (status !== "live") return;
-    // Jogo vivo: o leitor e o papel baixam no ocioso (sem disputar o primeiro quadro).
-    const idle = window.requestIdleCallback?.(preloadReader, { timeout: 4000 });
-    const timer = idle === undefined ? window.setTimeout(preloadReader, 1500) : 0;
+    // Jogo vivo: o papel baixa no ocioso (sem disputar o primeiro quadro).
+    const idle = window.requestIdleCallback?.(preloadPaper, { timeout: 4000 });
+    const timer = idle === undefined ? window.setTimeout(preloadPaper, 1500) : 0;
     return () => {
       if (idle !== undefined) window.cancelIdleCallback?.(idle);
       window.clearTimeout(timer);
     };
   }, [status]);
-
-  // Leitor pedido e o chunk ainda não está aqui: carrega; se falhar, fecha o painel pela sessão (pilha coerente).
-  useEffect(() => {
-    if (!reader || ReaderPanel) return;
-    let alive = true;
-    loadReader().then(
-      (m) => {
-        if (alive) setReaderPanel(() => m.default);
-      },
-      (error: unknown) => {
-        console.error("[jogo] o leitor não carregou", error);
-        if (!alive) return;
-        sessionRef.current?.dropReader();
-        sayRef.current?.({ text: labels.readerFailed, kind: "system" });
-      },
-    );
-    return () => {
-      alive = false;
-    };
-  }, [reader, ReaderPanel, labels.readerFailed]);
 
   // Lista aberta: foco no primeiro lugar disponível; fechada: o foco volta à casca (o teclado segue no jogo).
   const prevPlaces = useRef<PlaceItem[] | null>(null);
@@ -326,8 +294,9 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
           onNav={(a) => sessionRef.current?.phoneNav(a)}
         />
       )}
-      {reader && ReaderPanel && (
-        <ReaderPanel
+      {reader && (
+        <Reader
+          onPaperFailed={() => sayRef.current?.({ text: labels.readerFailed, kind: "system" })}
           view={reader}
           origin={readPhoneRect}
           network={labels.phone.network}

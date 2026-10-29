@@ -382,8 +382,8 @@ export const game = {
   readerRead: "ler",
   readerPaper: "ver o papel",
   readerClose: "fechar",
-  /** O chunk do leitor não chegou (rede): o painel fecha e esta dica aparece. */
-  readerFailed: "o papel não abriu. tente de novo.",
+  /** O pincel do papel não chegou (rede): o leitor mostra o texto limpo e esta dica aparece. */
+  readerFailed: "o papel não abriu; o texto está aqui.",
   /** Celular de 2005 (T11): menu do LCD (minúsculas, como no aparelho), ajustes e teclas de função. */
   phone: {
     name: "celular",

@@ -29,7 +29,10 @@ export default function Reader({
   onClose,
   origin,
   network = "",
+  onPaperFailed,
 }: {
+  /** O pincel do papel não chegou (rede): o leitor mostra o texto limpo e avisa. */
+  onPaperFailed?: () => void;
   view: ReaderView;
   /** Tela do celular de onde o documento saiu (só com `returnTo: "phone"`), lida ao abrir. */
   origin?: () => PhoneRect | null;
@@ -50,6 +53,11 @@ export default function Reader({
   const titleId = useId();
   const textId = useId();
   const [painted, setPainted] = useState(false);
+  const [paperFailed, setPaperFailed] = useState(false);
+  const failedRef = useRef(onPaperFailed);
+  useEffect(() => {
+    failedRef.current = onPaperFailed;
+  });
 
   // Abre modal (o resto fica inerte) e leva o foco para dentro; ao desmontar, fecha e devolve o foco a quem abriu.
   useEffect(() => {
@@ -79,7 +87,13 @@ export default function Reader({
         await paintPaper(canvas, doc, controller.signal);
         if (!controller.signal.aborted) setPainted(true);
       })
-      .catch((error: unknown) => console.error("[jogo] o papel não pintou", error));
+      .catch((error: unknown) => {
+        console.error("[jogo] o papel não pintou", error);
+        if (controller.signal.aborted) return;
+        // sem papel, o nível 2 (texto limpo) é o que se lê
+        setPaperFailed(true);
+        failedRef.current?.();
+      });
     return () => {
       controller.abort();
       canvas.width = 0;
@@ -148,8 +162,8 @@ export default function Reader({
       )}
       <h2 id={titleId}>{doc.title}</h2>
       <div data-reader-stage>
-        <canvas ref={canvasRef} data-reader-paper data-ready={painted ? "" : undefined} hidden={clean} aria-hidden="true" />
-        <div ref={cleanRef} id={textId} className="focus-ring" data-reader-clean hidden={!clean} tabIndex={clean ? 0 : -1}>
+        <canvas ref={canvasRef} data-reader-paper data-ready={painted ? "" : undefined} hidden={clean || paperFailed} aria-hidden="true" />
+        <div ref={cleanRef} id={textId} className="focus-ring" data-reader-clean hidden={!clean && !paperFailed} tabIndex={clean || paperFailed ? 0 : -1}>
           {paragraphs.map((p, i) => (
             <p key={i}>{p}</p>
           ))}
