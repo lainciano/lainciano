@@ -682,6 +682,11 @@
     repeating-linear-gradient(90deg, color-mix(in srgb, var(--lcd-ink) 4.5%, transparent) 0 1px, transparent 1px 3px);
 }
 
+/* Nasce escondido até a 1ª posição ser escrita (antes da pintura). */
+[data-phone-lcd]:not([data-placed]) {
+  visibility: hidden;
+}
+
 [data-phone-lcd][data-returning] {
   animation: game-lcd-return var(--motion-phone-turn) var(--ease-out) both;
 }

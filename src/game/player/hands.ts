@@ -634,7 +634,12 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   /** Centro da tela segurada, na câmera (estúdio da pegada gira em volta dele). */
   const holdS = new T.Vector3();
   const cornerBuf = [0, 1, 2, 3].map(() => new T.Vector3());
-  let fitKey = "";
+  // chave do último encaixe (números, sem montar texto a cada quadro)
+  let fitFov = Number.NaN;
+  let fitAspect = Number.NaN;
+  let fitFrac = Number.NaN;
+  /** O alvo mudou e a pose mostrada ainda não chegou nele. */
+  let holdMoving = true;
   /** Fração da altura do quadro que a tela ocupa (sobe em janela baixa: o LCD não cai abaixo de ~200 px). */
   let phoneFrac: number = HOLD.frac;
   // alvo da pose de segurar (refeito quando FOV, aspecto ou fração mudam) e a pose mostrada, que corre até ele
@@ -652,9 +657,11 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     const cam = camera as THREE.PerspectiveCamera;
     const fov = cam.fov ?? 62;
     const aspect = cam.aspect ?? 1.6;
-    const key = `${fov}|${aspect.toFixed(4)}|${phoneFrac.toFixed(3)}`;
-    if (key === fitKey) return;
-    fitKey = key;
+    if (fov === fitFov && aspect === fitAspect && phoneFrac === fitFrac) return;
+    fitFov = fov;
+    fitAspect = aspect;
+    fitFrac = phoneFrac;
+    holdMoving = true;
     const tanH = Math.tan((fov * Math.PI) / 360);
     const d = PHONE.screen.h / (2 * tanH * phoneFrac);
     const S = new T.Vector3(HOLD.x * tanH * aspect * d, HOLD.y * tanH * d, -d);
@@ -689,9 +696,12 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
    * com o celular guardado, ou na 1ª vez, encaixa direto.
    */
   const stepHold = (dt: number) => {
+    // parado no alvo (ou guardado e já encaixado): nada a fazer neste quadro
+    if (!holdMoving) return;
     const snap = holdSnap || !phoneMount.visible;
     const k = snap ? 1 : 1 - Math.exp(-dt / 0.05);
     if (!snap && k === 0) return;
+    if (snap || (holdPos.distanceToSquared(holdTargetPos) < 1e-12 && holdQuat.angleTo(holdTargetQuat) < 1e-6)) holdMoving = false;
     holdSnap = false;
     holdPos.lerp(holdTargetPos, k);
     if (snap) holdPos.copy(holdTargetPos);

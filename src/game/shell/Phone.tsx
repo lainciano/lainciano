@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { GameLabels } from "../labels";
 import type { PhoneRect, PhoneView } from "../runtime/phone";
 import { phoneRows, type PhoneAction, type PhoneRow, type PhoneState } from "./phone-menu";
@@ -44,8 +44,9 @@ export default function Phone({
   const rows = phoneRows(state);
   const hasRect = lcd;
 
-  // posição do LCD: escrita no elemento (estilo e variáveis), fora do React
-  useEffect(() => {
+  // posição do LCD: escrita no elemento (estilo e variáveis), fora do React, antes da pintura (o LCD nasce escondido
+  // e só aparece posicionado: nada de um quadro no canto da tela)
+  useLayoutEffect(() => {
     const write = (r: PhoneRect | null) => {
       const el = lcdRef.current;
       if (el && r) placeLcd(el, r);
@@ -153,6 +154,7 @@ function placeLcd(el: HTMLElement, rect: PhoneRect) {
   // tela cheia girada: o lado comprido do LCD ocupa a largura da janela
   const zoom = Math.max(vw / rect.h, vh / rect.w);
   const st = el.style;
+  el.dataset.placed = "";
   st.left = `${rect.x - rect.w / 2}px`;
   st.top = `${rect.y - rect.h / 2}px`;
   st.width = `${rect.w}px`;
@@ -224,10 +226,12 @@ function Screen({ state, rows, labels, onNav }: { state: PhoneState; rows: Phone
     <>
       <div data-lcd-title>{labels[state.screen]}</div>
       {rows.length === 0 && empty && <div data-lcd-text>{empty}</div>}
+      {rows.length > 0 && (
       <div role="menu" aria-label={labels[state.screen]}>
       {rows.map((row, i) => {
         const { label, right } = rowText(row, state, labels);
         const disabled = row.kind === "screen" && row.disabled;
+        const toggle = row.kind === "setting" && typeof row.value === "boolean";
         return (
           <button
             key={row.id}
@@ -238,7 +242,8 @@ function Screen({ state, rows, labels, onNav }: { state: PhoneState; rows: Phone
             data-selected={i === state.index ? "" : undefined}
             aria-disabled={disabled ? "true" : undefined}
             aria-current={i === state.index ? "true" : undefined}
-            role="menuitem"
+            role={toggle ? "menuitemcheckbox" : "menuitem"}
+            aria-checked={toggle ? row.value === true : undefined}
             tabIndex={i === state.index ? 0 : -1}
             onClick={() => onNav({ type: "select", index: i })}
           >
@@ -248,6 +253,7 @@ function Screen({ state, rows, labels, onNav }: { state: PhoneState; rows: Phone
         );
       })}
       </div>
+      )}
     </>
   );
 }

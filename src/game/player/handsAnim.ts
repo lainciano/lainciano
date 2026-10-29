@@ -133,7 +133,8 @@ export function createHandsAnim(o: HandsAnimOptions) {
   let lid = 0;
   const presses = Array.from({ length: MAX_PRESSES }, () => ({ key: "", t: 0, dur: 0, fired: false, order: 0, aimed: false }));
   let pressOrder = 0;
-  let hold: LeftPose = LEFT_PHONE;
+  // copiada, não trocada: o rig chama a cada quadro e nada aloca
+  const hold: LeftPose = { ...LEFT_PHONE };
   let aimKey = "";
   let aimLeft = 0;
 
@@ -208,7 +209,8 @@ export function createHandsAnim(o: HandsAnimOptions) {
     },
     /** Pose de segurar o celular (o rig a calcula para a tela caber no campo de visão); `null` volta à nominal. */
     setPhoneHold(p: LeftPose | null) {
-      hold = p ? { ...p } : LEFT_PHONE;
+      const src = p ?? LEFT_PHONE;
+      for (const key of KEYS7) hold[key] = src[key];
     },
     state: () => ({ mode, flashOn, idle: idleActive && idle ? idle : ("none" as IdleKind), holster, light, phone: phoneState(), reduced }),
     step(dt: number, input: HandsInput): { pose: HandsPose; events: HandsEvent[] } {
