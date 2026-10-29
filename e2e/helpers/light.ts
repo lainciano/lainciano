@@ -10,8 +10,14 @@ import { DEFAULT_SETTINGS, initialSave } from "../../src/game/save/schema";
  * problema não existe: é artefato do teste, não do produto (a navegação por trás leva < 1 s medida de fora).
  * Chamar ANTES do `page.goto`. `extra` sobrescreve campos do save (ex.: `place`).
  */
-export async function lightGame(page: Page, testInfo: TestInfo, extra: Partial<ReturnType<typeof initialSave>> = {}) {
+export async function lightGame(page: Page, testInfo: TestInfo, extra: Partial<ReturnType<typeof initialSave>> = {}, opts: { once?: boolean } = {}) {
   if (testInfo.project.name === "desktop") await page.setViewportSize({ width: 800, height: 500 });
   const save = { ...initialSave(0), settings: { ...DEFAULT_SETTINGS, quality: 240 as const }, ...extra };
-  await page.addInitScript((json) => localStorage.setItem("lainciano:jogo:save:v1", json), JSON.stringify(save));
+  // `once`: só grava se ainda não há save (recarregar a página mantém o que o jogo gravou, ex.: o FOV dos ajustes).
+  await page.addInitScript(
+    ([json, once]) => {
+      if (!once || !localStorage.getItem("lainciano:jogo:save:v1")) localStorage.setItem("lainciano:jogo:save:v1", json);
+    },
+    [JSON.stringify(save), opts.once === true] as const,
+  );
 }
