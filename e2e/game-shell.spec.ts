@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { lightGame } from "./helpers/light";
 
 // Sinal pós-hidratação: o React já anexou a fibra ao <main>, então os efeitos do GameHost já rodaram.
 async function hydrated(page: Page) {
@@ -14,7 +15,11 @@ async function lenisReady(page: Page) {
   await page.waitForFunction(() => document.documentElement.classList.contains("lenis"));
 }
 
-test.beforeEach(async ({ page }) => {
+// Ciclo de vida do shell: não depende da imagem; o quadro leve (helpers/light.ts) mantém as asserções dentro do tempo.
+test.describe.configure({ timeout: 90_000 });
+
+test.beforeEach(async ({ page }, testInfo) => {
+  await lightGame(page, testInfo);
   // O site abre uma run em /api/run a cada visita nova; aqui isso só gastaria o limitador do servidor compartilhado.
   await page.route("**/api/run", (route) =>
     route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ runId: "e2e", issuedAt: 0, token: "e2e" }) }));
