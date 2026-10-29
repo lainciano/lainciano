@@ -6,6 +6,7 @@ import type { SaveV1, Settings } from "../save/schema";
 import { moveWithCollision, segmentClear, type Box2, type Vec2 } from "../world/collision";
 import { nearestPlace, pathBetween, type Place } from "../world/places";
 import { pickTarget, rayHit, type Target } from "../interaction/targeting";
+import { stepInterval } from "../audio/footsteps";
 import { surfaceAt } from "../world/surfaces";
 import { createAim, stepAim } from "./aim";
 import { createHands, type Hands, type HandsUpdate } from "./hands";
@@ -54,6 +55,8 @@ export type PlayerOptions = {
   still?: boolean;
   /** Tique do botão da lanterna (som, quando houver). */
   onFlashClick?: () => void;
+  /** Tecla do celular afundou (som). */
+  onPhoneKey?: (key: string) => void;
 };
 
 export type Player = {
@@ -130,6 +133,7 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
     still: opts.still === true,
     flashOn: true,
     onClick: opts.onFlashClick,
+    onKey: opts.onPhoneKey,
   });
   const still = opts.still === true;
   let sway = bobSetting && !reduced && !still;
@@ -158,7 +162,8 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
   let peekTarget = 0;
   let peek = 0;
   let bob = 0;
-  let lastSin = 0;
+  /** Metros andados desde o último passo (som). */
+  let walked = 0;
   let moving = false;
   let time = 0;
   let route: Route | null = null;
@@ -430,6 +435,9 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
     update(dt) {
       if (disposed) return;
       if (!still) time += dt;
+      const was = { x: pos.x, z: pos.z };
+      // a velocidade nominal é a de antes do quadro (a rota pode terminar dentro dele)
+      const nominal = route ? (route.run ? PLAYER.run : PLAYER.walk) : crouch ? PLAYER.crouchSpeed : isRunning() ? PLAYER.run : PLAYER.walk;
       const fromRoute = route ? stepRoute(dt) : false;
       const fromFree = route ? false : stepFree(dt);
       moving = fromRoute || fromFree;
@@ -444,9 +452,15 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       eye += ((crouch ? PLAYER.crouchEye : PLAYER.eye) - eye) * Math.min(1, dt * 5);
       peek += (peekTarget - peek) * Math.min(1, dt * 8);
       if (moving) bob += dt * (crouch ? 6 : isRunning() || route?.run ? 12 : 8.5);
-      const s = Math.sin(bob);
-      if (moving && lastSin !== 0 && Math.sign(s) !== Math.sign(lastSin)) opts.audio?.step(surfaceAt(pos, layer.surfaces, "granilite"));
-      lastSin = s;
+      // Passos pela distância andada (não pelo balanço da câmera): um passo a cada `velocidade × stepInterval` metros.
+      const stride = nominal * stepInterval(nominal, crouch && !route);
+      if (moving) {
+        walked += Math.hypot(pos.x - was.x, pos.z - was.z);
+        if (walked >= stride) {
+          walked %= stride;
+          opts.audio?.step(surfaceAt(pos, layer.surfaces, "granilite"), crouch && !route ? 0.55 : isRunning() || route?.run ? 1.2 : 1);
+        }
+      } else walked = stride * 0.5; // parar e voltar a andar: o 1º passo vem depois de meia passada
       applyCamera();
       // o corpo de sombra fica nos pés, virado para onde se olha
       hands.body.position.set(pos.x, 0, pos.z);

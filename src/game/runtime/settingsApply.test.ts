@@ -3,7 +3,7 @@ import { DEFAULT_SETTINGS } from "../save/schema";
 import { createSettingsApplier } from "./settingsApply";
 
 function setup(initial = DEFAULT_SETTINGS) {
-  const target = { fov: vi.fn(), quality: vi.fn(), player: vi.fn() };
+  const target = { fov: vi.fn(), quality: vi.fn(), volume: vi.fn(), player: vi.fn() };
   return { target, apply: createSettingsApplier(target, initial) };
 }
 
@@ -25,5 +25,15 @@ describe("ajustes aplicados na hora (T11, revisão I1)", () => {
     apply({ ...DEFAULT_SETTINGS, quality: "auto", fov: 70 });
     expect(target.quality.mock.calls).toEqual([[480], ["auto"]]);
     expect(target.fov.mock.calls).toEqual([[70]]);
+  });
+
+  it("o volume só chega ao áudio quando muda (e na hora)", () => {
+    const { target, apply } = setup();
+    apply({ ...DEFAULT_SETTINGS, bob: false });
+    expect(target.volume).not.toHaveBeenCalled();
+    apply({ ...DEFAULT_SETTINGS, volume: 0.4 });
+    expect(target.volume).toHaveBeenCalledWith(0.4);
+    apply({ ...DEFAULT_SETTINGS, volume: 0.4, fov: 70 });
+    expect(target.volume).toHaveBeenCalledTimes(1);
   });
 });

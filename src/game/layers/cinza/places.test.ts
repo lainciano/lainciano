@@ -10,6 +10,7 @@ import { surfaceAt } from "../../world/surfaces";
 import type { GameCtx, LayerInstance, Own } from "../types";
 import { cinzaLayer, objectPoint } from "./index";
 import { CINZA_PLACES, DOOR_FLAG, PLAYER_RADIUS } from "./places";
+import { silentAudio } from "../../audio/types";
 
 // O teste carrega a camada de verdade (geometria three em Node) com um kit falso: sem canvas, as texturas são
 // `Texture` vazias. Assim o ponto de cada objeto sai dos `roots` reais (Ruling 4), não de uma tabela à parte.
@@ -34,7 +35,7 @@ function fakeCtx(): GameCtx {
     scene: new THREE.Scene(),
     camera: new THREE.PerspectiveCamera(),
     kit: fakeKit(),
-    audio: { step() {}, object() {}, room() {}, suspend() {}, resume() {} },
+    audio: silentAudio,
     say() {},
     save: fakeSave(),
   };

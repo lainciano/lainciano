@@ -1,4 +1,4 @@
-import type { GameAudio } from "../audio/types";
+import { createGameAudio } from "../audio/game-audio";
 import { bindInput, type InputBinding } from "../input/adapters";
 import { isRelease, type Action } from "../input/actions";
 import { cinzaLayer } from "../layers/cinza";
@@ -6,7 +6,7 @@ import { createExamine, type Examine } from "../interaction/examine";
 import { createInteraction, type Interaction, type InteractionUi } from "../interaction/interaction";
 import type { PromptModel } from "../interaction/targeting";
 import { createLayerRunner, type LayerRunner } from "../layers/loader";
-import type { ActApi, GameCtx, Layer, Line } from "../layers/types";
+import type { ActApi, GameCtx, InteractiveObject, Layer, Line } from "../layers/types";
 import { createPlayer, type Player } from "../player/controller";
 import type { PhoneKey } from "../player/phone";
 import { createSaveStore, type SaveApi } from "../save/store";
@@ -72,9 +72,6 @@ const lazyStorage = {
     return window.localStorage.length;
   },
 };
-
-/** Áudio mudo até a T13 (a superfície já é a do contrato). */
-const silentAudio: GameAudio = { step() {}, object() {}, room() {}, suspend() {}, resume() {} };
 
 /** Tempo preso das fotos de referência (grão e balanço estáveis entre capturas). */
 const FROZEN_T = 1;
@@ -173,6 +170,17 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   engine = created;
   const eng = created;
 
+  // Áudio da sessão (T13): procedural, mudo sem som ligado no site / em modo leitura / antes do 1º gesto. Aba escondida
+  // = suspende (o loop já para; o zumbido e o contexto dormem também).
+  const audio = createGameAudio(save.get().settings.volume);
+  const onVisibility = () => (document.hidden ? audio.suspend() : audio.resume());
+  document.addEventListener("visibilitychange", onVisibility);
+  cleanups.push(() => {
+    document.removeEventListener("visibilitychange", onVisibility);
+    audio.dispose();
+  });
+  if (document.hidden) audio.suspend();
+
   const say = (line: Line) => ui.say(line);
   /** Painéis abertos (lista de lugares, exame, leitor; o celular da T11 entra na mesma pilha). O modo é o do topo. */
   const panels = createPanels({
@@ -193,6 +201,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
         eng.camera.updateProjectionMatrix();
       },
       quality: (q) => eng.setQualitySetting(q),
+      volume: (v) => audio.setVolume(v),
       player: (s: Settings) => player?.updateSettings(s),
     },
     save.get().settings,
@@ -211,17 +220,23 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     applySettings,
   });
   ui.settings(save.get().settings);
+  /** Objeto cujo `act` está rodando (o exame herda o material dele para o som de pegar). */
+  let acting: InteractiveObject | null = null;
   const actApi: ActApi = {
     save,
     say,
-    sfx: () => {},
-    examine: (o) => panels.openExamine(o),
+    sfx: (name) => audio.sfx(name),
+    examine: (o) => {
+      if (acting) audio.object(acting.material, "pick");
+      panels.openExamine(o);
+    },
     read: (doc) => {
+      audio.paper();
       if (save.get().flags[readFlag(doc.id)] !== true) save.patch({ flags: { [readFlag(doc.id)]: true } });
       panels.openReader(doc);
     },
   };
-  const ctx: GameCtx = { three: eng.three, scene: eng.scene, camera: eng.camera, kit: eng.kit, audio: silentAudio, say, save };
+  const ctx: GameCtx = { three: eng.three, scene: eng.scene, camera: eng.camera, kit: eng.kit, audio, say, save };
 
   const onAction = (a: Action) => {
     if (!player) return;
@@ -263,6 +278,8 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     player = createPlayer(eng, inst, save.get().settings, {
       save: save.get,
       audio: ctx.audio,
+      onFlashClick: () => audio.flashClick(),
+      onPhoneKey: (key) => audio.phoneKey(key),
       // Foto de referência: sem balanço nem respiração, quadro igual a cada execução.
       still: !!shot,
       onPlace: (id) => {
@@ -277,7 +294,14 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
       player,
       objects: inst.objects,
       save: save.get,
-      act: (o) => o.act(actApi),
+      act: (o) => {
+        acting = o;
+        try {
+          o.act(actApi);
+        } finally {
+          acting = null;
+        }
+      },
       coarse,
       ui: {
         prompt: (p) => {
@@ -294,6 +318,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     const saved = save.get().place;
     const start = shot?.place ?? (saved && inst.places.places[saved] ? saved : "entrada");
     player.placeAt(start);
+    audio.room("calm");
     if (shot) {
       eng.freezeTime(FROZEN_T);
       // As fotos comparam pixel a pixel: a qualidade do aparelho fica presa.

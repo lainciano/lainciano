@@ -173,7 +173,7 @@ export const cinzaLayer: Layer = {
       given: (s) => readCinza(s).hints,
       steps: (s) => cinzaSteps(readCinza(s)),
       solved: (s) => cinzaPuzzle.solved(readCinza(s)),
-      hint: () => dispatch({ save: ctx.save, say: ctx.say, sfx: () => {} }, { type: "hint" }),
+      hint: () => dispatch({ save: ctx.save, say: ctx.say, sfx: (name) => ctx.audio.sfx(name) }, { type: "hint" }),
     };
     const instance: LayerInstance = {
       places: CINZA_GRAPH,

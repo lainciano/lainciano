@@ -6,6 +6,7 @@ import { createPsxUniforms } from "../render/psx";
 import type { Engine } from "../runtime/engine";
 import { mergeSavePatch } from "../save/merge";
 import { initialSave, type SaveV1 } from "../save/schema";
+import { silentAudio } from "../audio/types";
 
 /**
  * Só para os testes: um engine falso (objetos three de verdade, sem WebGL), um kit sem canvas e a sala cinza
@@ -41,7 +42,7 @@ export async function cinzaWorld(initial: Partial<SaveV1> = {}) {
     wipeGame() {},
   };
   const layer: LayerInstance = await cinzaLayer.load(
-    { three: THREE, scene, camera, kit, audio: { step() {}, object() {}, room() {}, suspend() {}, resume() {} }, say: (l) => said.push(l.text), save },
+    { three: THREE, scene, camera, kit, audio: silentAudio, say: (l) => said.push(l.text), save },
     new AbortController().signal,
     own,
   );

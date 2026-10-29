@@ -92,6 +92,8 @@ export type HandsOptions = {
   still: boolean;
   flashOn: boolean;
   onClick?: () => void;
+  /** Uma tecla do celular afundou (som): vem do evento `key:<nome>` do rig, no quadro em que ela cede. */
+  onKey?: (key: string) => void;
 };
 
 /**
@@ -1022,7 +1024,11 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
       const out = anim.step(dt, fill(s));
       if (o.onClick && out.events.includes("click")) o.onClick();
       fired.length = 0;
-      for (const e of out.events) if (e.startsWith("key:")) fired.push(e.slice(4));
+      for (const e of out.events) {
+        if (!e.startsWith("key:")) continue;
+        fired.push(e.slice(4));
+        o.onKey?.(e.slice(4));
+      }
       apply(out.pose, dt);
       const swing = s.moving && !reduced && !o.still ? Math.sin(s.bob) * (s.run ? 0.5 : 0.32) : 0;
       legs[0].rotation.x = swing;

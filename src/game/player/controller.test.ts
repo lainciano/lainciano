@@ -6,6 +6,7 @@ import type { MaterialKit } from "../render/materials";
 import type { Engine } from "../runtime/engine";
 import { DEFAULT_SETTINGS, initialSave } from "../save/schema";
 import { createPlayer, PLAYER } from "./controller";
+import { silentAudio } from "../audio/types";
 
 // Controlador sobre um engine falso (objetos three de verdade, sem WebGL) e a sala cinza carregada com um kit
 // falso (sem canvas). O tempo anda só pelo `update(dt)` do teste.
@@ -30,7 +31,7 @@ async function world() {
   const own = Object.assign(<T,>(r: T) => r, { add() {} }) as unknown as Own;
   const save = { get: () => initialSave(0), patch() {}, reset() {}, wipeGame() {} };
   const layer: LayerInstance = await cinzaLayer.load(
-    { three: THREE, scene, camera, kit, audio: { step() {}, object() {}, room() {}, suspend() {}, resume() {} }, say() {}, save },
+    { three: THREE, scene, camera, kit, audio: silentAudio, say() {}, save },
     new AbortController().signal,
     own,
   );
@@ -77,6 +78,67 @@ describe("controlador · velocidade", () => {
     run(p, 0.25);
     const c = p.position;
     expect(Math.hypot(c.x - b.x, c.z - b.z), "de pé com Shift: corre").toBeCloseTo(PLAYER.run * 0.25, 2);
+    p.dispose();
+  });
+});
+
+describe("controlador · passos (T13)", () => {
+  /** Mundo com um áudio que só conta os passos (e o peso e a superfície de cada um). */
+  async function stepping() {
+    const w = await world();
+    const steps: { surface: string; scale?: number }[] = [];
+    const audio = { ...silentAudio, step: (surface: string, scale?: number) => steps.push({ surface, scale }) };
+    const p = createPlayer(w.engine, w.layer, DEFAULT_SETTINGS, { audio: audio as typeof silentAudio });
+    p.placeAt("entrada");
+    return { p, steps };
+  }
+
+  it("parado não há passo; andando, um a cada ~0,55 s (a passada), pela distância e não pelo balanço", async () => {
+    const { p, steps } = await stepping();
+    run(p, 2);
+    expect(steps).toHaveLength(0);
+    p.apply({ type: "move", x: 0, z: -1 });
+    run(p, 2.2); // 3,08 m a 1,4 m/s
+    // o 1º vem depois de meia passada (0,385 m): 0,385 + n·0,77 ≤ 3,08 → 4 passos
+    expect(steps.length).toBe(4);
+    p.dispose();
+  });
+
+  it("correr dá mais passos por segundo que andar, e agachado, menos", async () => {
+    const walk = await stepping();
+    walk.p.apply({ type: "move", x: 0, z: -1 });
+    run(walk.p, 1.5);
+    const run_ = await stepping();
+    run_.p.apply({ type: "run", on: true });
+    run_.p.apply({ type: "move", x: 0, z: -1 });
+    run(run_.p, 1.5);
+    const crouch = await stepping();
+    crouch.p.apply({ type: "crouch", on: true });
+    crouch.p.apply({ type: "move", x: 0, z: -1 });
+    run(crouch.p, 1.5);
+    expect(run_.steps.length).toBeGreaterThan(walk.steps.length);
+    expect(crouch.steps.length).toBeLessThan(walk.steps.length);
+    expect(run_.steps[0].scale).toBeGreaterThan(1);
+    expect(crouch.steps[0].scale).toBeLessThan(1);
+    for (const x of [walk, run_, crouch]) x.p.dispose();
+  });
+
+  it("encostado na parede (sem sair do lugar) não faz passos", async () => {
+    const { p, steps } = await stepping();
+    p.apply({ type: "move", x: 0, z: 1 }); // empurra para trás até a parede segurar
+    run(p, 12);
+    const at = steps.length;
+    run(p, 3);
+    expect(steps.length).toBe(at);
+    p.dispose();
+  });
+
+  it("a viagem de lugar a lugar também faz passos, sobre a superfície sob os pés", async () => {
+    const { p, steps } = await stepping();
+    void p.goTo("mesa");
+    run(p, 6);
+    expect(steps.length).toBeGreaterThan(0);
+    expect(steps.every((s) => ["granilite", "tapete"].includes(s.surface))).toBe(true);
     p.dispose();
   });
 });
