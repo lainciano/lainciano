@@ -1,6 +1,6 @@
 import type * as THREE from "three";
 import type { SaveV1 } from "../../save/schema";
-import type { ActApi, InteractiveObject, Layer, LayerInstance } from "../types";
+import type { ActApi, Doc, InteractiveObject, Layer, LayerInstance } from "../types";
 import { createMaker } from "./models";
 import { CINZA_GRAPH, DOOR_FLAG, FURNITURE_COLLIDERS, RUG, WALL_COLLIDERS } from "./places";
 import { buildCinzaScene } from "./scene";
@@ -22,12 +22,22 @@ const prefersReducedMotion = () => typeof window !== "undefined" && window.match
 /** Linhas da camada (conteúdo da sala, como os nós do protótipo). */
 const LINES = {
   mesa: "madeira gasta onde os braços apoiavam. alguém escreveu aqui por muito tempo.",
-  bilhete: "um bilhete dobrado. a letra é apressada.",
   caderno: "um caderno de capa preta, com elástico. está fechado.",
   armario: "a porta da direita não fecha direito. a chave ficou na fechadura.",
   portaTrancada: "trancada.",
   portaAberta: "a porta cede.",
 } as const;
+
+/**
+ * O bilhete da mesa (T10): lido, não examinado (decisão da T10: o exame fica para o caderno, que se vira na mão; o
+ * bilhete é texto). Rascunho do conteúdo, a aprovar pelo dono; fala do armário, que a escada de pistas da T12 cita.
+ */
+export const BILHETE: Doc = {
+  id: "bilhete",
+  title: "bilhete",
+  text: "se você acordou aqui, ainda dá tempo.\n\no que abre a porta eu deixei no armário.\nele emperra: puxe com jeito.\n\nnão demore. a luz não aguenta a noite toda.",
+  look: { tone: "#d6c9a6", seed: 421, folds: 2, ruled: true, signature: "· l." },
+};
 
 export const cinzaLayer: Layer = {
   id: "cinza",
@@ -63,7 +73,7 @@ export const cinzaLayer: Layer = {
         material: "papel",
         verb: () => "ler o bilhete",
         enabled: () => true,
-        act: (api) => api.examine({ root: built.note, distance: 0.34, title: "bilhete", text: LINES.bilhete }),
+        act: (api) => api.read(BILHETE),
       },
       {
         id: "caderno",

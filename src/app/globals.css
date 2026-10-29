@@ -96,6 +96,10 @@
   --coagulo: #380503; /* sangue sólido do shader (protótipo: vec3(0.22, 0.02, 0.01)) */
   --motion-pulse: 1.6s; /* selo de disponibilidade */
   --motion-lit: 250ms; /* palavra da legenda acendendo */
+  /* Legendas do jogo (T10, bíblia 12b.2): serifa grande, palavra a palavra, faixa escura só durante a fala. */
+  --sub-size: clamp(1.3125rem, 2.5vw, 1.9375rem); /* 21–31 px */
+  --sub-word-stagger: 42ms; /* atraso entre uma palavra e a seguinte */
+  --sub-band-height: clamp(9.5rem, 30vh, 16rem); /* altura da faixa escura que sobe do pé da tela */
   --arena-h: clamp(32.5rem, 78vh, 48.75rem); /* 520–780 px */
   --glyph-size: clamp(4rem, 13vw, 11.875rem); /* letras da arena: 64–190 px */
   --portrait-max: 32.5rem; /* retrato 3:5, 520 px */

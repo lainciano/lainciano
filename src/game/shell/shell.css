@@ -164,11 +164,32 @@
   opacity: 1;
 }
 
+/* Legendas (T10): a faixa escura (::before) sobe do pé da tela só enquanto há fala; o texto fica no terço de baixo. */
 [data-game-subtitles] {
-  left: 50%;
-  bottom: var(--space-lg);
-  width: min(42rem, calc(100% - 2 * var(--edge-padding)));
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  justify-items: center;
+  padding: 0 var(--edge-padding) clamp(var(--space-sm), 6vh, var(--space-lg));
+}
+
+[data-game-subtitles]::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--sub-band-height);
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--poco) 82%, transparent));
+  opacity: 0;
+  transition: opacity var(--motion-slower) var(--ease-out);
+  pointer-events: none;
+}
+
+[data-game-subtitles][data-speaking]::before {
+  opacity: 1;
 }
 
 [data-game-overlay] {
@@ -256,22 +277,106 @@
   color: var(--cinza);
 }
 
-/* Fala e "pausado": serifa no terço de baixo (a legenda completa, palavra a palavra, é da T10). */
+/* Fala: serifa grande, centrada; o fio vermelho e o rótulo (mono) vêm acima, as palavras entram em sequência. */
 [data-game-subtitles] p {
+  max-width: 34ch;
   margin: 0;
   text-align: center;
   font-family: var(--font-instrument-serif), serif;
-  font-size: clamp(1.3rem, 2.2vw, 1.9rem);
-  line-height: 1.25;
+  font-size: var(--sub-size);
+  line-height: 1.28;
+  letter-spacing: 0.005em;
   color: var(--osso);
-  text-shadow: 0 0 var(--space-tick) var(--poco);
+  text-wrap: balance;
+  text-shadow:
+    0 1px 0 var(--poco),
+    0 0 var(--space-xs) var(--poco),
+    0 0 var(--space-lg) var(--poco);
+}
+
+[data-game-line]::before {
+  content: "";
+  display: block;
+  width: var(--space-md);
+  height: calc(var(--frame-w) / 2);
+  margin: 0 auto var(--space-xs);
+  background: var(--sangue);
+  box-shadow: 0 0 var(--space-2xs) color-mix(in srgb, var(--sangue) 80%, transparent);
+  opacity: 0;
+  transform: scaleX(0.2);
+  transition:
+    opacity var(--motion-slow) var(--ease-out),
+    transform var(--motion-slower) var(--ease-out);
+}
+
+[data-game-line][data-on]::before {
+  opacity: 0.9;
+  transform: none;
+}
+
+[data-game-line] .w {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(0.25em);
+  transform: translateY(0.25em);
+  transition:
+    opacity var(--motion-slow) var(--ease-out),
+    filter var(--motion-slower) var(--ease-out),
+    transform var(--motion-slower) var(--ease-out);
+  transition-delay: calc(var(--i, 0) * var(--sub-word-stagger));
+}
+
+[data-game-line][data-on] .w {
+  opacity: 1;
+  filter: none;
+  transform: none;
+}
+
+/* Saída: as palavras se apagam juntas, sem fila. */
+[data-game-line][data-leaving] .w {
+  opacity: 0;
+  filter: blur(0.15em);
+  transform: translateY(-0.15em);
+  transition-duration: var(--motion-base);
+  transition-delay: 0s;
+}
+
+[data-game-label],
+[data-game-subtitles] [data-game-paused] {
+  font-family: var(--font-jetbrains), monospace;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+}
+
+[data-game-label] {
+  display: block;
+  margin-bottom: var(--space-tick);
+  font-size: 0.6875rem;
+  color: var(--cinza);
+  text-shadow: 0 0 var(--space-xs) var(--poco);
+}
+
+[data-game-line][data-kind="sound"] .w {
+  font-style: italic;
+  color: color-mix(in srgb, var(--osso) 88%, var(--sangue));
+}
+
+/* Dicas do jogo ("nada ao alcance daqui"): mono pequeno, sem faixa nem fio. */
+[data-game-line][data-kind="system"] {
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 0.875rem;
+  letter-spacing: 0.04em;
+  max-width: 48ch;
+}
+
+[data-game-line][data-kind="system"]::before {
+  display: none;
 }
 
 [data-game-subtitles] [data-game-paused] {
-  font-family: var(--font-jetbrains), monospace;
   font-size: 0.875rem;
-  letter-spacing: 0.08em;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 /* Exame (T9): véu escuro nas bordas e o cartão com título e texto; só o botão pega o ponteiro (arrastar gira). */
@@ -350,6 +455,143 @@
   text-align: center;
 }
 
+/* Leitor em dois níveis (T10): diálogo modal; o nível 1 é o canvas do papel, o nível 2 o texto limpo (R alterna). */
+[data-game-reader] {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: var(--space-sm) var(--edge-padding);
+  border: 0;
+  background: color-mix(in srgb, var(--poco) 94%, transparent);
+  color: var(--osso);
+  overflow: hidden;
+}
+
+[data-game-reader][open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  justify-items: center;
+  gap: var(--space-xs);
+  animation: game-reader-in var(--motion-base) var(--ease-out) both;
+}
+
+[data-game-reader]::backdrop {
+  background: var(--poco);
+}
+
+[data-game-reader] h2 {
+  margin: 0;
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cinza);
+}
+
+[data-reader-stage] {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+}
+
+[data-reader-paper] {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 var(--space-tick) var(--space-sm) var(--breu));
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+
+[data-reader-paper][data-ready] {
+  opacity: 1;
+}
+
+[data-reader-clean] {
+  box-sizing: border-box;
+  width: min(var(--measure-body), 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: clamp(var(--space-sm), 3vw, var(--space-lg));
+  border: var(--frame-w) solid var(--linha);
+  background: color-mix(in srgb, var(--breu) 97%, transparent);
+  font-family: var(--font-instrument-serif), serif;
+  font-size: clamp(1.0625rem, 2.1vw, 1.375rem);
+  line-height: 1.5;
+  white-space: pre-line;
+  color: var(--osso);
+}
+
+[data-reader-paper][hidden],
+[data-reader-clean][hidden] {
+  display: none;
+}
+
+[data-reader-clean] p {
+  margin: 0 0 var(--space-sm);
+}
+
+[data-reader-clean] p:last-child {
+  margin-bottom: 0;
+}
+
+[data-reader-acts] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2xs);
+}
+
+[data-reader-acts] button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-tick);
+  min-height: var(--tap-min);
+  padding: 0 var(--space-sm);
+  border: var(--frame-w) solid var(--linha);
+  background: color-mix(in srgb, var(--poco) 82%, transparent);
+  color: var(--osso);
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 0.8125rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+}
+
+:root[data-game="open"] [data-reader-acts] button {
+  cursor: pointer;
+}
+
+[data-reader-acts] button:hover {
+  background: var(--osso);
+  color: var(--breu);
+}
+
+[data-reader-acts] kbd {
+  min-width: 1.25rem;
+  padding: 0 var(--space-tick);
+  border: var(--frame-w) solid var(--cinza);
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+@keyframes game-reader-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-tick));
+  }
+}
+
 @keyframes game-veil-in {
   from {
     opacity: 0;
@@ -362,12 +604,29 @@
   [data-game-places] button,
   [data-game-reticle],
   [data-game-ring] .fill,
-  [data-game-examine] button {
+  [data-game-examine] button,
+  [data-reader-acts] button,
+  [data-reader-paper],
+  [data-game-subtitles]::before,
+  [data-game-line]::before,
+  [data-game-line] .w {
     transition: none;
   }
 
+  [data-game-line]::before {
+    opacity: 0.9;
+    transform: none;
+  }
+
+  [data-game-line] .w {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+
   [data-game-veil],
-  [data-game-examine] {
+  [data-game-examine],
+  [data-game-reader][open] {
     animation: none;
   }
 }

@@ -16,6 +16,34 @@ export type SavePatch = Partial<SaveV1>;
 /** Fala/legenda. A T10 reexporta este tipo de `shell/subtitles.ts`. */
 export type Line = { text: string; label?: string; kind?: "speech" | "sound" | "system" };
 
+/**
+ * Documento lido em dois níveis (T10, bíblia 12b): o nível 1 é a imagem do papel pintada em código (letra à mão,
+ * pontilhado) e o nível 2 é o texto limpo (`text`), que também é o que o leitor de tela recebe.
+ */
+export type Doc = {
+  id: string;
+  title: string;
+  /** Texto limpo. Linhas separadas por `\n`; uma linha vazia é um respiro entre parágrafos. */
+  text: string;
+  /** Aspecto do papel (nível 1). Tudo opcional: o padrão é uma folha de caderno dobrada. */
+  look?: DocLook;
+};
+
+export type DocLook = {
+  /** Cor do papel (CSS). */
+  tone?: string;
+  /** Cor da tinta (CSS). */
+  ink?: string;
+  /** Semente das manchas e do tremor da letra: o mesmo papel a cada abertura. */
+  seed?: number;
+  /** Dobras horizontais (0 = papel liso). */
+  folds?: number;
+  /** Pauta de caderno e margem vermelha. */
+  ruled?: boolean;
+  /** Assinatura à mão no fim, se houver. */
+  signature?: string;
+};
+
 export type AssetRef = { key: string; url: string; bytes: number };
 
 export type Manifest = {
@@ -49,6 +77,8 @@ export type ActApi = {
   say(text: Line): void;
   sfx(name: string): void;
   examine(o: { root: THREE.Object3D; distance: number; title: string; text: string }): void;
+  /** Abre o documento no leitor de dois níveis (T10): o bilhete, a carta, o livro. */
+  read(doc: Doc): void;
 };
 
 /** O segurar de um objeto: quanto tempo e o verbo do aviso ("forçar a porta"). */

@@ -6,7 +6,12 @@ import type { InputMode } from "../input/actions";
  * pilha vazia é "andar". Lógica pura, sem DOM nem three.
  */
 export type PanelMode = Exclude<InputMode, "walk">;
-export type Panel = { mode: PanelMode; id?: string };
+export type Panel = {
+  mode: PanelMode;
+  id?: string;
+  /** Painel de onde este foi aberto (um documento lido a partir do celular): fechar volta a ele, nunca ao jogo. */
+  returnTo?: PanelMode;
+};
 
 export type PanelStack = {
   push(p: Panel): void;

@@ -1,22 +1,39 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { GameLabels } from "../labels";
 import type { Line } from "../layers/types";
 import type { PromptModel } from "../interaction/targeting";
 import type { ExamineInfo, PlaceItem, Session, SessionStatus } from "../runtime/session";
 import ExamineCard from "./ExamineCard";
 import Prompt from "./Prompt";
+import type { ReaderView } from "./readerFlow";
+import Subtitles from "./Subtitles";
+import { lineDuration } from "./subtitles";
 import "./shell.css";
 import { useGameSession } from "./useGameSession";
 
-/** Tempo da fala na tela: cresce com o texto (bíblia 12b.2); a legenda completa é da T10. */
-const lineSeconds = (text: string) => Math.min(9, 2.2 + text.length * 0.055);
+// O leitor (e o pincel do papel, que ele carrega por import()) só baixa na primeira leitura.
+const Reader = lazy(() => import("./Reader"));
+
+/** Movimento reduzido ao vivo: a legenda aparece direta, sem palavra a palavra. */
+function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true);
+  useEffect(() => {
+    const query = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!query) return;
+    const update = () => setReduced(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return reduced;
+}
 
 /**
  * Casca do jogo: um painel fixo sobre o site (irmão do .page-shell, fora do template). A sessão (engine, camada,
  * jogador, entrada) chega por import() junto com o three e só pede à casca o que mostrar: carregando, falha,
- * "a porta emperrou", a lista de lugares (L), "pausado" e a fala. Sem WebGL, sem slot ou com o contexto perdido:
+ * "a porta emperrou", a lista de lugares (L), "pausado", a fala (legendas) e o leitor de documentos. Sem WebGL, sem slot ou com o contexto perdido:
  * aviso e botão de voltar ao site, e nenhum loop fica rodando.
  * Esc nunca fecha: o navegador reserva a tecla; sair é o botão (e, depois, o menu do jogo).
  */
@@ -31,6 +48,9 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   const [places, setPlaces] = useState<PlaceItem[] | null>(null);
   const [paused, setPaused] = useState(false);
   const [line, setLine] = useState<Line | null>(null);
+  const [lineSeq, setLineSeq] = useState(0);
+  const [reader, setReader] = useState<ReaderView | null>(null);
+  const reduced = useReducedMotion();
   const [prompt, setPrompt] = useState<PromptModel | null>(null);
   const [reticle, setReticle] = useState<"off" | "idle" | "hot">("off");
   const [examine, setExamine] = useState<ExamineInfo | null>(null);
@@ -56,6 +76,7 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
         // Fora de "live" (contexto perdido, erro, tentar de novo) nada da cena fica na tela: cartão, aviso, lista, mira.
         if (s !== "live") {
           setExamine(null);
+          setReader(null);
           setPrompt(null);
           setPlaces(null);
           setReticle("off");
@@ -71,9 +92,11 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       },
       say: (l: Line) => {
         if (signal.aborted) return;
+        // Fala nova (mesmo texto de novo, inclusive) recomeça a entrada; o tempo cresce com o texto (bíblia 12b.2).
         setLine(l);
+        setLineSeq((n) => n + 1);
         window.clearTimeout(lineTimer);
-        lineTimer = window.setTimeout(() => setLine(null), lineSeconds(l.text) * 1000);
+        lineTimer = window.setTimeout(() => setLine(null), lineDuration(l.text) * 1000);
       },
       prompt: (p: PromptModel | null) => {
         if (!signal.aborted) setPrompt(p);
@@ -83,6 +106,9 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       },
       examine: (info: ExamineInfo | null) => {
         if (!signal.aborted) setExamine(info);
+      },
+      reader: (view: ReaderView | null) => {
+        if (!signal.aborted) setReader(view);
       },
       notice: (n: { kind: "nothing" } | { kind: "hold"; verb: string }) => {
         const hold = coarse ? labels.holdHintTouch : labels.holdHint;
@@ -128,16 +154,17 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
     else if (shellRef.current?.contains(document.activeElement) || document.activeElement === document.body) shellRef.current?.focus({ preventScroll: true });
   }, [places, status]);
 
-  // Exame fechado (E, ⌫, botão direito ou o botão): o foco volta à casca, onde o teclado do jogo mora.
-  const prevExamine = useRef<ExamineInfo | null>(null);
+  // Exame ou leitor fechado (E, ⌫, botão direito ou o botão): o foco volta à casca, onde o teclado do jogo mora.
+  const prevPanel = useRef(false);
   useEffect(() => {
-    // Só quando o exame fechou de fato e com o jogo vivo: num aviso de falha o foco é do botão de voltar (o efeito
+    // Só quando o painel fechou de fato e com o jogo vivo: num aviso de falha o foco é do botão de voltar (o efeito
     // de status), e a transição para "live" não rouba o foco de ninguém.
-    const closed = prevExamine.current !== null && examine === null;
-    prevExamine.current = examine;
+    const open = examine !== null || reader !== null;
+    const closed = prevPanel.current && !open;
+    prevPanel.current = open;
     if (!closed || status !== "live") return;
     if (shellRef.current?.contains(document.activeElement) || document.activeElement === document.body) shellRef.current?.focus({ preventScroll: true });
-  }, [examine, status]);
+  }, [examine, reader, status]);
 
   const onPlacesKey = (e: KeyboardEvent<HTMLUListElement>) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -182,15 +209,25 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
           </ul>
         </nav>
       )}
-      {status === "live" && !examine && <div data-game-reticle data-state={reticle} aria-hidden="true" />}
+      {status === "live" && !examine && !reader && <div data-game-reticle data-state={reticle} aria-hidden="true" />}
       <Prompt text={prompt?.text ?? null} keyLabel={prompt?.key === "hold" ? (coarse ? labels.holdKeyTouch : labels.holdKey) : "E"} progress={prompt?.progress ?? null} />
-      <div data-game-subtitles aria-live="polite">
-        {paused && <p data-game-paused>{labels.paused}</p>}
-        {line && !paused && <p data-game-line>{line.text}</p>}
-      </div>
+      <Subtitles line={line} seq={lineSeq} reduced={reduced} notice={paused ? labels.paused : null} />
       <div data-game-overlay>
         {examine && <ExamineCard title={examine.title} text={examine.text} closeLabel={labels.examineClose} showKeys={!coarse} onClose={() => sessionRef.current?.closeExamine()} />}
       </div>
+      {reader && (
+        <Suspense fallback={null}>
+          <Reader
+            view={reader}
+            readLabel={labels.readerRead}
+            paperLabel={labels.readerPaper}
+            closeLabel={labels.readerClose}
+            showKeys={!coarse}
+            onToggle={() => sessionRef.current?.toggleReader()}
+            onClose={() => sessionRef.current?.closeReader()}
+          />
+        </Suspense>
+      )}
       <button type="button" data-game-exit onClick={onExit} className="focus-ring">
         {labels.exit}
       </button>

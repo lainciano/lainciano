@@ -248,15 +248,15 @@ test.describe("segurar", () => {
 });
 
 test.describe("examinar", () => {
-  test("E no bilhete abre o exame (painel); arrastar gira, a roda amplia, setas giram; E fecha e devolve o foco", async ({ page }) => {
+  test("E no caderno abre o exame (painel); arrastar gira, a roda amplia, setas giram; E fecha e devolve o foco", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await openAt(page, "mesa");
-    await aimAndWait(page, "bilhete", "ler o bilhete");
+    await aimAndWait(page, "caderno", "abrir o caderno");
     const childrenBefore = (await interact(page))?.cameraChildren ?? -1;
     await page.keyboard.press("KeyE");
     await expect(card(page)).toBeVisible({ timeout: 20_000 });
-    await expect(card(page).getByRole("heading", { name: "bilhete" })).toBeVisible();
+    await expect(card(page).getByRole("heading", { name: "caderno" })).toBeVisible();
     let s = await interact(page);
     // a cópia está na câmera e o original saiu da mesa enquanto está na mão
     expect(s?.cameraChildren).toBe(childrenBefore + 1);
@@ -302,7 +302,7 @@ test.describe("examinar", () => {
     await expect(page.locator("[data-game-shell]")).toBeFocused();
     await expect.poll(async () => (await page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.handsState))?.mode, { timeout: 20_000 }).toBe("held");
     // de volta ao jogo: a mira e o aviso retornam
-    await expect(prompt(page)).toContainText("ler o bilhete", { timeout: 30_000 });
+    await expect(prompt(page)).toContainText("abrir o caderno", { timeout: 30_000 });
     expect(errors).toEqual([]);
   });
 
@@ -328,7 +328,7 @@ test.describe("examinar", () => {
     // clique na cena trava
     await page.mouse.click(640, 400);
     await expect.poll(() => lock(page)).toMatchObject({ requests: 1, locked: true });
-    await aimAndWait(page, "bilhete", "ler o bilhete");
+    await aimAndWait(page, "caderno", "abrir o caderno");
     let requests = 1;
     for (const how of ["KeyE", "Backspace", "right", "button"] as const) {
       await page.keyboard.press("KeyE");
@@ -343,14 +343,14 @@ test.describe("examinar", () => {
       requests += 1;
       await expect.poll(() => lock(page), { message: `trava de novo (${how})` }).toMatchObject({ requests, locked: true });
       await expect(page.locator("[data-game-paused]")).toHaveCount(0);
-      await expect(prompt(page)).toContainText("ler o bilhete", { timeout: 30_000 });
+      await expect(prompt(page)).toContainText("abrir o caderno", { timeout: 30_000 });
     }
   });
 
   test("com o mouse solto, fechar o exame não trava nada", async ({ page }) => {
     await fakePointerLock(page);
     await openAt(page, "mesa");
-    await aimAndWait(page, "bilhete", "ler o bilhete");
+    await aimAndWait(page, "caderno", "abrir o caderno");
     await page.keyboard.press("KeyE");
     await expect(card(page)).toBeVisible({ timeout: 20_000 });
     await page.keyboard.press("KeyE");
@@ -364,7 +364,7 @@ test.describe("examinar", () => {
     await openAt(page, "mesa");
     await page.mouse.click(640, 400);
     await expect.poll(() => lock(page)).toMatchObject({ locked: true });
-    await aimAndWait(page, "bilhete", "ler o bilhete");
+    await aimAndWait(page, "caderno", "abrir o caderno");
     await page.mouse.click(640, 400);
     await expect(card(page)).toBeVisible({ timeout: 20_000 });
     await expect.poll(() => lock(page)).toMatchObject({ locked: false });
@@ -372,7 +372,7 @@ test.describe("examinar", () => {
 
   test("20 aberturas e fechamentos não vazam geometria, textura nem programa", async ({ page }) => {
     await openAt(page, "mesa");
-    await aimAndWait(page, "bilhete", "ler o bilhete");
+    await aimAndWait(page, "caderno", "abrir o caderno");
     const info = () => page.evaluate(() => {
       const r = (window as unknown as CriptaWindow).__cripta?.renderer;
       return { geometries: r?.memory.geometries ?? -1, textures: r?.memory.textures ?? -1, programs: r?.programs ?? -1 };
@@ -395,7 +395,7 @@ test.describe("examinar", () => {
       const closed = await interact(page);
       expect(closed?.cameraChildren, `ciclo ${i}: a cópia saiu da câmera`).toBe(childrenBefore);
       expect(closed?.examine.originalVisible, `ciclo ${i}: o original voltou`).toBeNull();
-      await expect(prompt(page)).toContainText("ler o bilhete", { timeout: 30_000 });
+      await expect(prompt(page)).toContainText("abrir o caderno", { timeout: 30_000 });
       if (i === 3) settled = await info();
     }
     expect(new Set(emissives).size, `emissivo da cópia igual em todas as fases do pulso: ${emissives.join(",")}`).toBe(1);

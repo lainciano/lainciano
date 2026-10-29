@@ -41,6 +41,9 @@ export function blotches(g: CanvasRenderingContext2D, w: number, h: number, r: R
   g.imageSmoothingEnabled = true;
   g.drawImage(c, 0, 0, w, h);
   g.restore();
+  // O rascunho já foi copiado: zera para o navegador soltar o buffer na hora (o leitor abre e fecha à vontade).
+  c.width = 0;
+  c.height = 0;
 }
 
 export function grain(g: CanvasRenderingContext2D, w: number, h: number, r: Rng, amp: number) {

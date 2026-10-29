@@ -182,15 +182,15 @@ test("perder o contexto mostra o aviso, para o loop, solta o canvas e volta ao s
 
 test("perder o contexto com o exame aberto não deixa cartão, aviso, mira nem lista na tela", async ({ page, isMobile }, testInfo) => {
   test.skip(isMobile, "o exame aqui abre por teclado e mira de mouse (o toque tem a própria spec)");
-  // Começa no lugar da mesa (o save manda) para mirar o bilhete e examinar.
+  // Começa no lugar da mesa (o save manda) para mirar o caderno e examinar.
   await lightGame(page, testInfo, { place: "mesa" });
   await page.goto("/?jogo=1&debug=1");
   await hydrated(page);
   await expectRunning(page);
   const errors = collectErrors(page);
   type Aim = { aimAt(id: string): boolean; interact: { aimedId: string | null } | null };
-  await page.evaluate(() => (window as unknown as { __cripta: Aim }).__cripta.aimAt("bilhete"));
-  await expect(page.locator("[data-game-prompt]")).toContainText("ler o bilhete", { timeout: 30_000 });
+  await page.evaluate(() => (window as unknown as { __cripta: Aim }).__cripta.aimAt("caderno"));
+  await expect(page.locator("[data-game-prompt]")).toContainText("abrir o caderno", { timeout: 30_000 });
   await page.keyboard.press("KeyE");
   await expect(page.locator("[data-game-examine]")).toBeVisible({ timeout: 20_000 });
   // com o exame aberto o contexto cai: nada da cena (cartão, véu, aviso, mira, lista) pode sobreviver ao aviso

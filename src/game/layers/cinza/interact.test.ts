@@ -3,32 +3,48 @@ import { describe, expect, it, vi } from "vitest";
 import { createGlow } from "../../interaction/glow";
 import { holdFor } from "../../interaction/hold";
 import { cinzaWorld } from "../../interaction/testWorld";
-import type { ActApi } from "../types";
+import type { ActApi, Doc } from "../types";
 
 // Interação dos objetos da sala cinza (T9): o que cada um faz ao ser acionado e se o brilho da mira pode acender
 // cada um sem acender o vizinho.
 
-function api(save: ActApi["save"]): ActApi & { said: string[]; sfx: ReturnType<typeof vi.fn>; examine: ReturnType<typeof vi.fn> } {
+function api(save: ActApi["save"]): ActApi & { said: string[]; sfx: ReturnType<typeof vi.fn>; examine: ReturnType<typeof vi.fn>; read: ReturnType<typeof vi.fn> } {
   const said: string[] = [];
-  return { save, said, say: (l: { text: string }) => said.push(l.text), sfx: vi.fn(), examine: vi.fn() } as never;
+  return { save, said, say: (l: { text: string }) => said.push(l.text), sfx: vi.fn(), examine: vi.fn(), read: vi.fn() } as never;
 }
 
 describe("sala cinza · objetos interativos", () => {
-  it("bilhete e caderno abrem o exame do próprio modelo, com título e texto", async () => {
+  it("o caderno abre o exame do próprio modelo, com título e texto", async () => {
     const { layer, save } = await cinzaWorld();
-    for (const id of ["bilhete", "caderno"]) {
-      const o = layer.objects.find((x) => x.id === id);
-      expect(o, id).toBeDefined();
-      const a = api(save);
-      o?.act(a);
-      expect(a.examine, id).toHaveBeenCalledTimes(1);
-      const arg = a.examine.mock.calls[0][0] as Parameters<ActApi["examine"]>[0];
-      expect(o?.roots).toContain(arg.root);
-      expect(arg.distance).toBeGreaterThan(0.2);
-      expect(arg.distance).toBeLessThan(0.6);
-      expect(arg.title.length).toBeGreaterThan(2);
-      expect(arg.text.length).toBeGreaterThan(5);
-    }
+    const o = layer.objects.find((x) => x.id === "caderno");
+    expect(o).toBeDefined();
+    const a = api(save);
+    o?.act(a);
+    expect(a.examine).toHaveBeenCalledTimes(1);
+    expect(a.read).not.toHaveBeenCalled();
+    const arg = a.examine.mock.calls[0][0] as Parameters<ActApi["examine"]>[0];
+    expect(o?.roots).toContain(arg.root);
+    expect(arg.distance).toBeGreaterThan(0.2);
+    expect(arg.distance).toBeLessThan(0.6);
+    expect(arg.title.length).toBeGreaterThan(2);
+    expect(arg.text.length).toBeGreaterThan(5);
+  });
+
+  it("o bilhete é LIDO (leitor em dois níveis), não examinado: título, texto limpo e papel de caderno", async () => {
+    const { layer, save } = await cinzaWorld();
+    const o = layer.objects.find((x) => x.id === "bilhete");
+    expect(o?.verb(save.get())).toBe("ler o bilhete");
+    const a = api(save);
+    o?.act(a);
+    expect(a.read).toHaveBeenCalledTimes(1);
+    expect(a.examine).not.toHaveBeenCalled();
+    const doc = a.read.mock.calls[0][0] as Doc;
+    expect(doc.id).toBe("bilhete");
+    expect(doc.title).toBe("bilhete");
+    // a escada de pistas da T12 cita o armário: o bilhete precisa falar dele
+    expect(doc.text).toMatch(/armário/);
+    expect(doc.text.split("\n").length).toBeGreaterThan(3);
+    expect(doc.look?.signature).toBeTruthy();
   });
 
   it("mesa e armário falam; a porta é de segurar (forçar) e, concluído, bate e diz que está trancada", async () => {

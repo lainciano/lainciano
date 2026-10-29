@@ -378,4 +378,8 @@ export const game = {
   holdHintTouch: "mantenha o dedo para {verb}.",
   nothingHere: "nada ao alcance daqui. L abre os lugares.",
   examineClose: "guardar",
+  /** Leitor em dois níveis (T10): R alterna o papel e o texto limpo; E fecha (⌫ e botão direito também, sem rótulo). */
+  readerRead: "ler",
+  readerPaper: "ver o papel",
+  readerClose: "fechar",
 };

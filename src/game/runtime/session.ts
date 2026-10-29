@@ -6,10 +6,11 @@ import { createExamine, type Examine } from "../interaction/examine";
 import { createInteraction, type Interaction, type InteractionUi } from "../interaction/interaction";
 import type { PromptModel } from "../interaction/targeting";
 import { createLayerRunner, type LayerRunner } from "../layers/loader";
-import type { ActApi, GameCtx, Layer, LayerInstance, Line } from "../layers/types";
+import type { ActApi, Doc, GameCtx, Layer, LayerInstance, Line } from "../layers/types";
 import { createPlayer, type Player } from "../player/controller";
 import { createSaveStore, type SaveApi } from "../save/store";
 import { createPanelStack, openPanel } from "../shell/panelStack";
+import { createReaderFlow, type ReaderView } from "../shell/readerFlow";
 import { debugEnabled, installDebug, layerShot, loadShot, standaloneShot } from "./debug";
 import { createEngine, type Engine } from "./engine";
 
@@ -37,12 +38,18 @@ export type SessionUi = InteractionUi & {
   say(line: Line): void;
   /** Exame aberto (título e texto) ou fechado (`null`). */
   examine(info: ExamineInfo | null): void;
+  /** Leitor aberto (documento e nível: papel ou texto limpo) ou fechado (`null`). */
+  reader(view: ReaderView | null): void;
 };
 
 export type Session = {
   retry(): void;
   /** Fecha o exame pelo botão da casca (gesto: o mouse pode travar de novo aqui). */
   closeExamine(): void;
+  /** Fecha o leitor pelo botão ou pelo botão direito sobre o diálogo (gesto: o mouse pode travar de novo aqui). */
+  closeReader(): void;
+  /** Alterna papel e texto limpo pelo botão do leitor. */
+  toggleReader(): void;
   /** Escolha na lista (clique/Enter num botão: é gesto, então o mouse pode travar de novo aqui). */
   choosePlace(id: string): void;
   closePlaces(): void;
@@ -160,7 +167,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   const eng = created;
 
   const say = (line: Line) => ui.say(line);
-  const actApi: ActApi = { save, say, sfx: () => {}, examine: (o) => openExamine(o) };
+  const actApi: ActApi = { save, say, sfx: () => {}, examine: (o) => openExamine(o), read: (doc) => openReader(doc) };
   const ctx: GameCtx = { three: eng.three, scene: eng.scene, camera: eng.camera, kit: eng.kit, audio: silentAudio, say, save };
 
   /** Com algum painel aberto a lanterna guarda, a mira e o aviso se apagam; pilha vazia, tudo volta. */
@@ -169,6 +176,14 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     player?.setPanel(open);
     interaction?.setPanel(open);
   };
+  /** Leitor em dois níveis (T10): painel `read` na pilha; fechar volta ao que estava embaixo (o celular, na T11). */
+  const reader = createReaderFlow(panels, syncPanels, { reader: (view) => ui.reader(view) });
+  function openReader(doc: Doc) {
+    // Primeiro o painel (a lanterna guarda, a mira apaga), depois o diálogo. Aberto por um aperto ou por um segurar
+    // que completou no quadro: solta o mouse (idempotente quando o adaptador já viu).
+    if (reader.open(doc)) input?.panelOpened();
+  }
+  const closeReader = () => reader.close();
   const closePlaces = () => {
     if (panels.top()?.mode !== "menu") return;
     panels.pop();
@@ -222,8 +237,14 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
       else if (isRelease(a)) player.apply(a);
       return;
     }
+    if (m === "read") {
+      if (a.type === "back") closeReader();
+      else if (a.type === "read") reader.toggle();
+      else if (isRelease(a)) player.apply(a);
+      return;
+    }
     if (m !== "walk") {
-      // Leitor e celular (T10/T11) tratam as próprias teclas; soltar sempre chega.
+      // O celular (T11) trata as próprias teclas; soltar sempre chega.
       if (isRelease(a)) player.apply(a);
       return;
     }
@@ -343,6 +364,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
                 panels: panels.size(),
                 mode: mode(),
                 examine: examine.state(),
+                reader: { open: reader.view() !== null, id: reader.view()?.doc.id ?? null, clean: reader.view()?.clean ?? false, returnTo: reader.view()?.returnTo ?? null },
                 cameraChildren: eng.camera.children.length,
               }
             : null,
@@ -387,6 +409,13 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
       closeExamine();
       // Clique no botão da casca: é gesto, o mouse pode travar de novo aqui.
       input?.panelClosed();
+    },
+    closeReader() {
+      // Só quando a pilha esvazia o jogo volta a andar e o mouse pode travar de novo (com o celular embaixo, não).
+      if (closeReader().emptied) input?.panelClosed();
+    },
+    toggleReader() {
+      reader.toggle();
     },
     retry() {
       if (disposed || player) return;

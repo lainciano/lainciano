@@ -33,9 +33,9 @@ async function aimAndTap(page: Page, id: string) {
   await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
 }
 
-test("tocar no bilhete abre o exame sem glifos de tecla; o botão guarda", async ({ page }) => {
+test("tocar no caderno abre o exame sem glifos de tecla; o botão guarda", async ({ page }) => {
   await openAt(page, "mesa");
-  await aimAndTap(page, "bilhete");
+  await aimAndTap(page, "caderno");
   const card = page.locator("[data-game-examine]");
   await expect(card).toBeVisible({ timeout: 20_000 });
   await expect(card.locator("kbd")).toHaveCount(0);
