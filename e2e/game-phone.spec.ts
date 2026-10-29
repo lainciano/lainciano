@@ -297,7 +297,7 @@ test.describe("celular de 2005", () => {
     await expect(page.locator("[data-game-subtitles]")).toContainText("o papel não abriu", { timeout: 20_000 });
     const s = await interact(page);
     expect(s).toMatchObject({ mode: "walk", panels: 0, reader: { open: false } });
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.locator("[data-game-reader], [data-game-phone]")).toHaveCount(0);
     // o leitor soltou o mouse ao abrir; fechar sem gesto não pede o travamento (um clique na cena trava de novo)
     expect(await lock(page)).toMatchObject({ requests: 1, locked: false });
     await page.mouse.click(400, 250);
