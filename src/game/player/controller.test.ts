@@ -358,3 +358,103 @@ describe("controlador · preferência do sistema (rodada 5)", () => {
     }
   });
 });
+
+describe("controlador · inércia da mão ao virar (T14)", () => {
+  const SENS = PLAYER.sensitivity;
+  /** Gira `rad` radianos (para a esquerda, + yaw) em `frames` quadros de 1/60 s pelo `look`, como o mouse. */
+  function spin(p: ReturnType<typeof createPlayer>, rad: number, frames: number) {
+    for (let k = 0; k < frames; k++) {
+      p.apply({ type: "look", dx: -rad / frames / SENS, dy: 0 });
+      p.update(1 / 60);
+    }
+  }
+  const idle = (p: ReturnType<typeof createPlayer>, seconds: number) => {
+    for (let k = 0; k < seconds * 60; k++) p.update(1 / 60);
+  };
+
+  it("girar rápido faz a mão atrasar (oposta ao giro) e depois voltar ao centro; parado é zero", async () => {
+    const { engine, layer } = await world();
+    const p = createPlayer(engine, layer, DEFAULT_SETTINGS);
+    p.placeAt("entrada");
+    idle(p, 0.3);
+    expect(p.hands.state().inertia).toEqual({ yaw: 0, pitch: 0 });
+    let peak = 0;
+    for (let k = 0; k < 9; k++) {
+      p.apply({ type: "look", dx: -0.06 / SENS, dy: 0 }); // ~3,6 rad/s por 0,15 s
+      p.update(1 / 60);
+      peak = Math.min(peak, p.hands.state().inertia.yaw);
+    }
+    for (let k = 0; k < 20; k++) {
+      p.update(1 / 60);
+      peak = Math.min(peak, p.hands.state().inertia.yaw);
+    }
+    expect(peak).toBeLessThan(-0.03);
+    expect(peak).toBeGreaterThan(-0.2);
+    idle(p, 1.5);
+    expect(Math.abs(p.hands.state().inertia.yaw)).toBeLessThan(1e-3);
+    p.dispose();
+  });
+
+  it("virar para a direita inverte o sinal, e o pitch tem o seu eixo", async () => {
+    const { engine, layer } = await world();
+    const p = createPlayer(engine, layer, DEFAULT_SETTINGS);
+    p.placeAt("entrada");
+    idle(p, 0.2);
+    spin(p, -0.4, 9);
+    expect(p.hands.state().inertia.yaw).toBeGreaterThan(0.02);
+    idle(p, 1.5);
+    for (let k = 0; k < 9; k++) {
+      p.apply({ type: "look", dx: 0, dy: -0.04 / SENS }); // olhar para cima
+      p.update(1 / 60);
+    }
+    expect(p.hands.state().inertia.pitch).toBeLessThan(-0.015);
+    p.dispose();
+  });
+
+  it("pico absurdo do mouse (um quadro gigante) é limitado; teleporte (placeAt) não é giro", async () => {
+    const { engine, layer } = await world();
+    const p = createPlayer(engine, layer, DEFAULT_SETTINGS);
+    p.placeAt("entrada");
+    idle(p, 0.2);
+    p.apply({ type: "look", dx: 1e5, dy: 0 });
+    p.update(1 / 60);
+    expect(Math.abs(p.hands.state().inertia.yaw)).toBeLessThanOrEqual(0.13);
+    idle(p, 1.5);
+    p.placeAt("mesa");
+    p.update(1 / 60);
+    p.update(1 / 60);
+    expect(Math.abs(p.hands.state().inertia.yaw)).toBeLessThan(1e-4);
+    p.dispose();
+  });
+
+  it("painel aberto: sem inércia visível mesmo girando", async () => {
+    const { engine, layer } = await world();
+    const p = createPlayer(engine, layer, DEFAULT_SETTINGS);
+    p.placeAt("entrada");
+    idle(p, 0.2);
+    p.setPanel(true);
+    idle(p, 0.8);
+    spin(p, 0.6, 12);
+    expect(p.hands.state().inertia.yaw).toBe(0);
+    p.dispose();
+  });
+
+  it("balanço desligado (ou movimento reduzido): nenhuma inércia", async () => {
+    const { engine, layer } = await world();
+    const p = createPlayer(engine, layer, { ...DEFAULT_SETTINGS, bob: false });
+    p.placeAt("entrada");
+    idle(p, 0.2);
+    spin(p, 0.6, 9);
+    expect(p.hands.state().inertia.yaw).toBe(0);
+    p.dispose();
+  });
+
+  it("modo still: nenhuma inércia (as referências não mudam)", async () => {
+    const { engine, layer } = await world();
+    const p = createPlayer(engine, layer, DEFAULT_SETTINGS, { still: true });
+    p.placeAt("entrada");
+    spin(p, 0.6, 9);
+    expect(p.hands.state().inertia.yaw).toBe(0);
+    p.dispose();
+  });
+});

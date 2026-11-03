@@ -62,7 +62,7 @@ export type InteractDebugState = {
   cameraChildren: number;
 };
 
-export type HandsDebugState = { mode: string; flashOn: boolean; idle: string; holster: number; light: number; phone: string };
+export type HandsDebugState = { mode: string; flashOn: boolean; idle: string; holster: number; light: number; phone: string; inertia?: { yaw: number; pitch: number } };
 export type HandsDebugInput = {
   still?: boolean;
   /** Fotos: a animação das mãos só anda por `step`. */
@@ -73,7 +73,7 @@ export type HandsDebugInput = {
   press?: string;
   step?: number;
   view?: { hand: "right" | "left" | "phone" | "grip"; angle: "front" | "left" | "right" | "top" | "back"; lid?: number } | null;
-  input?: Partial<{ moving: boolean; run: boolean; bob: number; crouch: boolean; panel: boolean; aiming: boolean }>;
+  input?: Partial<{ moving: boolean; run: boolean; bob: number; crouch: boolean; panel: boolean; aiming: boolean; yawRate: number; pitchRate: number }>;
 };
 
 export type ShadowInfo = { normalBias: number; bias: number; near: number };

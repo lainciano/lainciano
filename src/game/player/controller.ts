@@ -105,6 +105,8 @@ const angDiff = (a: number, b: number) => {
   return d;
 };
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+/** Giro maior que isto num quadro é salto (teleporte, rota reduzida): não é velocidade de câmera, a mão não reage. */
+const LOOK_JUMP = 1.5;
 
 type Route = {
   pts: Vec2[];
@@ -152,6 +154,9 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
   let pos: Vec2 = { x: 0, z: 0 };
   let yaw = 0;
   let pitch = 0;
+  /** Olhar do fim do quadro anterior (para a velocidade angular que alimenta a inércia da mão); `false` = sem referência. */
+  const lookPrev = { yaw: 0, pitch: 0 };
+  let lookKnown = false;
   let eye: number = PLAYER.eye;
   let place: string | null = null;
   let move = { x: 0, z: 0 };
@@ -245,6 +250,7 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
         const last = r.pts[r.pts.length - 1];
         pos = { ...last };
         if (r.face) ({ yaw, pitch } = r.face);
+        lookKnown = false;
         r.phase = "fadeIn";
         r.t = 0;
         return false;
@@ -403,6 +409,7 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
         turn = null;
         yaw = targetYaw;
         pitch = targetPitch;
+        lookKnown = false;
         applyCamera();
         return;
       }
@@ -428,6 +435,7 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       turn = null;
       pos = { x: p.x, z: p.z };
       ({ yaw, pitch } = faceOf(p));
+      lookKnown = false;
       eye = crouch ? PLAYER.crouchEye : PLAYER.eye;
       setPlace(id);
       applyCamera();
@@ -481,6 +489,21 @@ export function createPlayer(engine: Engine, layer: LayerInstance, settings: Set
       handsIn.crouch = crouch;
       handsIn.panel = panel;
       handsIn.aiming = aiming;
+      // velocidade angular da câmera neste quadro (mouse, teclas, toque, rota, viradas): limitada na mola (picos do
+      // mouse travado e do arraste); sem referência (1º quadro, teleporte) ou com a câmera fixada pelo debug, zero
+      handsIn.yawRate = 0;
+      handsIn.pitchRate = 0;
+      if (lookKnown && !pose && dt > 0) {
+        const dy = angDiff(yaw, lookPrev.yaw);
+        const dp = pitch - lookPrev.pitch;
+        if (Math.abs(dy) < LOOK_JUMP && Math.abs(dp) < LOOK_JUMP) {
+          handsIn.yawRate = dy / dt;
+          handsIn.pitchRate = dp / dt;
+        }
+      }
+      lookPrev.yaw = yaw;
+      lookPrev.pitch = pitch;
+      lookKnown = true;
       hands.update(dt, handsIn);
     },
     apply(a) {

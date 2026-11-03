@@ -21,7 +21,7 @@ import { createPhoneModel, PHONE, type PhoneKey, type PhoneModel } from "./phone
  * - Corpo: tronco, braços e pernas com `colorWrite`/`depthWrite` desligados (só a sombra aparece).
  */
 
-export type HandsUpdate = { moving: boolean; run: boolean; bob: number; crouch: boolean; panel: boolean; aiming: boolean };
+export type HandsUpdate = { moving: boolean; run: boolean; bob: number; crouch: boolean; panel: boolean; aiming: boolean; yawRate?: number; pitchRate?: number };
 export type StudioView = { hand: "right" | "left" | "phone" | "grip"; angle: "front" | "left" | "right" | "top" | "back"; lid?: number };
 
 export type HandsRig = {
@@ -52,7 +52,7 @@ export type Hands = {
   /** Movimento reduzido em execução (preferência do sistema ou ajuste de balanço). */
   setReduced(v: boolean): void;
   update(dt: number, s: HandsUpdate): void;
-  state(): { mode: string; flashOn: boolean; idle: IdleKind; holster: number; light: number; phone: PhoneState; reduced: boolean };
+  state(): { mode: string; flashOn: boolean; idle: IdleKind; holster: number; light: number; phone: PhoneState; reduced: boolean; inertia: { yaw: number; pitch: number } };
   /**
    * Celular (T11): `open` sobe a mão esquerda com o aparelho fechado e o polegar empurra a tampa; `close` fecha e
    * desce; `press(tecla)` leva o polegar à tecla, que afunda e volta (devolve se aceitou). O aparelho (`phone.ts`)
@@ -966,6 +966,8 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     inp.panel = s.panel ?? false;
     inp.aiming = s.aiming ?? false;
     inp.bob = s.bob ?? 0;
+    inp.yawRate = s.yawRate ?? 0;
+    inp.pitchRate = s.pitchRate ?? 0;
     return inp;
   };
   apply(anim.step(0, fill({})).pose);

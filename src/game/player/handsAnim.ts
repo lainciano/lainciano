@@ -1,4 +1,5 @@
 import { mulberry } from "../render/paint";
+import { createInertia, INERTIA } from "./inertia";
 
 /**
  * Máquina de estados das mãos (lógica pura, sem three): devolve a pose de cada quadro e os eventos. O `hands.ts`
@@ -14,6 +15,9 @@ import { mulberry } from "../render/paint";
  *   respiração. Mirar sobe e aproxima; agachar recolhe.
  * - Movimento reduzido (`setReduced`, pode mudar em execução): sem ociosa, balanço nem respiração (somem
  *   suaves); trocas em ≤ 120 ms. `still` (foto): nada anda sozinho.
+ * - Inércia ao virar (T14, `inertia.ts`): a câmera gira e a mão, a lanterna e o feixe atrasam e passam levemente do
+ *   ponto (mola por eixo, alimentada por `yawRate`/`pitchRate`). Soma ao balanço e às ociosas. Some suave com painel,
+ *   celular ou lanterna guardada; sem ela com movimento reduzido (ou balanço desligado) e no modo `still`.
  * - Celular (T11): subir e abrir a tampa / fechar a tampa e descer são valores contínuos (`raise`, `lid`):
  *   fechar no meio da abertura (e o contrário) continua de onde está. Teclas: até 4 apertos independentes; o polegar
  *   mira a última tecla e volta ao descanso depois de 1,2 s. A pose de segurar vem do rig (`setPhoneHold`: a tela
@@ -45,7 +49,17 @@ export type HandsPose = {
    */
   phone: { visible: boolean; lid: number; thumb: number; presses: KeyPress[]; raise: number; flick: number; aim: string };
 };
-export type HandsInput = { moving: boolean; run: boolean; crouch: boolean; panel: boolean; aiming: boolean; bob: number };
+export type HandsInput = {
+  moving: boolean;
+  run: boolean;
+  crouch: boolean;
+  panel: boolean;
+  aiming: boolean;
+  bob: number;
+  /** Velocidade angular da câmera (rad/s, mesmo sinal de yaw/pitch); ausente = parada. */
+  yawRate?: number;
+  pitchRate?: number;
+};
 export type IdleKind = "none" | "regrip" | "sway" | "adjust";
 export type HandsMode = "held" | "holstering" | "holstered" | "drawing";
 export type HandsEvent = "click" | `key:${string}`;
@@ -87,6 +101,10 @@ const IDLE_SECONDS = { regrip: 0.9, sway: 1.6, adjust: 1.4 } as const;
 /** O polegar fica sobre a última tecla por este tempo depois do aperto, e então volta ao descanso. */
 const AIM_LINGER = 1.2;
 const IDLE_KINDS = ["regrip", "sway", "adjust"] as const;
+/** Inércia: a esquerda acompanha mais discreta; a mistura entra/sai a estas taxas (1/s). */
+const INERTIA_LEFT = 0.6;
+const INERTIA_FADE_IN = 5;
+const INERTIA_FADE_OUT = 8;
 
 const KEYS6 = ["x", "y", "z", "rx", "ry", "rz"] as const;
 const KEYS7 = ["x", "y", "z", "rx", "ry", "rz", "curl"] as const;
@@ -127,6 +145,10 @@ export function createHandsAnim(o: HandsAnimOptions) {
   let t = 0;
   let swayAmp = 0;
   let breathMix = reduced || still ? 0 : 1;
+  const inertia = createInertia();
+  let inertiaMix = 0;
+  let runMix = 0;
+  const inertiaOut = { yaw: 0, pitch: 0 };
   // celular: alvo (aberto/fechado/nenhum), subida e tampa
   let phoneTarget: "open" | "closed" | null = null;
   let raise = 0;
@@ -212,9 +234,10 @@ export function createHandsAnim(o: HandsAnimOptions) {
       const src = p ?? LEFT_PHONE;
       for (const key of KEYS7) hold[key] = src[key];
     },
-    state: () => ({ mode, flashOn, idle: idleActive && idle ? idle : ("none" as IdleKind), holster, light, phone: phoneState(), reduced }),
+    state: () => ({ mode, flashOn, idle: idleActive && idle ? idle : ("none" as IdleKind), holster, light, phone: phoneState(), reduced, inertia: { ...inertiaOut } }),
     step(dt: number, input: HandsInput): { pose: HandsPose; events: HandsEvent[] } {
       events.length = 0;
+      if (!Number.isFinite(dt) || dt < 0) dt = 0;
       const lively = !reduced && !still;
       if (!still) t += dt;
       lastPanel = input.panel;
@@ -355,6 +378,28 @@ export function createHandsAnim(o: HandsAnimOptions) {
       r.rx = base.rx + bpitch + Math.sin(t * 0.9) * 0.004 * breathMix;
       r.ry = base.ry + (idle === "sway" ? Math.sin(2 * Math.PI * p) * 0.06 * (1 - p) * idleMix : 0);
       r.rz = base.rz + broll + (idle === "sway" ? bell * 0.05 : 0);
+
+      // inércia ao virar: a mola só é alimentada com a lanterna na mão e sem painel/celular (senão decai sozinha);
+      // a mistura leva o resultado a zero sem salto (painel, celular, guardar) e na hora com `still`
+      const inertiaOn = lively && !input.panel && phoneTarget === null && mode === "held";
+      if (still) {
+        inertia.reset();
+        inertiaMix = 0;
+      } else {
+        inertia.step(dt, inertiaOn ? (input.yawRate ?? 0) : 0, inertiaOn ? (input.pitchRate ?? 0) : 0);
+        inertiaMix = approach(inertiaMix, lively && !input.panel && phoneTarget === null ? 1 : 0, dt * (inertiaMix < 1 && lively ? INERTIA_FADE_IN : INERTIA_FADE_OUT));
+      }
+      runMix = approach(runMix, input.run && input.moving ? 1 : 0, dt * 4);
+      const iScale = inertiaMix * (1 - smooth(holster)) * (1 + (INERTIA.runBoost - 1) * runMix);
+      const iy = inertia.yaw * iScale;
+      const ip = inertia.pitch * iScale;
+      inertiaOut.yaw = iy;
+      inertiaOut.pitch = ip;
+      // a mão gira em torno do olho: ângulo oposto ao giro, e o deslocamento que isso causa a essa distância
+      r.ry += iy;
+      r.x += r.z * iy;
+      r.rx += ip;
+      r.y -= r.z * ip;
       const h = smooth(holster);
       for (const key of KEYS6) r[key] = lerp(r[key], HOLSTERED[key], h);
 
@@ -378,6 +423,12 @@ export function createHandsAnim(o: HandsAnimOptions) {
       l.x -= bx * sl;
       l.y -= by * sl;
       l.rz -= broll * sl;
+      // inércia (a esquerda entra só enquanto o celular não a leva para a pose de segurar)
+      const il = INERTIA_LEFT * (1 - rs);
+      l.ry += iy * il;
+      l.x += l.z * iy * il;
+      l.rx += ip * il;
+      l.y -= l.z * ip * il;
 
       pose.light = light;
       pose.holster = holster;

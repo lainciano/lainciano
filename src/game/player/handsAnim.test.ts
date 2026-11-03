@@ -564,3 +564,165 @@ describe("mãos · F enquanto saca (rodada 5)", () => {
     expect(play(anim, 0.8).events.filter((e) => e === "click")).toHaveLength(1);
   });
 });
+
+describe("mãos · inércia ao virar (T14)", () => {
+  const mk = (o: Partial<{ reduced: boolean; still: boolean }> = {}) => createHandsAnim({ seed: 3, reduced: false, still: false, flashOn: true, ...o });
+  /** Mesma sequência com e sem giro; devolve a diferença da mão direita (a inércia pura) quadro a quadro. */
+  function diff(spin: Partial<HandsInput>, o: Partial<{ reduced: boolean; still: boolean }> = {}, input: Partial<HandsInput> = {}, spinSeconds = 0.15, total = 1.2) {
+    const a = mk(o);
+    const b = mk(o);
+    const out: { x: number; y: number; rx: number; ry: number; inertia: { yaw: number; pitch: number } }[] = [];
+    for (let t = 0; t < total - 1e-9; t += 1 / 60) {
+      const spinning = t < spinSeconds - 1e-9 ? spin : {};
+      const pa = a.step(1 / 60, { ...STILL, ...input, ...spinning }).pose.right;
+      const pb = b.step(1 / 60, { ...STILL, ...input }).pose.right;
+      out.push({ x: pa.x - pb.x, y: pa.y - pb.y, rx: pa.rx - pb.rx, ry: pa.ry - pb.ry, inertia: { ...a.state().inertia } });
+    }
+    return out;
+  }
+
+  it("virar rápido para a esquerda: a mão e a lanterna atrasam (giram para a direita da tela), passam levemente e voltam ao centro", () => {
+    const s = diff({ yawRate: 4 });
+    const ry = s.map((v) => v.ry);
+    const peak = Math.min(...ry);
+    expect(peak).toBeLessThan(-0.03); // > 1,7°
+    expect(peak).toBeGreaterThan(-0.14); // nunca sai do limite
+    expect(Math.max(...s.map((v) => v.x))).toBeGreaterThan(0.008); // a mão desliza para a direita da tela
+    expect(Math.max(...ry.slice(ry.indexOf(peak)))).toBeGreaterThan(0); // passa levemente do ponto
+    expect(Math.abs(ry[ry.length - 1])).toBeLessThan(2e-3);
+    expect(Math.abs(s[s.length - 1].x)).toBeLessThan(1e-3);
+    // o estado de debug acompanha
+    expect(Math.min(...s.map((v) => v.inertia.yaw))).toBeLessThan(-0.03);
+  });
+
+  it("pitch: olhar para cima rápido faz a mão cair (y e rx para baixo) e voltar", () => {
+    const s = diff({ pitchRate: 4 });
+    expect(Math.min(...s.map((v) => v.y))).toBeLessThan(-0.005);
+    expect(Math.min(...s.map((v) => v.rx))).toBeLessThan(-0.02);
+    expect(Math.abs(s[s.length - 1].rx)).toBeLessThan(2e-3);
+  });
+
+  it("sem giro não há inércia (parado, andando e correndo)", () => {
+    for (const input of [{}, { moving: true, bob: 1 }, { moving: true, run: true, bob: 2 }]) {
+      const s = diff({}, {}, input);
+      expect(Math.max(...s.map((v) => Math.abs(v.ry) + Math.abs(v.x) + Math.abs(v.y) + Math.abs(v.rx)))).toBe(0);
+      expect(s.every((v) => v.inertia.yaw === 0 && v.inertia.pitch === 0)).toBe(true);
+    }
+  });
+
+  it("proporcional à velocidade e um pouco maior correndo", () => {
+    const slow = Math.min(...diff({ yawRate: 0.5 }).map((v) => v.ry));
+    const fast = Math.min(...diff({ yawRate: 3 }).map((v) => v.ry));
+    expect(Math.abs(fast)).toBeGreaterThan(Math.abs(slow) * 3);
+    const walk = Math.min(...diff({ yawRate: 2 }, {}, { moving: true, bob: 0 }, 0.5).map((v) => v.ry));
+    const run = Math.min(...diff({ yawRate: 2 }, {}, { moving: true, run: true, bob: 0 }, 0.5).map((v) => v.ry));
+    expect(Math.abs(run)).toBeGreaterThan(Math.abs(walk) * 1.1);
+    expect(Math.abs(run)).toBeLessThan(Math.abs(walk) * 1.6);
+  });
+
+  it("agachado a inércia é igual à de pé", () => {
+    const stand = Math.min(...diff({ yawRate: 3 }).map((v) => v.ry));
+    const crouch = Math.min(...diff({ yawRate: 3 }, {}, { crouch: true }).map((v) => v.ry));
+    expect(crouch).toBeCloseTo(stand, 2);
+  });
+
+  it("picos absurdos de velocidade (mouse travado, arraste) ficam dentro do teto", () => {
+    const s = diff({ yawRate: 1e6, pitchRate: -1e6 }, {}, {}, 0.5);
+    expect(Math.min(...s.map((v) => v.ry))).toBeGreaterThan(-0.2);
+    expect(Math.max(...s.map((v) => v.rx))).toBeLessThan(0.15);
+    expect(s.every((v) => Number.isFinite(v.ry) && Number.isFinite(v.x))).toBe(true);
+  });
+
+  it("com painel aberto não há inércia visível (some suave, sem salto), e também com o celular aberto", () => {
+    for (const setup of ["panel", "phone"] as const) {
+      const a = mk();
+      const b = mk();
+      if (setup === "phone") {
+        a.phone("open");
+        b.phone("open");
+      }
+      let prev = 0;
+      let maxStep = 0;
+      let last = 0;
+      for (let t = 0; t < 1.2; t += 1 / 60) {
+        const input = { ...STILL, panel: setup === "panel" };
+        const ra = a.step(1 / 60, { ...input, yawRate: 3 }).pose.right.ry;
+        const rb = b.step(1 / 60, input).pose.right.ry;
+        last = ra - rb;
+        maxStep = Math.max(maxStep, Math.abs(last - prev));
+        prev = last;
+      }
+      expect(Math.abs(last), setup).toBeLessThan(1e-9);
+      expect(maxStep, `${setup}: sem salto`).toBeLessThan(0.02);
+    }
+  });
+
+  it("começar a girar com a lanterna recém-sacada não dá salto (entra suave)", () => {
+    const a = mk();
+    play(a, 0.8, { panel: true });
+    let prev = 0;
+    let maxStep = 0;
+    for (let t = 0; t < 1.5; t += 1 / 60) {
+      const ry = a.step(1 / 60, { ...STILL, yawRate: 2 }).pose.right.ry;
+      if (t > 0) maxStep = Math.max(maxStep, Math.abs(ry - prev));
+      prev = ry;
+    }
+    expect(maxStep).toBeLessThan(0.03);
+  });
+
+  it("movimento reduzido (e balanço desligado): nenhuma inércia", () => {
+    const s = diff({ yawRate: 4 }, { reduced: true });
+    expect(Math.max(...s.map((v) => Math.abs(v.ry) + Math.abs(v.x)))).toBe(0);
+    expect(s.every((v) => v.inertia.yaw === 0)).toBe(true);
+  });
+
+  it("movimento reduzido ligado em execução: a inércia some suave e não volta", () => {
+    const a = mk();
+    const b = mk();
+    for (let t = 0; t < 0.3; t += 1 / 60) a.step(1 / 60, { ...STILL, yawRate: 4 });
+    for (let t = 0; t < 0.3; t += 1 / 60) b.step(1 / 60, STILL);
+    expect(Math.abs(a.state().inertia.yaw)).toBeGreaterThan(0.03);
+    a.setReduced(true);
+    b.setReduced(true);
+    let prev = a.state().inertia.yaw;
+    for (let t = 0; t < 0.6; t += 1 / 60) {
+      a.step(1 / 60, { ...STILL, yawRate: 4 });
+      const v = a.state().inertia.yaw;
+      expect(Math.abs(v - prev)).toBeLessThan(0.03);
+      prev = v;
+    }
+    expect(Math.abs(prev)).toBe(0);
+  });
+
+  it("modo still (foto de referência): congela, com ou sem giro", () => {
+    const s = diff({ yawRate: 4 }, { still: true });
+    expect(Math.max(...s.map((v) => Math.abs(v.ry) + Math.abs(v.x) + Math.abs(v.y) + Math.abs(v.rx)))).toBe(0);
+    expect(s.every((v) => v.inertia.yaw === 0 && v.inertia.pitch === 0)).toBe(true);
+  });
+
+  it("a mão esquerda acompanha, mais discreta; o balanço do passo continua somando por cima", () => {
+    const a = mk();
+    const b = mk();
+    let maxL = 0;
+    let maxR = 0;
+    for (let t = 0; t < 0.6; t += 1 / 60) {
+      const bob = t * 8.5;
+      const input = { ...STILL, moving: true, bob };
+      const pa = a.step(1 / 60, { ...input, yawRate: t < 0.15 ? 4 : 0 }).pose;
+      const pb = b.step(1 / 60, input).pose;
+      maxL = Math.max(maxL, Math.abs(pa.left.ry - pb.left.ry));
+      maxR = Math.max(maxR, Math.abs(pa.right.ry - pb.right.ry));
+    }
+    expect(maxL).toBeGreaterThan(0.005);
+    expect(maxL).toBeLessThan(maxR);
+  });
+
+  it("dt NaN/negativo não quebra a pose", () => {
+    const a = mk();
+    play(a, 0.2, { yawRate: 3 });
+    for (const dt of [NaN, -1, 0]) {
+      const out = a.step(dt, { ...STILL, yawRate: 3 });
+      expect(Number.isFinite(out.pose.right.ry)).toBe(true);
+    }
+  });
+});
