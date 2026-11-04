@@ -1,7 +1,10 @@
+import { soundEngine } from "@/interaction/sound/engine";
 import { createGameAudio } from "../audio/game-audio";
 import { bindInput, type InputBinding } from "../input/adapters";
 import { isRelease, type Action } from "../input/actions";
 import { cinzaLayer } from "../layers/cinza";
+import { browserEnv, createMemoryStore } from "../memory/store";
+import { createHesitationTracker, createPlaceClock } from "../memory/track";
 import { createExamine, type Examine } from "../interaction/examine";
 import { createInteraction, type Interaction, type InteractionUi } from "../interaction/interaction";
 import type { PromptModel } from "../interaction/targeting";
@@ -85,6 +88,13 @@ const lazyStorage = {
   },
 };
 
+// A marca de "mesma aba" da memória (B7): some ao fechar a aba, sobrevive ao recarregar.
+const lazySession = {
+  getItem: (key: string) => window.sessionStorage.getItem(key),
+  setItem: (key: string, value: string) => window.sessionStorage.setItem(key, value),
+  removeItem: (key: string) => window.sessionStorage.removeItem(key),
+};
+
 /** Tempo preso das fotos de referência (grão e balanço estáveis entre capturas). */
 const FROZEN_T = 1;
 
@@ -109,6 +119,12 @@ const debugFailure = (search: string, name: string) => debugEnabled(search) && n
 export async function startSession(host: HTMLElement, ui: SessionUi, signal: AbortSignal): Promise<Session | null> {
   const search = window.location.search;
   const save: SaveApi = createSaveStore(lazyStorage, Date.now);
+  // Memória do site (B7): só neste navegador, nunca em modo leitura. Foto de referência não é visita.
+  const memory = createMemoryStore(lazyStorage, Date.now, {
+    session: lazySession,
+    env: () => browserEnv({ sound: soundEngine.isEnabled(), scares: save.get().settings.scares }),
+  });
+  if (!layerShot(window.location.search)) memory.visit();
   const coarse = window.matchMedia("(pointer: coarse)").matches;
   const shot = layerShot(search);
 
@@ -276,7 +292,10 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     say,
     sfx: (name) => audio.sfx(name),
     examine: (o) => {
-      if (acting) audio.object(acting.material, "pick");
+      if (acting) {
+        audio.object(acting.material, "pick");
+        memory.record({ type: "examine", id: acting.id });
+      }
       panels.openExamine(o);
     },
     read: (doc) => {
@@ -350,6 +369,8 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
         } finally {
           acting = null;
         }
+        // Forçar a saída (puzzle da camada): a memória anota uma vez.
+        if (inst.puzzle?.forced?.(save.get()) && !memory.get().forced.includes(layer.id)) memory.record({ type: "force", id: layer.id });
       },
       coarse,
       ui: {
@@ -361,7 +382,18 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
         notice: (n) => ui.notice(n),
       },
     });
-    hints = inst.puzzle ? createHintDriver(inst.puzzle, save.get, hintGapFrom(search, debugEnabled(search)), say) : null;
+    const puzzle = inst.puzzle;
+    // Cada pista dada entra na memória do site (a escada em si não sabe dela).
+    const counted = puzzle
+      ? {
+          ...puzzle,
+          hint: () => {
+            puzzle.hint();
+            memory.record({ type: "hint", id: layer.id });
+          },
+        }
+      : null;
+    hints = counted ? createHintDriver(counted, save.get, hintGapFrom(search, debugEnabled(search)), say) : null;
     // Debug: erro depois do jogador nascer (prova que nada vaza: engine, contexto, mãos).
     if (debugFailure(search, "jogador")) throw new Error("falha de teste (?falha=jogador)");
     const saved = save.get().place;
@@ -435,6 +467,30 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     else window.setTimeout(warm, 1500);
   };
 
+  // Memória por quadro: tempo por lugar e hesitação (parado mirando o mesmo objeto). Grava em blocos, nunca por quadro.
+  const placeClock = createPlaceClock();
+  const hesitation = createHesitationTracker();
+  const noteMemory = (dt: number) => {
+    if (!player) return;
+    const ms = Math.min(dt, 0.25) * 1000;
+    const placed = placeClock.tick(ms, player.place);
+    if (placed) memory.record({ type: "place", ...placed });
+    const h = hesitation.update(ms, player.aimedId, player.position, hintClockRuns(mode(), paused));
+    if (h) memory.record({ type: "hesitate", ...h });
+  };
+  const closeMemory = () => {
+    const placed = placeClock.flush();
+    if (placed) memory.record({ type: "place", ...placed });
+    const h = hesitation.flush();
+    if (h) memory.record({ type: "hesitate", ...h });
+    memory.close();
+  };
+  window.addEventListener("pagehide", closeMemory);
+  cleanups.push(() => {
+    window.removeEventListener("pagehide", closeMemory);
+    closeMemory();
+  });
+
   try {
     cleanups.push(
       installDebug(eng, () => save.get().layer, save.get, {
@@ -500,6 +556,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
         examine?.update(dt);
         interaction?.update(dt, t);
         hints?.update(dt, hintClockRuns(mode(), paused));
+        noteMemory(dt);
         // rede de segurança: um passo da fila que fechou o celular (fora de gesto) ainda sincroniza a entrada
         if (phone.frame().emptied) input?.panelClosed();
       }),

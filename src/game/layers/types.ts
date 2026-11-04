@@ -127,6 +127,8 @@ export type LayerPuzzle = {
   /** Passos dados no puzzle: quando muda, o relógio da escada zera. */
   steps(state: SaveV1): number;
   solved(state: SaveV1): boolean;
+  /** B7 (aditivo, opcional): a saída foi forçada em vez de resolvida (a memória do site anota que o visitante forçou). */
+  forced?(state: SaveV1): boolean;
   /** A escada soltou mais uma pista: a camada grava (e a 3ª libera a saída). */
   hint(): void;
 };
