@@ -34,8 +34,9 @@ export function shellMaterials(m: Maker): ShellMaterials {
   const { T, kit } = m;
   return {
     iron: kit.phong({ map: m.tex("ferro", tx.drawIron(2801), 128), shininess: 26, specular: 0x1c1c1c }),
-    // vidro aramado: transparente, dos dois lados, depois do resto (renderOrder 2 nas malhas)
-    glass: kit.phong({ map: m.tex("vidro-aramado", tx.drawWired(2811), 256), transparent: true, depthWrite: false, side: T.DoubleSide, shininess: 140, specular: 0x1c2220 }),
+    // vidro aramado: transparente, depois do resto (renderOrder 2 nas malhas); só a face da sala (ninguém o vê de
+    // fora), então é o mesmo programa do Phong com textura e uma passada só
+    glass: kit.phong({ map: m.tex("vidro-aramado", tx.drawWired(2811), 256), transparent: true, depthWrite: false, shininess: 140, specular: 0x1c2220 }),
     plaster: kit.phong({ map: m.tex("reboco", tx.drawPlaster, 128), shininess: 4, specular: 0x000000 }),
     stone: kit.phong({ map: m.tex("peitoril", tx.drawSill, 128), shininess: 30, specular: 0x202020 }),
     darkWood: kit.phong({ map: m.tex("madeira-escura", tx.drawDarkWood, 128), shininess: 34, specular: 0x1a120a }),
@@ -43,7 +44,8 @@ export function shellMaterials(m: Maker): ShellMaterials {
     bakelite: kit.phong({ color: 0xbdb399, specular: 0x202020, shininess: 40 }),
     housing: kit.phong({ map: m.tex("calha", tx.drawFluoHousing, 128), shininess: 30, specular: 0x202020 }),
     tube: kit.phong({ map: m.tex("tubo", tx.drawFluoTube, 64), shininess: 50, specular: 0x303030, emissive: 0x000000 }),
-    dark: kit.basic({ color: 0x000000, fog: false }),
+    // o escuro: mesmo programa dos planos de fundo (Basic com textura, sem névoa)
+    dark: kit.basic({ map: m.tex("escuro", (g, w, h) => { g.fillStyle = "#000"; g.fillRect(0, 0, w, h); }, 64), fog: false }),
   };
 }
 
@@ -118,11 +120,14 @@ export function buildNorthDoor(m: Maker, mats: ShellMaterials): { root: THREE.Gr
   const beyond = new T.Group();
   beyond.name = "corredor-alem";
   root.add(beyond);
-  // sem luz própria (o assado leria as normais de fora da caixa): a tinta escura e a névoa da cena bastam
-  const corridor = kit.basic({ map: m.tex("corredor", tx.drawCorridor, 64), color: 0x7a7a7a, side: T.BackSide });
+  // sem luz própria (o assado leria as normais de fora da caixa): a tinta escura basta. A caixa é virada do avesso
+  // na geometria (escala −1 inverte o giro dos triângulos), não pelo `side`: o mesmo programa dos planos de fundo.
+  const corridor = kit.basic({ map: m.tex("corredor", tx.drawCorridor, 64), color: 0x5a5a5a, fog: false });
   const CW = 2 * half;
   const CD = 4.6;
-  m.mesh(new T.BoxGeometry(CW, 2.45, CD, 2, 4, 10), corridor, beyond, 0, 2.45 / 2 - 0.01, -WALL_T - CD / 2, { cast: false });
+  const hall = new T.BoxGeometry(CW, 2.45, CD, 2, 4, 10);
+  hall.scale(-1, 1, 1);
+  m.mesh(hall, corridor, beyond, 0, 2.45 / 2 - 0.01, -WALL_T - CD / 2, { cast: false });
   m.mesh(new T.PlaneGeometry(0.02, 1.9), mats.dark, beyond, 0.3, 0.96, -WALL_T - CD + 0.012, { cast: false, recv: false });
   return { root, leaves };
 }

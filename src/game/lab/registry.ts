@@ -32,10 +32,11 @@ export const LAB_MODELS = {
   "celular-fechado": { label: "celular flip (fechado)", group: "jogador", budget: { triangles: 4270, calls: 4 }, goal: { triangles: 3500, calls: 4 } },
   "celular-aberto": { label: "celular flip (aberto)", group: "jogador", budget: { triangles: 4270, calls: 4 }, goal: { triangles: 3500, calls: 4 } },
   // Casca da Antessala (B8), sem o lote: na sala o estático vira uma malha por material (o número da sala é outro).
+  // O vidro aramado é transparente dos dois lados: o three o desenha em duas passadas (+1 chamada por vidro).
   fluorescente: { label: "fluorescente apagada", group: "antessala", budget: { triangles: 450, calls: 5 }, size: [126, 9, 20] },
-  "porta-norte": { label: "porta norte (dupla, vidro aramado)", group: "antessala", budget: { triangles: 2280, calls: 15 } },
-  "porta-sul": { label: "porta do pátio (vidro e grade)", group: "antessala", budget: { triangles: 2620, calls: 55 } },
-  janela: { label: "janela basculante com grade", group: "antessala", budget: { triangles: 1290, calls: 34 } },
+  "porta-norte": { label: "porta norte (dupla, vidro aramado)", group: "antessala", budget: { triangles: 2280, calls: 17 } },
+  "porta-sul": { label: "porta do pátio (vidro e grade)", group: "antessala", budget: { triangles: 2620, calls: 59 } },
+  janela: { label: "janela basculante com grade", group: "antessala", budget: { triangles: 1290, calls: 37 } },
   "porao-vao": { label: "vão do Porão (batente)", group: "antessala", budget: { triangles: 820, calls: 7 } },
 } as const satisfies Record<string, LabMeta>;
 
