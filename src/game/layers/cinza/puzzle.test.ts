@@ -32,7 +32,7 @@ describe("puzzle da sala cinza · redutor puro", () => {
       { type: "sfx", name: "knock" },
       { type: "say", text: CINZA_LINES.doorLocked },
     ]);
-    expect(CINZA_LINES.doorLocked).toBe("trancada.");
+    expect(CINZA_LINES.doorLocked).toBe("Trancada.");
   });
 
   it("caminho completo: lê o bilhete → pega a chave no armário → usa na porta → resolvido e abre a porta norte", () => {
@@ -91,9 +91,9 @@ describe("puzzle da sala cinza · redutor puro", () => {
 
   it("as pistas são as do plano, e o bilhete, as falas e as pistas contam a mesma história (armário, prateleira de cima, porta norte)", () => {
     expect(CINZA_HINTS).toEqual([
-      "o bilhete na mesa fala de um armário.",
-      "a chave fica na prateleira de cima do armário.",
-      "a porta ao norte usa a chave. ou cede, se insistir.",
+      "O bilhete na mesa fala de um armário.",
+      "A chave fica na prateleira de cima do armário.",
+      "A porta ao norte usa a chave. Ou cede, se insistir.",
     ]);
     expect(cinzaPuzzle.hints).toBe(CINZA_HINTS);
     expect(CINZA_LINES.keyFound).toMatch(/prateleira de cima/);

@@ -36,21 +36,21 @@ export type CinzaState = {
 export type CinzaAction = { type: "take-key" } | { type: "read-note" } | { type: "use-door" } | { type: "force-door" } | { type: "hint" };
 
 export const CINZA_HINTS = [
-  "o bilhete na mesa fala de um armário.",
-  "a chave fica na prateleira de cima do armário.",
-  "a porta ao norte usa a chave. ou cede, se insistir.",
+  "O bilhete na mesa fala de um armário.",
+  "A chave fica na prateleira de cima do armário.",
+  "A porta ao norte usa a chave. Ou cede, se insistir.",
 ] as const;
 
 /** Falas do puzzle (rascunho, a aprovar pelo dono). */
 export const CINZA_LINES = {
   /** E no armário sem saber da chave: a chavinha que se vê na fechadura é do próprio armário. */
-  wardrobeBlind: "cabides vazios e cheiro de naftalina. a chavinha na fechadura é só do armário.",
-  keyFound: "na prateleira de cima, lá no fundo: uma chave de ferro, comprida.",
-  wardrobeEmpty: "só cabides e naftalina agora.",
-  doorLocked: "trancada.",
-  doorUnlocked: "a chave gira com esforço. a porta cede.",
-  doorForced: "a fechadura estala e cede. a porta abre torta.",
-  doorOpen: "do outro lado, só o escuro frio.",
+  wardrobeBlind: "Cabides vazios e cheiro de naftalina. A chavinha na fechadura é só do armário.",
+  keyFound: "Na prateleira de cima, lá no fundo: uma chave de ferro, comprida.",
+  wardrobeEmpty: "Só cabides e naftalina agora.",
+  doorLocked: "Trancada.",
+  doorUnlocked: "A chave gira com esforço. A porta cede.",
+  doorForced: "A fechadura estala e cede. A porta abre torta.",
+  doorOpen: "Do outro lado, só o escuro frio.",
 } as const;
 
 /** Item do inventário (o celular mostra) enquanto a chave está na mão. */

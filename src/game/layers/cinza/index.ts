@@ -22,8 +22,8 @@ const prefersReducedMotion = () => typeof window !== "undefined" && window.match
 
 /** Linhas da camada (conteúdo da sala, como os nós do protótipo). As do puzzle moram em `puzzle.ts` (rascunho). */
 const LINES = {
-  mesa: "madeira gasta onde os braços apoiavam. alguém escreveu aqui por muito tempo.",
-  caderno: "um caderno de capa preta, com elástico. está fechado.",
+  mesa: "Madeira gasta onde os braços apoiavam. Alguém escreveu aqui por muito tempo.",
+  caderno: "Um caderno de capa preta, com elástico. Está fechado.",
 } as const;
 
 /**
@@ -34,12 +34,12 @@ const LINES = {
 export const BILHETE: Doc = {
   id: "bilhete",
   title: "bilhete",
-  text: "se você acordou aqui, ainda dá tempo.\n\na chave da porta está no armário,\nna prateleira de cima, lá no fundo.\na porta do armário emperra: puxe com jeito.\n\nnão demore. a luz não aguenta a noite toda.",
+  text: "Se você acordou aqui, ainda dá tempo.\n\nA chave da porta está no armário,\nna prateleira de cima, lá no fundo.\nA porta do armário emperra: puxe com jeito.\n\nNão demore. A luz não aguenta a noite toda.",
   look: { tone: "#d6c9a6", seed: 421, folds: 2, ruled: true, signature: "· l." },
 };
 
 /** A chave no celular (Itens). Rascunho. */
-const ITEMS = { [KEY_ITEM]: { name: "chave da porta", desc: "ferro escuro, comprida, o dente gasto. estava no fundo da prateleira de cima." } };
+const ITEMS = { [KEY_ITEM]: { name: "chave da porta", desc: "Ferro escuro, comprida, o dente gasto. Estava no fundo da prateleira de cima." } };
 
 /**
  * Quanto a porta abre (rad, para FORA da sala, para o corredor) e em quanto tempo (s). Forçada, abre menos (torta).

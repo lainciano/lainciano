@@ -24,7 +24,7 @@ type CriptaWindow = Window & {
 };
 
 const DOOR_FLAG = "cinza:porta-norte";
-const HINTS = ["o bilhete na mesa fala de um armário.", "a chave fica na prateleira de cima do armário.", "a porta ao norte usa a chave. ou cede, se insistir."];
+const HINTS = ["O bilhete na mesa fala de um armário.", "A chave fica na prateleira de cima do armário.", "A porta ao norte usa a chave. Ou cede, se insistir."];
 
 test.describe.configure({ timeout: 240_000 });
 
@@ -113,7 +113,7 @@ test.describe("desktop · só teclado", () => {
     await expect(prompt(page).locator("kbd")).toHaveText("E");
     await expect(page.locator("[data-game-ring]")).toHaveCount(0);
     await page.keyboard.press("KeyE");
-    await expect(line(page)).toContainText("trancada.", { timeout: 20_000 });
+    await expect(line(page)).toContainText("Trancada.", { timeout: 20_000 });
     expect((await save(page))?.flags[DOOR_FLAG]).not.toBe(true);
 
     await goPlace(page, "mesa", /mesa/);
@@ -146,7 +146,7 @@ test.describe("desktop · só teclado", () => {
     // com a chave, a porta não é de segurar: o aviso é de apertar (E), sem anel
     await expect(prompt(page).locator("kbd")).toHaveText("E");
     await page.keyboard.press("KeyE");
-    await expect(line(page)).toContainText("a chave gira", { timeout: 20_000 });
+    await expect(line(page)).toContainText("A chave gira", { timeout: 20_000 });
     await expect.poll(async () => (await save(page))?.flags[DOOR_FLAG], { timeout: 10_000 }).toBe(true);
     const done = await save(page);
     expect(done?.puzzles.cinza).toMatchObject({ doorOpen: true, forced: false });

@@ -68,7 +68,7 @@ describe("sala cinza · objetos interativos", () => {
     const a = api(save);
     door?.act(a);
     expect(a.sfx).toHaveBeenCalledWith("knock");
-    expect(a.said).toEqual(["trancada."]);
+    expect(a.said).toEqual(["Trancada."]);
     expect(save.get().flags[DOOR_FLAG]).not.toBe(true);
   });
 
