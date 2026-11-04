@@ -370,6 +370,8 @@ export const game = {
   /** A camada não carregou (contrato §3). */
   stuck: "A porta emperrou.",
   retry: "Tentar de novo",
+  /** O contexto WebGL caiu (celular em segundo plano): recria a sala a partir do save, sem recarregar (B6). */
+  resume: "a tela apagou · tocar para continuar",
   /** Interação (T9): aviso de segurar, dicas curtas e o fechar do exame. As teclas E e ⌫ são glifos, não texto. */
   holdKey: "segure E",
   holdHint: "segure E para {verb}.",

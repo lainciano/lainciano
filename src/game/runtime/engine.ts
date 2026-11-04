@@ -85,8 +85,14 @@ export type Engine = {
 export type EngineOptions = {
   coarse: boolean;
   settings: Settings;
-  /** Contexto perdido: o loop já parou; quem chamou mostra o aviso e descarta o engine. */
+  /**
+   * Contexto perdido: o loop já parou. Quem chamou oferece "continuar" e descarta o engine (`dispose`) quando
+   * recriar; nada do contexto perdido é reaproveitado. O engine segue de pé (canvas e slot) até lá, para ouvir
+   * `onRestored`.
+   */
   onLost(): void;
+  /** O navegador devolveu o contexto perdido (`webglcontextrestored`): mesmo caminho do "continuar" (recriar do save). */
+  onRestored?(): void;
   /**
    * Erro persistente por quadro (30 quadros seguidos falharam): o loop já parou; quem chamou mostra o aviso de falha
    * com "voltar ao site" e descarta o engine, como na perda de contexto. Opcional (testes de engine isolado).
@@ -118,8 +124,9 @@ const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: r
  * - Orçamento: o slot de contexto só é pedido se `signal` não abortou, e dali até o engine pronto tudo é
  *   síncrono: um efeito desmontado (StrictMode) nunca segura dois slots nem cria dois renderers.
  * - Sem slot (as salas já usam os 2), sem WebGL ou falha ao criar o renderer: resolve `null` (aviso no shell).
- * - `webglcontextlost`: `preventDefault`, o loop para e `onLost` avisa. Restaurar NÃO é suportado: quem
- *   chamou descarta o engine (libera o slot e o canvas) e mostra o aviso; reabrir o jogo cria um contexto novo.
+ * - `webglcontextlost`: `preventDefault`, o loop para e `onLost` avisa. O contexto perdido NUNCA é reaproveitado:
+ *   quem chamou descarta o engine (libera o slot e o canvas) e recria tudo do save (tocar em "continuar" ou
+ *   `onRestored`, quando o navegador devolve o contexto).
  * - O loop só liga em `start()`, depois do `compileAsync` da cena e do pós (contrato §4).
  * - Loop por rAF com try/catch por callback e pelo render: o erro conta (info/debug), o loop segue.
  * - Pós da T6 (render/post.ts): modo 1 (PSX) lê o render target baixo (Nearest, linhas × aspecto) com o
@@ -167,7 +174,7 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
   host.appendChild(canvas);
   undo.push(() => canvas.remove());
 
-  // preventDefault é o padrão do WebGL (o three também o faz). Não esperamos o webglcontextrestored.
+  // preventDefault é o padrão do WebGL (o three também o faz) e é o que permite o navegador restaurar depois.
   const handleLost = (event: Event) => {
     event.preventDefault();
     if (lost || disposed) return;
@@ -177,6 +184,11 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
   };
   canvas.addEventListener("webglcontextlost", handleLost);
   undo.push(() => canvas.removeEventListener("webglcontextlost", handleLost));
+  const handleRestored = () => {
+    if (lost && !disposed) opts.onRestored?.();
+  };
+  canvas.addEventListener("webglcontextrestored", handleRestored);
+  undo.push(() => canvas.removeEventListener("webglcontextrestored", handleRestored));
 
   let gl: THREE.WebGLRenderer;
   try {

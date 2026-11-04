@@ -39,13 +39,16 @@ const mark = (name: string) => {
   }
 };
 
-export type SessionStatus = "loading" | "live" | "failed" | "stuck";
+/** `lost`: o contexto WebGL caiu (celular em segundo plano); a casca oferece "continuar" (recria do save). */
+export type SessionStatus = "loading" | "live" | "failed" | "stuck" | "lost";
 export type { ExamineInfo, PlaceItem } from "./panels";
 
 export type SessionUi = InteractionUi &
   PanelsUi &
   PhoneUi & {
     status(s: SessionStatus): void;
+    /** O navegador devolveu o contexto perdido: a casca segue o mesmo caminho do "continuar". */
+    restored(): void;
     paused(on: boolean): void;
     say(line: Line): void;
   };
@@ -124,9 +127,11 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   let disposed = false;
   let enteredOnce = false;
   const cleanups: (() => void)[] = [];
+  /** Contexto perdido: o engine (canvas e slot) fica de pé só para ouvir a restauração; `teardown` o solta. */
+  let heldEngine: Engine | null = null;
 
-  /** Descarta tudo o que nasceu, na ordem inversa. Idempotente: pode vir do erro, da perda, do abort e do shell. */
-  const teardown = () => {
+  /** Descarta o mundo (entrada, jogador, camada, debug, áudio), na ordem inversa; `keepEngine` poupa só o engine. */
+  const closeWorld = (keepEngine: boolean) => {
     if (disposed) return;
     disposed = true;
     const steps = [
@@ -136,7 +141,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
       () => player?.dispose(),
       () => runner?.dispose(),
       ...cleanups.splice(0).reverse(),
-      () => engine?.dispose(),
+      () => (keepEngine ? (heldEngine = engine) : engine?.dispose()),
     ];
     for (const step of steps) {
       try {
@@ -152,20 +157,49 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
     runner = null;
     engine = null;
   };
+  /** Descarta tudo, engine inclusive. Idempotente: pode vir do erro, da perda, do abort e do shell. */
+  const teardown = () => {
+    closeWorld(false);
+    try {
+      heldEngine?.dispose();
+    } catch (error) {
+      console.error("[jogo] erro ao fechar o engine perdido", error);
+    }
+    heldEngine = null;
+  };
   const fail = () => {
     if (!signal.aborted && !disposed) ui.status("failed");
   };
+  // Abortada (o "continuar" recria a sessão, ou o jogo fechou) com o contexto já perdido: o canvas e o slot do
+  // engine perdido saem agora, antes de a sessão nova pedir o dela (o mundo já foi fechado na perda).
+  signal.addEventListener(
+    "abort",
+    () => {
+      try {
+        heldEngine?.dispose();
+      } catch (error) {
+        console.error("[jogo] erro ao fechar o engine perdido", error);
+      }
+      heldEngine = null;
+    },
+    { once: true },
+  );
 
   const created = await createEngine(host, {
     coarse,
     settings: save.get().settings,
     signal,
-    // O loop já parou; o engine é descartado já (slot e canvas), o aviso fica até sair.
+    // O loop já parou. O mundo é descartado já; o engine perdido só espera o "continuar" (ou a restauração do
+    // navegador), que descarta a sessão inteira e cria outra do save, sem reaproveitar nada deste contexto.
     onLost: () => {
+      if (lost || disposed) return;
       lost = true;
-      // O aviso antes do descarte: `fail` não fala com uma sessão já descartada.
-      fail();
-      teardown();
+      // O aviso antes do descarte: a casca não fala com uma sessão já descartada.
+      if (!signal.aborted) ui.status("lost");
+      closeWorld(true);
+    },
+    onRestored: () => {
+      if (!signal.aborted && lost) ui.restored();
     },
     // Erro persistente por quadro (30 seguidos): o loop já parou; mesmo caminho da perda (aviso + voltar ao site).
     onBroken: () => {
@@ -382,7 +416,7 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   const startLoop = async () => {
     await eng.start();
     if (signal.aborted || disposed) return;
-    if (lost) return fail();
+    if (lost) return;
     ui.status("live");
     mark("live"); // sala na tela e entrada ligada: o 1º input útil
     // Ocioso: o celular nasce e o programa dele compila antes da 1ª abertura (Tab não engasga).

@@ -319,11 +319,11 @@ test.describe("leitor em dois níveis", () => {
       const canvas = document.querySelector<HTMLCanvasElement>("[data-game-stage] canvas");
       canvas?.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
     });
-    await expect(page.getByText("O 3D não abriu neste aparelho")).toBeVisible();
+    await expect(page.getByRole("button", { name: "a tela apagou · tocar para continuar" })).toBeVisible();
     await expect(page.locator("[data-game-reader]")).toHaveCount(0);
     expect(await page.evaluate(() => document.querySelectorAll("dialog[open]").length)).toBe(0);
-    await expect(page.getByRole("button", { name: "Voltar ao site" })).toBeFocused();
-    await page.getByRole("button", { name: "Voltar ao site" }).click();
+    await expect(page.getByRole("button", { name: "a tela apagou · tocar para continuar" })).toBeFocused();
+    await page.getByRole("button", { name: "Sair do jogo" }).click();
     await expect(page.locator("[data-game-shell]")).toHaveCount(0);
     expect(await page.evaluate(() => document.querySelector(".page-shell")?.hasAttribute("inert"))).toBe(false);
   });

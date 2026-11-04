@@ -8,6 +8,7 @@ import type { ExamineInfo, PlaceItem, Session, SessionStatus } from "../runtime/
 import type { PhoneRect, PhoneView } from "../runtime/phone";
 import type { Settings } from "../save/schema";
 import { labRequested } from "../runtime/debug";
+import { createRecoveryLimiter } from "../runtime/recovery";
 import ExamineCard from "./ExamineCard";
 import Phone from "./Phone";
 import Reader from "./Reader";
@@ -50,8 +51,9 @@ function useReducedMotion(): boolean {
 /**
  * Casca do jogo: um painel fixo sobre o site (irmão do .page-shell, fora do template). A sessão (engine, camada,
  * jogador, entrada) chega por import() junto com o three e só pede à casca o que mostrar: carregando, falha,
- * "a porta emperrou", a lista de lugares (L), "pausado", a fala (legendas) e o leitor de documentos. Sem WebGL, sem slot ou com o contexto perdido:
- * aviso e botão de voltar ao site, e nenhum loop fica rodando.
+ * "a porta emperrou", a lista de lugares (L), "pausado", a fala (legendas) e o leitor de documentos. Sem WebGL ou sem slot:
+ * aviso e botão de voltar ao site, e nenhum loop fica rodando. Contexto perdido (celular em segundo plano): "tocar para
+ * continuar" descarta a sessão e cria outra do save, sem recarregar a página (até 3 vezes por minuto; depois, só voltar).
  * Esc nunca fecha: o navegador reserva a tecla; sair é o botão (e, depois, o menu do jogo).
  */
 export default function GameShell({ labels, onExit }: { labels: GameLabels; onExit: () => void }) {
@@ -59,11 +61,23 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   const stageRef = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLButtonElement>(null);
   const retryRef = useRef<HTMLButtonElement>(null);
+  const resumeRef = useRef<HTMLButtonElement>(null);
   const placesRef = useRef<HTMLUListElement>(null);
   const sessionRef = useRef<Session | null>(null);
   /** A fala da casca (com o temporizador dela) para quem está fora do efeito da sessão. */
   const sayRef = useRef<((l: Line) => void) | null>(null);
   const [status, setStatus] = useState<SessionStatus>("loading");
+  // "Continuar" depois de perder o contexto: cada tentativa refaz a sessão (o efeito abaixo depende dela).
+  const [attempt, setAttempt] = useState(0);
+  const [recovery] = useState(createRecoveryLimiter);
+  const resume = useCallback(() => {
+    if (!recovery.take(Date.now())) {
+      setStatus("failed");
+      return;
+    }
+    setStatus("loading");
+    setAttempt((n) => n + 1);
+  }, [recovery]);
   // Laboratório de modelos: só com debug (decidido uma vez, ao abrir). Substitui a sessão: sem sala, jogador nem entrada.
   const labFailed = useCallback(() => setStatus("failed"), []);
   const [lab] = useState(() => typeof window !== "undefined" && labRequested(window.location.search));
@@ -151,6 +165,11 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
     const ui = {
       status: (s: SessionStatus) => {
         if (signal.aborted) return;
+        // Perdeu de novo depois do teto de recriações: só "voltar ao site" (e o engine perdido é solto).
+        if (s === "lost" && !recovery.canRecover(Date.now())) {
+          s = "failed";
+          queueMicrotask(() => sessionRef.current?.dispose());
+        }
         setStatus(s);
         liveNow = s === "live";
         syncHold();
@@ -164,6 +183,10 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
           setReticle("off");
           setPaused(false);
         }
+      },
+      restored: () => {
+        // O navegador devolveu o contexto: mesmo caminho do toque em "continuar".
+        if (!signal.aborted) resume();
       },
       places: (list: PlaceItem[] | null) => {
         if (!signal.aborted) setPlaces(list);
@@ -240,14 +263,17 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
       sessionRef.current?.dispose();
       sessionRef.current = null;
     };
-    // Os rótulos vêm do servidor e não mudam com o jogo aberto: a sessão não reabre por eles.
+    // Os rótulos vêm do servidor e não mudam com o jogo aberto: a sessão só reabre pelo "continuar" (`attempt`).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [attempt]);
 
   useEffect(() => {
     if (status === "failed") backRef.current?.focus({ preventScroll: true });
     if (status === "stuck") retryRef.current?.focus({ preventScroll: true });
+    if (status === "lost") resumeRef.current?.focus({ preventScroll: true });
     if (status !== "live") return;
+    // Depois do "continuar" o botão saiu do DOM: o teclado do jogo volta à casca (nunca rouba o foco de um botão dela).
+    if (document.activeElement === document.body) shellRef.current?.focus({ preventScroll: true });
     // Jogo vivo: o papel baixa no ocioso (sem disputar o primeiro quadro).
     const idle = window.requestIdleCallback?.(preloadPaper, { timeout: 4000 });
     const timer = idle === undefined ? window.setTimeout(preloadPaper, 1500) : 0;
@@ -304,6 +330,13 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
           <p>{labels.noWebgl}</p>
           <button ref={backRef} type="button" onClick={onExit} className="focus-ring">
             {labels.back}
+          </button>
+        </div>
+      )}
+      {status === "lost" && (
+        <div data-game-fallback role="alert">
+          <button ref={resumeRef} type="button" onClick={resume} className="focus-ring">
+            {labels.resume}
           </button>
         </div>
       )}

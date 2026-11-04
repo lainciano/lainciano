@@ -31,6 +31,7 @@ type CriptaWindow = Window & {
   __gl: { created: number; lost: number };
 };
 
+const RESUME = "a tela apagou · tocar para continuar";
 const NO_WEBGL = "O 3D não abriu neste aparelho (WebGL indisponível ou perdido). O site continua aqui.";
 
 // Ciclo de vida do runtime: o quadro leve (helpers/light.ts) mantém as asserções dentro do tempo (medido: ver o helper).
@@ -176,7 +177,7 @@ test("aba escondida para o loop; ao voltar ele retoma", async ({ page }, testInf
   await expect.poll(async () => (await debug(page))?.frames ?? 0).toBeGreaterThan(paused);
 });
 
-test("perder o contexto mostra o aviso, para o loop, solta o canvas e volta ao site", async ({ page }, testInfo) => {
+test("perder o contexto oferece continuar, para o loop e, ao sair, solta o canvas e volta ao site", async ({ page }, testInfo) => {
   await lightGame(page, testInfo);
   await page.goto("/?jogo=1&debug=1");
   await hydrated(page);
@@ -188,10 +189,9 @@ test("perder o contexto mostra o aviso, para o loop, solta o canvas e volta ao s
     canvas?.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
   });
 
-  await expect(page.getByText(NO_WEBGL)).toBeVisible();
-  const back = page.getByRole("button", { name: "Voltar ao site" });
-  await expect(back).toBeFocused();
-  await expect(page.locator("[data-game-stage] canvas")).toHaveCount(0);
+  // B6: o contexto perdido não é falha: "tocar para continuar" (a recriação tem a spec game-context)
+  await expect(page.getByRole("button", { name: RESUME })).toBeFocused();
+  await expect(page.getByText(NO_WEBGL)).toHaveCount(0);
   const after = await page.evaluate(() => {
     const cripta = (window as unknown as CriptaWindow).__cripta;
     return cripta ? { lost: cripta.lost, running: cripta.renderer.running } : null;
@@ -199,7 +199,8 @@ test("perder o contexto mostra o aviso, para o loop, solta o canvas e volta ao s
   // Ruling 1: o __cripta some ou marca lost.
   if (after) expect(after).toEqual({ lost: true, running: false });
 
-  await back.click();
+  await page.getByRole("button", { name: "Sair do jogo" }).click();
+  await expect(page.locator("[data-game-stage] canvas")).toHaveCount(0);
   await expect(page.locator("[data-game-shell]")).toHaveCount(0);
   await expect(page.locator(".page-shell")).not.toHaveAttribute("inert", /.*/);
   expect(await page.evaluate(() => (window as unknown as CriptaWindow).__cripta)).toBeUndefined();
@@ -224,15 +225,15 @@ test("perder o contexto com o exame aberto não deixa cartão, aviso, mira nem l
     const canvas = document.querySelector<HTMLCanvasElement>("[data-game-stage] canvas");
     canvas?.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
   });
-  await expect(page.getByText(NO_WEBGL)).toBeVisible();
+  await expect(page.getByRole("button", { name: RESUME })).toBeVisible();
   await expect(page.locator("[data-game-examine]")).toHaveCount(0);
   await expect(page.locator("[data-game-veil]")).toHaveCount(0);
   await expect(page.locator("[data-game-prompt]")).toBeEmpty();
   await expect(page.locator("[data-game-reticle]")).toHaveCount(0);
   await expect(page.locator("[data-game-places]")).toHaveCount(0);
-  // o foco é do botão de voltar, não roubado pelo retorno do exame
-  await expect(page.getByRole("button", { name: "Voltar ao site" })).toBeFocused();
-  await page.getByRole("button", { name: "Voltar ao site" }).click();
+  // o foco é do botão de continuar, não roubado pelo retorno do exame
+  await expect(page.getByRole("button", { name: RESUME })).toBeFocused();
+  await page.getByRole("button", { name: "Sair do jogo" }).click();
   await expect(page.locator("[data-game-shell]")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
