@@ -1,4 +1,5 @@
-import { z } from "zod";
+// `zod/mini` (mesmo pacote zod 4, API funcional): menos código no chunk do jogo. O save só usa `success`, nunca a mensagem.
+import * as z from "zod/mini";
 
 /** Camadas do jogo. A T7 reaproveita este tipo (hoje só as duas da Fase 1A). */
 export type LayerId = "cinza" | "antessala";
@@ -6,14 +7,14 @@ export type LayerId = "cinza" | "antessala";
 export const SAVE_VERSION = 1;
 
 const settingsSchema = z.object({
-  fov: z.number().min(55).max(80),
+  fov: z.number().check(z.minimum(55), z.maximum(80)),
   bob: z.boolean(),
   scares: z.boolean(),
   subtitles: z.boolean(),
   quality: z.union([z.literal("auto"), z.literal(480), z.literal(360), z.literal(240)]),
-  sensitivity: z.number().positive().finite(),
+  sensitivity: z.number().check(z.positive()),
   /** T11: volume do jogo (0..1). Saves de antes dele não o têm: entra 1. */
-  volume: z.number().min(0).max(1).default(1),
+  volume: z._default(z.number().check(z.minimum(0), z.maximum(1)), 1),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -32,14 +33,14 @@ export const DEFAULT_SETTINGS: Settings = {
 const saveV1Schema = z.object({
   version: z.literal(SAVE_VERSION),
   layer: z.enum(["cinza", "antessala"]),
-  place: z.string().nullable(),
+  place: z.nullable(z.string()),
   items: z.array(z.string()),
   flags: z.record(z.string(), z.boolean()),
   puzzles: z.record(z.string(), z.unknown()),
   relics: z.array(z.object({ id: z.string(), clean: z.boolean() })),
   settings: settingsSchema,
-  startedAt: z.number().finite(),
-  playMs: z.number().finite().nonnegative(),
+  startedAt: z.number(),
+  playMs: z.number().check(z.nonnegative()),
 });
 
 export type SaveV1 = {
