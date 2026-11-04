@@ -128,6 +128,14 @@ export function standaloneShot(search: string): boolean {
   return !!name && Object.hasOwn(SHOTS, name);
 }
 
+/**
+ * `?lab=1` abre o laboratório de modelos no lugar da sala (B2): só com o debug ligado, como o `?shot=`. Sem debug
+ * (produção sem `?debug=1`) é ignorado e o jogo abre normal; o chunk do laboratório nem é pedido.
+ */
+export function labRequested(search: string): boolean {
+  return debugEnabled(search) && new URLSearchParams(search).get("lab") === "1";
+}
+
 /** Só em dev ou com `?debug=1` na URL de quando o jogo abriu. */
 export function debugEnabled(search: string): boolean {
   return process.env.NODE_ENV !== "production" || new URLSearchParams(search).get("debug") === "1";

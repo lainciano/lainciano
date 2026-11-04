@@ -85,6 +85,9 @@
   --lcd-bar: #17221d;
   --lcd-line: #6d7f78;
   --lcd-key: #a3b5af;
+  /* Laboratório de modelos do jogo (B2, só debug): painel lateral e o verde do orçamento cumprido (o vermelho é --sangue). */
+  --lab-ok: #4f9a63;
+  --lab-panel-w: 20rem;
   --motion-phone-turn: 420ms; /* girar o celular para a horizontal e ampliar o documento */
   --motion-lcd-on: 140ms; /* luz de fundo do LCD acendendo */
   --limiar-ember: 4.5rem; /* brasa --sangue da transição do ato Som (spec Limiar 4) */

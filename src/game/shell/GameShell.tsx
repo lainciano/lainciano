@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { GameLabels } from "../labels";
 import type { Line } from "../layers/types";
 import type { PromptModel } from "../interaction/targeting";
 import type { ExamineInfo, PlaceItem, Session, SessionStatus } from "../runtime/session";
 import type { PhoneRect, PhoneView } from "../runtime/phone";
 import type { Settings } from "../save/schema";
+import { labRequested } from "../runtime/debug";
 import ExamineCard from "./ExamineCard";
 import Phone from "./Phone";
 import Reader from "./Reader";
@@ -28,6 +29,9 @@ function preloadPaper(): void {
     /* sem rede agora: o leitor cai no texto limpo */
   });
 }
+
+/** Laboratório de modelos (B2): chunk próprio, só pedido com `?debug=1&lab=1` (ver `labRequested`). */
+const LabPanel = lazy(() => import("../lab/LabPanel"));
 
 /** Movimento reduzido ao vivo: a legenda aparece direta, sem palavra a palavra. */
 function useReducedMotion(): boolean {
@@ -60,6 +64,9 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   /** A fala da casca (com o temporizador dela) para quem está fora do efeito da sessão. */
   const sayRef = useRef<((l: Line) => void) | null>(null);
   const [status, setStatus] = useState<SessionStatus>("loading");
+  // Laboratório de modelos: só com debug (decidido uma vez, ao abrir). Substitui a sessão: sem sala, jogador nem entrada.
+  const labFailed = useCallback(() => setStatus("failed"), []);
+  const [lab] = useState(() => typeof window !== "undefined" && labRequested(window.location.search));
   const [places, setPlaces] = useState<PlaceItem[] | null>(null);
   const [paused, setPaused] = useState(false);
   const [line, setLine] = useState<Line | null>(null);
@@ -95,7 +102,7 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
 
   useEffect(() => {
     const host = stageRef.current;
-    if (!host) return;
+    if (!host || lab) return;
     const controller = new AbortController();
     const { signal } = controller;
     let lineTimer = 0;
@@ -286,7 +293,12 @@ export default function GameShell({ labels, onExit }: { labels: GameLabels; onEx
   return (
     <div ref={shellRef} data-game-shell role="region" aria-label={labels.region} tabIndex={-1}>
       <div ref={stageRef} data-game-stage />
-      {status === "loading" && <p data-game-loading>{labels.loading}</p>}
+      {lab && (
+        <Suspense fallback={null}>
+          <LabPanel host={stageRef} onFailed={labFailed} />
+        </Suspense>
+      )}
+      {!lab && status === "loading" && <p data-game-loading>{labels.loading}</p>}
       {status === "failed" && (
         <div data-game-fallback role="alert">
           <p>{labels.noWebgl}</p>
