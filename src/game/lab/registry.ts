@@ -14,7 +14,7 @@ import type { Maker } from "../render/kit";
  */
 export type V3 = [number, number, number];
 export type LabBudget = { triangles: number; calls: number };
-export type LabGroup = "cinza" | "jogador";
+export type LabGroup = "cinza" | "jogador" | "antessala";
 export type LabMeta = { label: string; group: LabGroup; budget: LabBudget; goal?: LabBudget; size?: V3 };
 
 /** Constrói o modelo na origem (o laboratório o centraliza). Descarte extra pelo `userData.labDispose`. */
@@ -31,6 +31,12 @@ export const LAB_MODELS = {
   maos: { label: "mão da lanterna (a esquerda só sai com o celular)", group: "jogador", budget: { triangles: 1860, calls: 53 }, goal: { triangles: 4000, calls: 8 } },
   "celular-fechado": { label: "celular flip (fechado)", group: "jogador", budget: { triangles: 4270, calls: 4 }, goal: { triangles: 3500, calls: 4 } },
   "celular-aberto": { label: "celular flip (aberto)", group: "jogador", budget: { triangles: 4270, calls: 4 }, goal: { triangles: 3500, calls: 4 } },
+  // Casca da Antessala (B8), sem o lote: na sala o estático vira uma malha por material (o número da sala é outro).
+  fluorescente: { label: "fluorescente apagada", group: "antessala", budget: { triangles: 450, calls: 5 }, size: [126, 9, 20] },
+  "porta-norte": { label: "porta norte (dupla, vidro aramado)", group: "antessala", budget: { triangles: 2280, calls: 15 } },
+  "porta-sul": { label: "porta do pátio (vidro e grade)", group: "antessala", budget: { triangles: 2620, calls: 55 } },
+  janela: { label: "janela basculante com grade", group: "antessala", budget: { triangles: 1290, calls: 34 } },
+  "porao-vao": { label: "vão do Porão (batente)", group: "antessala", budget: { triangles: 820, calls: 7 } },
 } as const satisfies Record<string, LabMeta>;
 
 export type LabId = keyof typeof LAB_MODELS;
@@ -40,6 +46,7 @@ export const labMeta = (id: LabId): LabMeta => LAB_MODELS[id];
 
 const GROUPS: Record<LabGroup, () => Promise<Partial<Record<LabId, LabBuild>>>> = {
   cinza: () => import("./groups/cinza").then((m) => m.builders),
+  antessala: () => import("./groups/antessala").then((m) => m.builders),
   jogador: () => import("./groups/jogador").then((m) => m.builders),
 };
 

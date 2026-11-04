@@ -890,39 +890,5 @@ export const drawPencil: Draw = (g, w, h) => {
 
 /* ------------------------------------------------------------------ luminária */
 
-/** Esmalte da cúpula: verde-garrafa por fora, lascado na borda até o ferro preto; ferrugem escorrida. */
-export const drawEnamelOut: Draw = (g, w, h) => {
-  const r = mulberry(870);
-  g.fillStyle = "#24392e";
-  g.fillRect(0, 0, w, h);
-  blotches(g, w, h, r, 6, [10, 18, 14], 1.5, 0.35);
-  // brilho vertical do esmalte
-  for (let x = 0; x < w; x += 16) {
-    g.fillStyle = "rgba(170,200,180,.05)";
-    g.fillRect(x, 0, 4, h);
-  }
-  // lascas na borda (o v alto da lathe é a borda de baixo)
-  for (let i = 0; i < 16; i++) {
-    const x = r() * w;
-    const y = h - r() * 14;
-    g.fillStyle = "#0d0d0c";
-    jagged(g, x, y, 1.5 + r() * 3, r, 8);
-    g.fill();
-    g.fillStyle = "rgba(110,60,24,.6)";
-    g.fillRect(x - 0.5, y - 10 - r() * 10, 1, 10 + r() * 6);
-  }
-  grain(g, w, h, r, 8);
-};
-
-/** Esmalte de dentro: branco amarelado, encardido em cima pelo calor da lâmpada. */
-export const drawEnamelIn: Draw = (g, w, h) => {
-  const r = mulberry(880);
-  g.fillStyle = "#d8d0bc";
-  g.fillRect(0, 0, w, h);
-  const heat = g.createLinearGradient(0, 0, 0, h * 0.6);
-  heat.addColorStop(0, "rgba(110,80,40,.6)");
-  heat.addColorStop(1, "rgba(110,80,40,0)");
-  g.fillStyle = heat;
-  g.fillRect(0, 0, w, h);
-  grain(g, w, h, r, 8);
-};
+// Esmalte da cúpula: no kit (render/kit/lamp.ts), com a luminária.
+export { drawEnamelIn, drawEnamelOut } from "../../render/kit/lamp";

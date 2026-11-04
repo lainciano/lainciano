@@ -29,7 +29,7 @@ describe("save schema", () => {
   it("estado inicial: camada cinza, sem progresso", () => {
     expect(initialSave(NOW)).toEqual({
       version: 1,
-      layer: "cinza",
+      layer: "antessala",
       place: null,
       items: [],
       flags: {},

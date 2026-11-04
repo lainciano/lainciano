@@ -57,7 +57,7 @@ const reader = (page: Page) => page.getByRole("dialog", { name: "bilhete" });
 const stage = (page: Page) => page.locator("[data-game-stage]");
 
 async function openGame(page: Page, query = "") {
-  await page.goto(`/?jogo=1&debug=1${query}`);
+  await page.goto(`/?jogo=1&debug=1&camada=cinza${query}`);
   await page.waitForLoadState("networkidle");
   await expect(page.locator("[data-game-loading]")).toHaveCount(0, { timeout: 40_000 });
   await expect.poll(async () => (await cripta(page))?.frames ?? 0, { timeout: 40_000 }).toBeGreaterThan(3);

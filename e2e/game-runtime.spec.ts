@@ -86,7 +86,7 @@ async function expectRunning(page: Page) {
 
 test("abre um canvas no palco, mede quadros e respeita a qualidade do aparelho", async ({ page }, testInfo) => {
   const errors = collectErrors(page);
-  await page.goto("/?jogo=1&debug=1");
+  await page.goto("/?jogo=1&debug=1&camada=cinza");
   await hydrated(page);
   await expectRunning(page);
   await page.waitForTimeout(1000);
@@ -108,7 +108,7 @@ test("abre um canvas no palco, mede quadros e respeita a qualidade do aparelho",
 
 test("alguns quadros que lançam contam o erro, mostram os primeiros no console e o loop segue", async ({ page }, testInfo) => {
   await lightGame(page, testInfo);
-  await page.goto("/?jogo=1&debug=1");
+  await page.goto("/?jogo=1&debug=1&camada=cinza");
   await hydrated(page);
   await expectRunning(page);
   const errors = collectErrors(page);
@@ -131,7 +131,7 @@ test("alguns quadros que lançam contam o erro, mostram os primeiros no console 
 
 test("erro em TODO quadro: depois de 30 seguidos o loop para, solta o contexto e mostra o aviso com voltar ao site", async ({ page }, testInfo) => {
   await lightGame(page, testInfo);
-  await page.goto("/?jogo=1&debug=1");
+  await page.goto("/?jogo=1&debug=1&camada=cinza");
   await hydrated(page);
   await expectRunning(page);
   const errors = collectErrors(page);
@@ -155,7 +155,7 @@ test("erro em TODO quadro: depois de 30 seguidos o loop para, solta o contexto e
 
 test("aba escondida para o loop; ao voltar ele retoma", async ({ page }, testInfo) => {
   await lightGame(page, testInfo);
-  await page.goto("/?jogo=1&debug=1");
+  await page.goto("/?jogo=1&debug=1&camada=cinza");
   await hydrated(page);
   await expectRunning(page);
 
@@ -179,7 +179,7 @@ test("aba escondida para o loop; ao voltar ele retoma", async ({ page }, testInf
 
 test("perder o contexto oferece continuar, para o loop e, ao sair, solta o canvas e volta ao site", async ({ page }, testInfo) => {
   await lightGame(page, testInfo);
-  await page.goto("/?jogo=1&debug=1");
+  await page.goto("/?jogo=1&debug=1&camada=cinza");
   await hydrated(page);
   await expectRunning(page);
   const errors = collectErrors(page);
@@ -211,7 +211,7 @@ test("perder o contexto com o exame aberto não deixa cartão, aviso, mira nem l
   test.skip(isMobile, "o exame aqui abre por teclado e mira de mouse (o toque tem a própria spec)");
   // Começa no lugar da mesa (o save manda) para mirar o caderno e examinar.
   await lightGame(page, testInfo, { place: "mesa" });
-  await page.goto("/?jogo=1&debug=1");
+  await page.goto("/?jogo=1&debug=1&camada=cinza");
   await hydrated(page);
   await expectRunning(page);
   const errors = collectErrors(page);
@@ -242,7 +242,7 @@ test("erro depois que o engine nasce (jogador): a sessão descarta tudo, solta o
   await lightGame(page, testInfo);
   const errors = collectErrors(page);
   // `?falha=jogador` (só debug) lança logo depois de criar o jogador, com a camada já carregada e as mãos na câmera.
-  await page.goto("/?jogo=1&debug=1&falha=jogador");
+  await page.goto("/?jogo=1&debug=1&camada=cinza&falha=jogador");
   await hydrated(page);
   await expect(page.getByText(NO_WEBGL)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Voltar ao site" })).toBeFocused();
@@ -268,7 +268,7 @@ test("sem WebGL no aparelho: aviso, botão de voltar e nenhum canvas", async ({ 
       return (original as (...args: unknown[]) => RenderingContext | null).call(this, type, ...rest);
     } as typeof HTMLCanvasElement.prototype.getContext;
   });
-  await page.goto("/?jogo=1&debug=1");
+  await page.goto("/?jogo=1&debug=1&camada=cinza");
   await hydrated(page);
 
   await expect(page.getByText(NO_WEBGL)).toBeVisible();

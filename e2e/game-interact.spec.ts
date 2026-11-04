@@ -55,7 +55,7 @@ async function hydrated(page: Page) {
 async function openAt(page: Page, place: string, extra: Partial<ReturnType<typeof initialSave>> = {}) {
   const save = { ...initialSave(0), place, ...extra };
   await page.addInitScript((json) => localStorage.setItem("lainciano:jogo:save:v1", json), JSON.stringify(save));
-  await page.goto("/?jogo=1&debug=1");
+  await page.goto("/?jogo=1&debug=1&camada=cinza");
   await hydrated(page);
   await expect(page.locator("[data-game-loading]")).toHaveCount(0, { timeout: 30_000 });
   await expect.poll(() => page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.renderer.frames ?? 0), { timeout: 20_000 }).toBeGreaterThan(3);

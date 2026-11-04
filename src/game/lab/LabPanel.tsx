@@ -12,7 +12,7 @@ import "./lab.css";
  * deve ser estável (o efeito abre e fecha o laboratório por ele).
  */
 
-const GROUP_LABEL: Record<LabGroup, string> = { cinza: "sala cinza", jogador: "jogador" };
+const GROUP_LABEL: Record<LabGroup, string> = { cinza: "sala cinza", jogador: "jogador", antessala: "antessala (casca)" };
 const POST_MODES: { mode: PostMode; label: string }[] = [
   { mode: 0, label: "0 · gravura" },
   { mode: 1, label: "1 · PSX" },

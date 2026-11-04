@@ -44,7 +44,7 @@ const xz = async (page: Page) => {
 };
 
 async function openGame(page: Page, query = "") {
-  await page.goto(`/?jogo=1&debug=1${query}`);
+  await page.goto(`/?jogo=1&debug=1&camada=cinza${query}`);
   await hydrated(page);
   await expect(page.locator("[data-game-loading]")).toHaveCount(0, { timeout: 30_000 });
   await expect.poll(() => page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.renderer.frames ?? 0), { timeout: 20_000 }).toBeGreaterThan(3);
@@ -201,7 +201,7 @@ test.describe("teclado (desktop)", () => {
   });
 
   test("a porta emperrou: a carga que falha mostra o aviso e “tentar de novo” carrega a sala", async ({ page }) => {
-    await page.goto("/?jogo=1&debug=1&falha=camada");
+    await page.goto("/?jogo=1&debug=1&camada=cinza&falha=camada");
     await hydrated(page);
     const alert = page.locator("[data-game-shell]").getByRole("alert");
     await expect(alert).toContainText("A porta emperrou.", { timeout: 30_000 });

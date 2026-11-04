@@ -469,59 +469,8 @@ export function buildRug(m: Maker): THREE.Group {
 
 /* ================================================================== luminária pendente */
 
-export type LampParts = { pivot: THREE.Group; bulbY: number };
-
-/**
- * Luminária de cúpula esmaltada (verde por fora, branca por dentro, borda enrolada e lascada), soquete de
- * baquelite, fio de tecido e canopla no teto. O pivô no teto balança (quem anima é a camada); a lâmpada e a luz
- * ficam a `bulbY` abaixo dele.
- */
-export function buildLamp(m: Maker, x: number, ceilingY: number, z: number, bulbWorldY: number): LampParts {
-  const { T, kit } = m;
-  const pivot = new T.Group();
-  pivot.name = "luminaria";
-  pivot.position.set(x, ceilingY, z);
-  const drop = ceilingY - bulbWorldY;
-  const metal = kit.phong({ color: 0x1a1a18, shininess: 30 });
-  const cordMat = kit.phong({ color: 0x141210, shininess: 4 });
-  const bakelite = kit.phong({ color: 0x2a1a10, shininess: 50 });
-  const outer = kit.phong({ map: m.tex("cupula-fora", tx.drawEnamelOut, 128), shininess: 60, specular: 0x202a24 });
-  const innerMat = kit.phong({ map: m.tex("cupula-dentro", tx.drawEnamelIn, 64), side: T.BackSide, shininess: 30 });
-  const bulb = kit.basic({ color: 0xffd8a0 });
-  const opts = { cast: false };
-  // canopla
-  const rose = [
-    [0.0001, 0],
-    [0.055, 0],
-    [0.056, -0.006],
-    [0.05, -0.02],
-    [0.012, -0.03],
-    [0.0001, -0.03],
-  ].map(([r, y]) => new T.Vector2(r, y)).reverse();
-  m.mesh(new T.LatheGeometry(rose, 14), metal, pivot, 0, -0.001, 0, opts);
-  // fio até a cúpula
-  const shadeTop = -(drop - 0.07);
-  m.mesh(new T.CylinderGeometry(0.0035, 0.0035, -shadeTop - 0.03, 5), cordMat, pivot, 0, (shadeTop - 0.03) / 2, 0, opts);
-  // cúpula: cone com a borda enrolada (perfil), de fora e de dentro (2 mm para dentro, sem coplanar). O perfil é
-  // escrito de cima para baixo; a lathe quer de baixo para cima para as faces olharem para fora: `reverse`.
-  const shade = (k: number) =>
-    [
-      [0.03, 0],
-      [0.045, -0.02],
-      [0.1, -0.075],
-      [0.155, -0.13],
-      [0.168, -0.142],
-      [0.172, -0.15],
-      [0.166, -0.155],
-    ].map(([r, y]) => new T.Vector2(r * k, y));
-  m.mesh(new T.LatheGeometry(shade(1).reverse(), 18), outer, pivot, 0, shadeTop, 0, opts);
-  m.mesh(new T.LatheGeometry(shade(0.985).slice(0, 5).reverse(), 18), innerMat, pivot, 0, shadeTop - 0.002, 0, opts);
-  // soquete e lâmpada
-  m.mesh(new T.CylinderGeometry(0.02, 0.022, 0.045, 10), bakelite, pivot, 0, shadeTop - 0.03, 0, opts);
-  const bulbMesh = m.mesh(new T.SphereGeometry(0.032, 10, 8), bulb, pivot, 0, -drop, 0, { cast: false, recv: false });
-  bulbMesh.scale.set(1, 1.15, 1);
-  return { pivot, bulbY: -drop };
-}
+// A luminária de cúpula esmaltada subiu para o kit (render/kit/lamp.ts, B8): a Antessala usa a mesma peça.
+export { buildLamp, type LampParts } from "../../render/kit";
 
 /* ================================================================== detalhes de parede */
 

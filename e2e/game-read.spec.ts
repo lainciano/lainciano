@@ -51,7 +51,7 @@ async function hydrated(page: Page) {
 /** Abre o jogo leve parado em `place` (o save manda). */
 async function openAt(page: Page, testInfo: Parameters<typeof lightGame>[1], place: string) {
   await lightGame(page, testInfo, { place });
-  await page.goto("/?jogo=1&debug=1");
+  await page.goto("/?jogo=1&debug=1&camada=cinza");
   await hydrated(page);
   await expect(page.locator("[data-game-loading]")).toHaveCount(0, { timeout: 30_000 });
   await expect.poll(() => page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.renderer.frames ?? 0), { timeout: 30_000 }).toBeGreaterThan(3);

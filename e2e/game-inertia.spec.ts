@@ -30,7 +30,7 @@ const hands = (page: Page) => page.evaluate(() => (window as unknown as CriptaWi
 const yawOf = (page: Page) => page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.camera.rotation[1] ?? 0);
 
 test("virar rápido: a mão atrasa (oposta ao giro) e volta ao centro quando a câmera para", async ({ page }) => {
-  await page.goto("/?jogo=1&debug=1");
+  await page.goto("/?jogo=1&debug=1&camada=cinza");
   await page.waitForLoadState("networkidle");
   await expect(page.locator("[data-game-loading]")).toHaveCount(0, { timeout: 30_000 });
   await expect.poll(() => page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.renderer.frames ?? 0), { timeout: 30_000 }).toBeGreaterThan(3);

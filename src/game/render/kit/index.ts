@@ -14,3 +14,4 @@ export {
   type WallId,
   type WallSkin,
 } from "./room";
+export { buildLamp, drawEnamelIn, drawEnamelOut, type LampParts } from "./lamp";

@@ -43,9 +43,18 @@ export type AoOptions = {
 
 export type FillLight = { pos: V3; color: ColorInput; range: number; intensity: number; decay?: number };
 
+/**
+ * Luz de área retangular (uma janela que deixa entrar o céu): emite só para o lado de `normal`. A irradiância é
+ * `intensity · F`, com F o fator de forma exato do retângulo visto do vértice (cortado no horizonte dele): quem
+ * olha a janela de frente e de perto recebe quase tudo; de lado ou de longe, pouco. Sem sombra (como os
+ * preenchimentos).
+ */
+export type AreaLight = { corners: readonly [V3, V3, V3, V3]; normal: V3; color: ColorInput; intensity: number };
+
 export type BakeOptions = {
   ao?: AoOptions;
   fills?: readonly FillLight[];
+  areas?: readonly AreaLight[];
   hemi?: { sky: ColorInput; ground: ColorInput; intensity: number };
   ambient?: { color: ColorInput; intensity: number };
 };
@@ -181,6 +190,7 @@ type Prepared = {
   sky: Rgb;
   ground: Rgb;
   fills: { pos: V3; rgb: Rgb; range: number; decay: number }[];
+  areas: { corners: readonly V3[]; normal: V3; rgb: Rgb }[];
 };
 
 function prepare(o: BakeOptions): Prepared {
@@ -193,6 +203,7 @@ function prepare(o: BakeOptions): Prepared {
     sky: o.hemi ? scale(o.hemi.sky, o.hemi.intensity) : [0, 0, 0],
     ground: o.hemi ? scale(o.hemi.ground, o.hemi.intensity) : [0, 0, 0],
     fills: (o.fills ?? []).map((f) => ({ pos: f.pos, rgb: scale(f.color, f.intensity), range: f.range, decay: f.decay ?? 2 })),
+    areas: (o.areas ?? []).map((a) => ({ corners: a.corners, normal: a.normal, rgb: scale(a.color, a.intensity) })),
   };
 }
 
@@ -213,6 +224,17 @@ function irradianceAt(p: V3, n: V3, o: BakeOptions, pre: Prepared, out: number[]
       att *= q * q;
     }
     for (let c = 0; c < 3; c++) out[c] += f.rgb[c] * att * ndl;
+  }
+  for (const a of pre.areas) {
+    // só a frente do emissor ilumina
+    if (dot(sub(p, a.corners[0]), a.normal) <= 1e-6) continue;
+    const clipped = clipToHorizon(
+      a.corners.map((q) => sub(q, p)),
+      n,
+    );
+    if (clipped.length < 3) continue;
+    const f = polygonFormFactor(clipped, n);
+    for (let c = 0; c < 3; c++) out[c] += a.rgb[c] * f;
   }
 }
 

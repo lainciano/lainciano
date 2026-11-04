@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import type { Own } from "../layers/types";
-import { batchKey, compactMaterialGroups, compactRanges, createStaticBatch, materialRanges } from "./batch";
+import { bakeAtRest, batchKey, compactMaterialGroups, compactRanges, createStaticBatch, materialRanges } from "./batch";
+import { bakeIrradiance, type BakeOptions } from "./bake";
 import { triangleCount } from "./slab";
 
 function tracker() {
@@ -185,5 +186,58 @@ describe("compactMaterialGroups", () => {
     expect(mesh.material).toEqual([veneer]);
     expect(triangleCount(mesh.geometry)).toBe(tris);
     expect(mesh.geometry.groups).toEqual([{ start: 0, count: 36, materialIndex: 0 }]);
+  });
+});
+
+describe("bakeAtRest (luz assada na pose de repouso)", () => {
+  const twinOf = new Map<THREE.Material, THREE.Material>();
+  const twin = (m: THREE.Material) => {
+    let t = twinOf.get(m);
+    if (!t) {
+      t = m.clone();
+      t.userData.bakedLight = true;
+      twinOf.set(m, t);
+    }
+    return t;
+  };
+  const BAKE: BakeOptions = { hemi: { sky: 0x404040, ground: 0x101010, intensity: 1 }, fills: [{ pos: [1, 1, 0], color: 0xff8000, range: 4, intensity: 2 }], ao: { floorY: 0, strength: 1 } };
+
+  it("assa no espaço da camada (a pose de mundo da peça) e troca pelo gêmeo assado", () => {
+    const space = new THREE.Group();
+    space.position.set(5, 0, 0);
+    const pivot = new THREE.Group();
+    pivot.position.set(0.3, 0.2, 0);
+    pivot.rotation.y = 0.7;
+    space.add(pivot);
+    const mat = new THREE.MeshPhongMaterial();
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mat);
+    mesh.position.set(0.1, 0.1, 0);
+    pivot.add(mesh);
+    expect(bakeAtRest(THREE, [pivot], space, { material: twin, bake: BAKE })).toBe(1);
+    expect(mesh.material).toBe(twinOf.get(mat));
+    // a cor do vértice 0 é a irradiância do ponto e da normal dele no espaço da camada
+    space.updateMatrixWorld(true);
+    const m = space.matrixWorld.clone().invert().multiply(mesh.matrixWorld);
+    const p = new THREE.Vector3().fromBufferAttribute(mesh.geometry.getAttribute("position"), 0).applyMatrix4(m);
+    const n = new THREE.Vector3().fromBufferAttribute(mesh.geometry.getAttribute("normal"), 0).applyMatrix3(new THREE.Matrix3().getNormalMatrix(m)).normalize();
+    const want = bakeIrradiance([p.x, p.y, p.z], [n.x, n.y, n.z], BAKE);
+    const color = mesh.geometry.getAttribute("color");
+    expect(color.getX(0)).toBeCloseTo(want[0], 5);
+    expect(color.getY(0)).toBeCloseTo(want[1], 5);
+    expect(color.getZ(0)).toBeCloseTo(want[2], 5);
+  });
+
+  it("pula geometria compartilhada e material sem luz (Basic)", () => {
+    const space = new THREE.Group();
+    const geo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+    const a = new THREE.Mesh(geo, new THREE.MeshPhongMaterial());
+    const b = new THREE.Mesh(geo, new THREE.MeshPhongMaterial());
+    const basic = new THREE.MeshBasicMaterial();
+    const c = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), basic);
+    space.add(a, b, c);
+    const onlyLit = (m: THREE.Material) => ((m as THREE.MeshPhongMaterial).isMeshPhongMaterial ? twin(m) : m);
+    expect(bakeAtRest(THREE, [space], space, { material: onlyLit, bake: BAKE })).toBe(0);
+    expect(geo.getAttribute("color")).toBeUndefined();
+    expect(c.material).toBe(basic);
   });
 });

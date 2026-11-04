@@ -59,7 +59,8 @@ export type SaveV1 = {
 export function initialSave(now: number): SaveV1 {
   return {
     version: SAVE_VERSION,
-    layer: "cinza",
+    // 1B: o jogo começa na Antessala (a sala cinza é só debug, `?debug=1&camada=cinza`).
+    layer: "antessala",
     place: null,
     items: [],
     flags: {},

@@ -1,6 +1,6 @@
 import type * as THREE from "three";
 import type { Own } from "../layers/types";
-import { bakeVertexLight, type BakeOptions } from "./bake";
+import { bakeIrradiance, bakeVertexLight, type BakeOptions } from "./bake";
 import { mergeGeometries, triangleCount, type MergePart } from "./slab";
 
 /**
@@ -207,4 +207,59 @@ export function compactMaterialGroups(three: typeof THREE, root: THREE.Object3D)
     mesh.material = slots.map((s) => s.key);
   });
   return { before, after };
+}
+
+/**
+ * Luz assada na POSE DE REPOUSO (B8, risco herdado da B3): o que fica solto porque um dia se mexe (a folha de uma
+ * porta, o tubo da fluorescente da estranheza) recebe a MESMA luz fixa do lote (AO, hemisfério, ambiente, os
+ * preenchimentos e a janela), calculada onde ele está agora, sem luz real nova (nenhum programa a mais, nenhum custo
+ * por fragmento). Quando a peça se mexe, a cor assada vai junto (erro pequeno, aceito); a luz dinâmica (a lâmpada)
+ * continua somando por cima. Cada geometria é assada uma vez, no espaço de `space` (o `root` da camada); geometria
+ * usada por mais de uma malha fica de fora (a segunda pose seria outra). Devolve quantas malhas foram assadas.
+ */
+export function bakeAtRest(
+  three: typeof THREE,
+  objects: readonly THREE.Object3D[],
+  space: THREE.Object3D,
+  opts: { material(source: THREE.Material): THREE.Material; bake: BakeOptions },
+): number {
+  space.updateWorldMatrix(true, false);
+  const toSpace = space.matrixWorld.clone().invert();
+  const users = new Map<THREE.BufferGeometry, number>();
+  const meshes: THREE.Mesh[] = [];
+  for (const obj of objects) {
+    obj.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh || (mesh as THREE.InstancedMesh).isInstancedMesh) return;
+      meshes.push(mesh);
+      users.set(mesh.geometry, (users.get(mesh.geometry) ?? 0) + 1);
+    });
+  }
+  let baked = 0;
+  const normalMatrix = new three.Matrix3();
+  const v = new three.Vector3();
+  for (const mesh of meshes) {
+    const geo = mesh.geometry as THREE.BufferGeometry;
+    if (users.get(geo) !== 1 || !geo.getAttribute("position")) continue;
+    if (!geo.getAttribute("normal")) geo.computeVertexNormals();
+    const twins = (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).map((m) => opts.material(m));
+    if (!twins.some((m) => m.userData.bakedLight === true)) continue;
+    mesh.updateWorldMatrix(true, false);
+    const matrix = toSpace.clone().multiply(mesh.matrixWorld);
+    normalMatrix.getNormalMatrix(matrix);
+    const pos = geo.getAttribute("position");
+    const nor = geo.getAttribute("normal");
+    const p = new Float32Array(pos.count * 3);
+    const n = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(matrix);
+      p.set([v.x, v.y, v.z], i * 3);
+      v.fromBufferAttribute(nor, i).applyMatrix3(normalMatrix).normalize();
+      n.set([v.x, v.y, v.z], i * 3);
+    }
+    geo.setAttribute("color", new three.Float32BufferAttribute(bakeIrradiance(p, n, opts.bake), 3));
+    mesh.material = Array.isArray(mesh.material) ? twins : twins[0];
+    baked += 1;
+  }
+  return baked;
 }

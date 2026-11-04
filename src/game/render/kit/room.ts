@@ -32,6 +32,11 @@ export type RoomSpec = {
   openings: readonly Opening[];
   /** Semente do sorteio de variante e giro dos ladrilhos do piso. */
   seed: number;
+  /**
+   * Origem da grade dos painéis de 1 m do piso (as juntas caem em `origem + k`). Padrão (0, 0): juntas nos metros
+   * inteiros. As juntas viram linhas da grade comum (o painel nunca começa no meio de uma célula).
+   */
+  floorOrigin?: { x: number; z: number };
   skin: {
     walls: Record<WallId, WallSkin>;
     /** Decalque de desgaste (UV = sala inteira, vista de cima); sem ele não há decalque. */
@@ -57,14 +62,22 @@ export function roomBounds(spec: Pick<RoomSpec, "width" | "depth">) {
 /** Vão como intervalo [u0, u1] ao longo da parede e [v0, v1] em altura. */
 const span = (o: Opening) => ({ u0: o.center - o.width / 2, u1: o.center + o.width / 2, v0: o.sill ?? 0, v1: (o.sill ?? 0) + o.height });
 
-/** Grade comum da sala: linhas do passo mais as bordas dos vãos (e a barra da parede em y). */
+/** Juntas dos painéis de 1 m do piso dentro de [lo, hi] (a partir da origem `o`). */
+function joints(lo: number, hi: number, o: number): number[] {
+  const out: number[] = [];
+  for (let k = Math.ceil(lo - o); k + o <= hi; k++) out.push(k + o);
+  return out;
+}
+
+/** Grade comum da sala: linhas do passo mais as bordas dos vãos e as juntas do piso (e a barra da parede em y). */
 export function roomLattice(spec: RoomSpec): Lattice {
   const b = roomBounds(spec);
-  const edges = (horizontal: boolean) => spec.openings.filter((o) => alongX(o.wall) === horizontal).flatMap((o) => [span(o).u0, span(o).u1]);
-  const tops = spec.openings.flatMap((o) => (o.sill ? [span(o).v0, span(o).v1] : [span(o).v1]));
+  const o = spec.floorOrigin ?? { x: 0, z: 0 };
+  const edges = (horizontal: boolean) => spec.openings.filter((op) => alongX(op.wall) === horizontal).flatMap((op) => [span(op).u0, span(op).u1]);
+  const tops = spec.openings.flatMap((op) => (op.sill ? [span(op).v0, span(op).v1] : [span(op).v1]));
   return {
-    xs: breakpoints(b.minX, b.maxX, spec.step, edges(true)),
-    zs: breakpoints(b.minZ, b.maxZ, spec.step, edges(false)),
+    xs: breakpoints(b.minX, b.maxX, spec.step, [...edges(true), ...joints(b.minX, b.maxX, o.x)]),
+    zs: breakpoints(b.minZ, b.maxZ, spec.step, [...edges(false), ...joints(b.minZ, b.maxZ, o.z)]),
     ys: breakpoints(0, spec.height, spec.step, [spec.band, ...tops]),
   };
 }
@@ -96,7 +109,9 @@ export function buildFloor(m: Maker, root: THREE.Object3D, spec: RoomSpec): { me
   const { T, kit } = m;
   const b = roomBounds(spec);
   const lat = roomLattice(spec);
-  const tile = (u: number, v: number) => ({ ix: Math.floor(u), iz: Math.floor(v) });
+  const origin = spec.floorOrigin ?? { x: 0, z: 0 };
+  // Painel = célula de 1 m a partir da origem; o índice inteiro sorteia variante e giro (origem 0 = a cinza de antes).
+  const tile = (u: number, v: number) => ({ ix: Math.floor(u - origin.x), iz: Math.floor(v - origin.z) });
   const pick = (ix: number, iz: number) => {
     const rng = mulberry(spec.seed + ix * 31 + iz * 17);
     return { variant: Math.floor(rng() * 4) % 4, turn: Math.floor(rng() * 4) };
@@ -112,8 +127,8 @@ export function buildFloor(m: Maker, root: THREE.Object3D, spec: RoomSpec): { me
     },
     cellUv: (u0, v0, u1, v1, u, v) => {
       const { ix, iz } = tile((u0 + u1) / 2, (v0 + v1) / 2);
-      let a = u - ix;
-      let c = 1 - (v - iz);
+      let a = u - origin.x - ix;
+      let c = 1 - (v - origin.z - iz);
       for (let k = 0; k < pick(ix, iz).turn; k++) [a, c] = [1 - c, a];
       return [a, c];
     },

@@ -50,7 +50,7 @@ async function hydrated(page: Page) {
 }
 
 async function openGame(page: Page) {
-  await page.goto("/?jogo=1&debug=1");
+  await page.goto("/?jogo=1&debug=1&camada=cinza");
   await hydrated(page);
   await expect(page.locator("[data-game-loading]")).toHaveCount(0, { timeout: 30_000 });
   await expect.poll(async () => (await w(page))?.renderer.frames ?? 0, { timeout: 30_000 }).toBeGreaterThan(3);

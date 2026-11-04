@@ -1,4 +1,4 @@
-import type { SaveV1 } from "../save/schema";
+import type { LayerId, SaveV1 } from "../save/schema";
 import type { DebugInfo, Engine, PostMode } from "./engine";
 import type { QualityLines } from "./quality";
 
@@ -107,15 +107,19 @@ const SHOTS = {
 } satisfies Record<string, () => Promise<(engine: Engine) => () => void>>;
 
 /**
- * Fotos de referência montadas sobre uma camada de verdade (T8): o shell carrega a camada, põe o jogador no
- * lugar pedido e prende o tempo. `?debug=1&shot=cinza-entrada`.
+ * Fotos de referência montadas sobre uma camada de verdade (T8): o shell carrega a camada pedida, põe o jogador no
+ * lugar pedido e prende o tempo. `?debug=1&shot=cinza-entrada`. As da Antessala (B8) são o plano de entrada da
+ * bíblia §3 e as fotos de revisão, com a janela à noite (o estado da hora fica preso; ver `antessala/index.ts`).
  */
 const LAYER_SHOTS = {
-  "cinza-entrada": { place: "entrada" },
-} as const;
+  "cinza-entrada": { layer: "cinza", place: "entrada" },
+  "antessala-entrada": { layer: "antessala", place: "entrada" },
+  "antessala-balcao": { layer: "antessala", place: "balcao" },
+  "antessala-janela": { layer: "antessala", place: "janela" },
+} as const satisfies Record<string, { layer: LayerId; place: string }>;
 
 /** A foto de camada pedida em `?shot=` (só com o debug ligado) ou null. */
-export function layerShot(search: string): { place: string } | null {
+export function layerShot(search: string): { layer: LayerId; place: string } | null {
   if (!debugEnabled(search)) return null;
   const name = new URLSearchParams(search).get("shot");
   return name && Object.hasOwn(LAYER_SHOTS, name) ? LAYER_SHOTS[name as keyof typeof LAYER_SHOTS] : null;

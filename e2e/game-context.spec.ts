@@ -83,7 +83,7 @@ const resumeButton = (page: Page) => page.getByRole("button", { name: RESUME });
 async function open(page: Page, testInfo: Parameters<typeof lightGame>[1]) {
   // O lugar salvo não é o padrão: prova que a recriação volta ao salvo, não à entrada.
   await lightGame(page, testInfo, { place: "mesa" });
-  await page.goto("/?jogo=1&debug=1");
+  await page.goto("/?jogo=1&debug=1&camada=cinza");
   await hydrated(page);
   await settled(page, 1);
   expect(await page.evaluate(() => (window as unknown as W).__cripta?.place)).toBe("mesa");

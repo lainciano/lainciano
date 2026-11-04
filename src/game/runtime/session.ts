@@ -2,13 +2,14 @@ import { soundEngine } from "@/interaction/sound/engine";
 import { createGameAudio } from "../audio/game-audio";
 import { bindInput, type InputBinding } from "../input/adapters";
 import { isRelease, type Action } from "../input/actions";
-import { cinzaLayer } from "../layers/cinza";
+import { antessalaLayer } from "../layers/antessala";
 import { browserEnv, createMemoryStore } from "../memory/store";
 import { createHesitationTracker, createPlaceClock } from "../memory/track";
 import { createExamine, type Examine } from "../interaction/examine";
 import { createInteraction, type Interaction, type InteractionUi } from "../interaction/interaction";
 import type { PromptModel } from "../interaction/targeting";
 import { createLayerRunner, type LayerRunner } from "../layers/loader";
+import { layerEntry, layerForPath } from "../layers/route";
 import type { ActApi, GameCtx, InteractiveObject, Layer, Line } from "../layers/types";
 import { createPlayer, type Player } from "../player/controller";
 import type { PhoneKey } from "../player/phone";
@@ -331,7 +332,14 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
   /** Entra na camada; em sucesso cria o jogador e liga a entrada. Devolve se deu certo. */
   const enterLayer = async (): Promise<boolean> => {
     runner ??= createLayerRunner(ctx);
-    const layer = debugFailure(search, "camada") && !enteredOnce ? failingOnce(cinzaLayer) : cinzaLayer;
+    // 1B: a Antessala; a sala cinza (prova do motor) só por `?debug=1&camada=cinza` ou pela foto dela, em chunk próprio.
+    const target = shot?.layer ?? layerForPath(window.location.pathname, search, debugEnabled(search));
+    const entry = layerEntry(save.get(), target);
+    if (entry.kind === "fresh") save.reset();
+    if (entry.kind !== "keep") save.patch(entry.patch);
+    const base = target === "cinza" ? (await import("../layers/cinza")).cinzaLayer : antessalaLayer;
+    if (signal.aborted || disposed) return false;
+    const layer = debugFailure(search, "camada") && !enteredOnce ? failingOnce(base) : base;
     enteredOnce = true;
     const result = await runner.enter(layer, save.get());
     if (signal.aborted || disposed) return false;
@@ -539,7 +547,13 @@ export async function startSession(host: HTMLElement, ui: SessionUi, signal: Abo
           return true;
         },
         objectVisible: (id, v) => {
-          for (const root of runner?.current()?.objects.find((o) => o.id === id)?.roots ?? []) root.visible = v;
+          const roots = runner?.current()?.objects.find((o) => o.id === id)?.roots;
+          if (roots) for (const root of roots) root.visible = v;
+          else {
+            // peça da cena pelo nome (o placeholder de teste de sombra da Antessala, `placeholder:teste-sombra`)
+            const named = eng.scene.getObjectByName(id);
+            if (named) named.visible = v;
+          }
         },
       }),
     );

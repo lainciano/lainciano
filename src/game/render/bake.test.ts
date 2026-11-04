@@ -114,3 +114,29 @@ describe("bakeVertexLight", () => {
     expect(color.getX(0)).toBeCloseTo(0.5, 6);
   });
 });
+
+describe("luz de área (janela)", () => {
+  // janela de 1 × 1 m na parede x = −2, olhando para +x
+  const win = { corners: [[-2, 1, -0.5], [-2, 1, 0.5], [-2, 2, 0.5], [-2, 2, -0.5]] as [V3, V3, V3, V3], normal: [1, 0, 0] as V3, color: 0xffffff, intensity: 1 };
+  const at = (p: V3, n: V3) => bakeIrradiance(p, n, { areas: [win] })[0];
+
+  it("ilumina quem a olha de frente e cai com a distância", () => {
+    const near = at([-1.5, 1.5, 0], [-1, 0, 0]);
+    const far = at([1.5, 1.5, 0], [-1, 0, 0]);
+    expect(near).toBeGreaterThan(0.3);
+    expect(far).toBeGreaterThan(0);
+    expect(far).toBeLessThan(near / 5);
+  });
+
+  it("não ilumina atrás dela nem quem lhe dá as costas", () => {
+    expect(at([-2.5, 1.5, 0], [1, 0, 0])).toBe(0);
+    expect(at([-1.5, 1.5, 0], [1, 0, 0])).toBe(0);
+  });
+
+  it("o piso diante da janela recebe luz, e mais perto da parede", () => {
+    const close = at([-1.6, 0, 0], UP);
+    const away = at([0.5, 0, 0], UP);
+    expect(close).toBeGreaterThan(away);
+    expect(away).toBeGreaterThan(0);
+  });
+});
