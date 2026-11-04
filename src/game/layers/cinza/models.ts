@@ -1,7 +1,7 @@
 import type * as THREE from "three";
 import type { MaterialKit } from "../../render/materials";
-import type { Draw } from "../../render/paint";
-import { chamferBox, latticeSurface, breakpoints, type UvMode } from "../../render/shapes";
+import { boxFaces as faces, createMaker as createKitMaker, knob, type Maker } from "../../render/kit";
+import { latticeSurface, breakpoints, type UvMode } from "../../render/shapes";
 import type { Own } from "../types";
 import { DOOR, DOOR_LEAF, RUG, TABLE, WARDROBE } from "./places";
 import * as tx from "./textures";
@@ -12,71 +12,10 @@ import * as tx from "./textures";
  * Cada geometria passa por `own` (Ruling 7); os materiais e texturas são do kit (compartilhados).
  */
 
-export type Maker = {
-  T: typeof THREE;
-  kit: MaterialKit;
-  own: Own;
-  /** Textura do kit com a chave prefixada pela camada. */
-  tex(key: string, draw: Draw, size: 64 | 128 | 256): THREE.CanvasTexture;
-  mesh(geo: THREE.BufferGeometry, mat: THREE.Material | THREE.Material[], parent: THREE.Object3D, x: number, y: number, z: number, o?: MeshOpts): THREE.Mesh;
-  /** Caixa chanfrada (ver render/shapes.ts); `mat` único ou os 7 grupos (+x, −x, +y, −y, +z, −z, chanfro). */
-  box(w: number, h: number, d: number, mat: THREE.Material | THREE.Material[], parent: THREE.Object3D, x: number, y: number, z: number, o?: BoxOpts): THREE.Mesh;
-  /** Geometria com normais planas (peças facetadas: pernas, lápis); descarta a original. */
-  flat(geo: THREE.BufferGeometry): THREE.BufferGeometry;
-};
+export type { Maker };
 
-type MeshOpts = { cast?: boolean; recv?: boolean; rx?: number; ry?: number; rz?: number; name?: string };
-type BoxOpts = MeshOpts & { chamfer?: number; uv?: UvMode; seg?: number };
-
-export function createMaker(T: typeof THREE, kit: MaterialKit, own: Own): Maker {
-  const mesh: Maker["mesh"] = (geo, mat, parent, x, y, z, o = {}) => {
-    const m = new T.Mesh(own(geo), mat);
-    m.position.set(x, y, z);
-    m.rotation.set(o.rx ?? 0, o.ry ?? 0, o.rz ?? 0);
-    m.castShadow = o.cast ?? true;
-    m.receiveShadow = o.recv ?? true;
-    if (o.name) m.name = o.name;
-    parent.add(m);
-    return m;
-  };
-  return {
-    T,
-    kit,
-    own,
-    tex: (key, draw, size) => kit.texture(`cinza:${key}`, draw, size),
-    mesh,
-    box: (w, h, d, mat, parent, x, y, z, o = {}) => mesh(chamferBox(T, w, h, d, { chamfer: o.chamfer, uv: o.uv, seg: o.seg }), mat, parent, x, y, z, o),
-    flat(geo) {
-      const out = geo.toNonIndexed();
-      geo.dispose();
-      out.computeVertexNormals();
-      return out;
-    },
-  };
-}
-
-/** Os 7 materiais de uma caixa chanfrada a partir de papéis (o que faltar usa `rest`). */
-function faces(rest: THREE.Material, o: { right?: THREE.Material; left?: THREE.Material; top?: THREE.Material; bottom?: THREE.Material; front?: THREE.Material; back?: THREE.Material; edge?: THREE.Material }): THREE.Material[] {
-  return [o.right ?? rest, o.left ?? rest, o.top ?? rest, o.bottom ?? rest, o.front ?? rest, o.back ?? rest, o.edge ?? rest];
-}
-
-/** Puxador torneado de latão (perfil de lathe): base, pescoço e cabeça achatada. Eixo +z (sai da peça). */
-function knob(m: Maker, mat: THREE.Material, parent: THREE.Object3D, x: number, y: number, z: number, scale = 1) {
-  const { T } = m;
-  const s = scale;
-  const profile = [
-    [0.0001, 0],
-    [0.011, 0],
-    [0.011, 0.002],
-    [0.006, 0.006],
-    [0.005, 0.011],
-    [0.012, 0.016],
-    [0.013, 0.021],
-    [0.009, 0.025],
-    [0.0001, 0.026],
-  ].map(([r, y]) => new T.Vector2(r * s, y * s));
-  return m.mesh(new T.LatheGeometry(profile, 12), mat, parent, x, y, z, { rx: Math.PI / 2, cast: false });
-}
+/** Maker da sala cinza: o do kit com as chaves de textura prefixadas por `cinza`. */
+export const createMaker = (T: typeof THREE, kit: MaterialKit, own: Own): Maker => createKitMaker(T, kit, own, "cinza");
 
 /* ================================================================== mesa */
 
@@ -129,8 +68,8 @@ export function buildTable(m: Maker): TableParts {
   drawer.position.set(0.06, apronY, az + 0.008);
   root.add(drawer);
   m.box(0.46, APRON_H - 0.016, 0.016, faces(woodH, { edge: worn }), drawer, 0, 0, 0, { chamfer: 0.004, name: "mesa-gaveta" });
-  knob(m, brass, drawer, -0.15, 0, 0.008, 0.8);
-  knob(m, brass, drawer, 0.15, 0, 0.008, 0.8);
+  knob(m, brass, drawer, [-0.15, 0, 0.008], { scale: 0.8 });
+  knob(m, brass, drawer, [0.15, 0, 0.008], { scale: 0.8 });
   m.box(0.022, 0.034, 0.003, faces(brass, { front: escut }), drawer, 0, 0.004, 0.0095, { chamfer: 0.001, uv: { mode: "face" }, cast: false });
 
   // Pernas: troncos de pirâmide (5 → 3,2 cm de lado), facetados, com o topo escondido sob a saia.
@@ -309,7 +248,7 @@ export function buildWardrobe(m: Maker): THREE.Group {
     // dobradiças (dois nós de latão escurecido na borda de fora)
     for (const y of [doorH / 2 - 0.12, -doorH / 2 + 0.12]) m.mesh(new T.CylinderGeometry(0.0055, 0.0055, 0.07, 8), brass, leaf, side * (doorW / 2 + 0.002), y, -doorT / 2 + 0.002, { cast: false });
     // puxador na borda de dentro
-    knob(m, brass, leaf, -side * (doorW / 2 - 0.035), -0.04, doorT / 2);
+    knob(m, brass, leaf, [-side * (doorW / 2 - 0.035), -0.04, doorT / 2]);
     return leaf;
   };
   door(-1, 0);
