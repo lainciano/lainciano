@@ -44,4 +44,25 @@ describe("convenção de cor do protótipo (hex e texto lidos como lineares)", (
     k.dispose();
     expect(disposed).toBe(1);
   });
+
+  it("baked: um gêmeo Phong com a luz assada ligada e o MESMO programa, por material; Basic volta como está; morre com o kit", () => {
+    const k = kit();
+    const src = k.phong({ color: 0x8a867d, map: new THREE.Texture() });
+    const twin = k.baked(src) as THREE.MeshPhongMaterial;
+    expect(twin).not.toBe(src);
+    expect(k.baked(src)).toBe(twin);
+    expect(twin.userData.bakedLight).toBe(true);
+    expect(src.userData.bakedLight).toBeUndefined();
+    expect(twin.vertexColors).toBe(false);
+    expect(rgb(twin.color)).toEqual(rgb(src.color));
+    expect(twin.map).toBe(src.map);
+    expect(twin.customProgramCacheKey()).toBe(src.customProgramCacheKey());
+    const basic = k.basic({ color: 0xffffff });
+    expect(k.baked(basic)).toBe(basic);
+    let disposed = 0;
+    twin.addEventListener("dispose", () => (disposed += 1));
+    k.dispose();
+    expect(disposed).toBe(1);
+  });
 });
+

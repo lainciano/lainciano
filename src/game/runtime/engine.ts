@@ -29,11 +29,21 @@ export type DebugInfo = {
   lost: boolean;
   disposed: boolean;
   render: { calls: number; triangles: number; points: number; lines: number };
+  /**
+   * O último quadro inteiro, por passada (B3): sombras (os mapas das luzes com sombra), cena e pós. `calls`/`triangles` são
+   * a soma das três. É o número do orçamento (plano 1B: draw calls por quadro, com as sombras).
+   */
+  frame: FrameStats;
   memory: { geometries: number; textures: number };
   programs: number;
   /** Tempo do `compileAsync` (cena + pós) antes do primeiro quadro; null antes de `start()` terminar. */
   compileMs: number | null;
 };
+
+export type PassStats = { calls: number; triangles: number };
+export type FrameStats = PassStats & { shadow: PassStats; scene: PassStats; post: PassStats };
+
+const emptyFrame = (): FrameStats => ({ calls: 0, triangles: 0, shadow: { calls: 0, triangles: 0 }, scene: { calls: 0, triangles: 0 }, post: { calls: 0, triangles: 0 } });
 
 export type Engine = {
   three: typeof import("three");
@@ -195,6 +205,19 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
     renderer.shadowMap.type = three.BasicShadowMap;
     // Dois passes por quadro (cena + pós): o info é zerado à mão no começo do quadro para somar os dois.
     renderer.info.autoReset = false;
+    // Contador da passada de sombra (B3): o mapa é desenhado dentro do `render(scene)`; embrulhar o `render` do mapa
+    // separa as chamadas dele das da cena sem custo (duas leituras do info por quadro).
+    const shadowMap = renderer.shadowMap;
+    const renderShadows = shadowMap.render.bind(shadowMap);
+    const shadowPass: PassStats = { calls: 0, triangles: 0 };
+    shadowMap.render = (lights, shadowScene, shadowCamera) => {
+      const { calls, triangles } = renderer.info.render;
+      renderShadows(lights, shadowScene, shadowCamera);
+      shadowPass.calls += renderer.info.render.calls - calls;
+      shadowPass.triangles += renderer.info.render.triangles - triangles;
+    };
+    /** Escrito no fim de cada quadro sem alocar; o `info()` devolve uma cópia. */
+    const lastFrame = emptyFrame();
 
     const scene = new three.Scene();
     scene.background = protoColor(three, BACKGROUND);
@@ -342,12 +365,25 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
       post.tick(t);
       try {
         renderer.info.reset();
+        shadowPass.calls = 0;
+        shadowPass.triangles = 0;
         const source = postMode === 1 ? target : (fullTarget ?? target);
         post.setInput(source?.texture ?? null);
         renderer.setRenderTarget(source);
         renderer.render(scene, camera);
+        const sceneCalls = renderer.info.render.calls;
+        const sceneTriangles = renderer.info.render.triangles;
         renderer.setRenderTarget(null);
         renderer.render(postScene, postCamera);
+        const { calls, triangles } = renderer.info.render;
+        lastFrame.calls = calls;
+        lastFrame.triangles = triangles;
+        lastFrame.shadow.calls = shadowPass.calls;
+        lastFrame.shadow.triangles = shadowPass.triangles;
+        lastFrame.scene.calls = sceneCalls - shadowPass.calls;
+        lastFrame.scene.triangles = sceneTriangles - shadowPass.triangles;
+        lastFrame.post.calls = calls - sceneCalls;
+        lastFrame.post.triangles = triangles - sceneTriangles;
         frames += 1;
       } catch (error) {
         renderer.setRenderTarget(null);
@@ -394,6 +430,7 @@ export async function createEngine(host: HTMLElement, opts: EngineOptions): Prom
         lost,
         disposed,
         render: { calls: render.calls, triangles: render.triangles, points: render.points, lines: render.lines },
+        frame: { ...lastFrame, shadow: { ...lastFrame.shadow }, scene: { ...lastFrame.scene }, post: { ...lastFrame.post } },
         memory: { geometries: memory.geometries, textures: memory.textures },
         programs: programs?.length ?? 0,
         compileMs,

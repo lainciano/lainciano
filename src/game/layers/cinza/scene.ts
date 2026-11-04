@@ -1,8 +1,10 @@
 import type * as THREE from "three";
+import type { BakeOptions } from "../../render/bake";
+import { compactMaterialGroups, createStaticBatch } from "../../render/batch";
 import { protoColor } from "../../render/materials";
 import { buildCeiling, buildFloor, buildSkirting, buildWalls, roomLattice, type RoomSpec } from "../../render/kit";
 import { buildDoor, buildLamp, buildNote, buildNotebook, buildPencil, buildRug, buildTable, buildWallDetails, buildWardrobe, type Maker } from "./models";
-import { DOOR, LAMP, ROOM, TABLE_CENTER } from "./places";
+import { DOOR, LAMP, ROOM, TABLE, TABLE_CENTER, WARDROBE } from "./places";
 import * as tx from "./textures";
 
 /**
@@ -54,6 +56,29 @@ export const CINZA_ROOM: RoomSpec = {
   },
 };
 
+/**
+ * Luz fixa assada no vértice do lote estático (B3, `render/bake.ts`): o ambiente e o hemisfério de `CINZA_LIGHTS`
+ * (os mesmos números: sem oclusão o lote sai igual à luz de verdade) vezes a oclusão dos cantos, do pé das paredes e
+ * debaixo do tampo da mesa e junto do armário. A lâmpada (com sombra) e o preenchimento quente dela balançam:
+ * ficam dinâmicos. Os objetos soltos (interativos) seguem com o ambiente e o hemisfério de verdade.
+ */
+export const CINZA_BAKE: BakeOptions = {
+  ambient: { color: CINZA_LIGHTS.ambient.color, intensity: CINZA_LIGHTS.ambient.intensity },
+  hemi: { sky: CINZA_LIGHTS.hemi.sky, ground: CINZA_LIGHTS.hemi.ground, intensity: CINZA_LIGHTS.hemi.intensity },
+  ao: {
+    floorY: 0,
+    ceilingY: ROOM.h,
+    walls: { minX: ROOM.minX, maxX: ROOM.maxX, minZ: ROOM.minZ, maxZ: ROOM.maxZ },
+    strength: 0.6,
+    min: 0.35,
+    boxes: [
+      // tampo da mesa (a saia e as pernas são finas demais para contar) e o corpo do armário
+      { min: { x: TABLE.x0, y: TABLE.top - 0.032, z: TABLE.z0 }, max: { x: TABLE.x1, y: TABLE.top, z: TABLE.z1 } },
+      { min: { x: WARDROBE.x0, y: 0, z: WARDROBE.z0 }, max: { x: WARDROBE.x1, y: WARDROBE.h, z: WARDROBE.z1 } },
+    ],
+  },
+};
+
 /** Grade comum da sala cinza (a do kit; piso, paredes e teto casam nela). */
 export const LATTICE = roomLattice(CINZA_ROOM);
 
@@ -98,36 +123,59 @@ function buildLights(m: Maker, root: THREE.Object3D, lampPivot: THREE.Group, bul
 /** Ponto no tampo a (dx, dz) do centro da mesa. */
 const onTable = (dx: number, dz: number) => ({ x: TABLE_CENTER.x + dx, z: TABLE_CENTER.z + dz });
 
-/** Monta a sala inteira no `root` privado da camada (Ruling 7: nada aqui toca a cena). */
+/**
+ * Monta a sala inteira no `root` privado da camada (Ruling 7: nada aqui toca a cena). O que é estático e não
+ * interativo (casca, rodapé, tapete, lápis, interruptor e prego) vai para o lote (B3: uma malha por material, luz
+ * fixa assada); mesa, bilhete, caderno, armário e porta (interativos) e a luminária (balança) ficam soltos, só com os
+ * grupos do mesmo material juntados (`compactMaterialGroups`).
+ */
 export async function buildCinzaScene(m: Maker, root: THREE.Group, step: () => Promise<void>): Promise<CinzaScene> {
-  buildFloor(m, root, CINZA_ROOM);
+  const batch = createStaticBatch(m.T, m.own, { material: (mat) => m.kit.baked(mat), bake: CINZA_BAKE, name: "cinza-lote" });
+  const floor = buildFloor(m, root, CINZA_ROOM);
+  batch.add(floor.mesh);
+  if (floor.wear) batch.add(floor.wear);
   await step();
-  buildWalls(m, root, CINZA_ROOM);
-  buildCeiling(m, root, CINZA_ROOM);
-  buildSkirting(m, root, CINZA_ROOM);
+  for (const wall of buildWalls(m, root, CINZA_ROOM)) batch.add(wall);
+  batch.add(buildCeiling(m, root, CINZA_ROOM));
+  for (const piece of buildSkirting(m, root, CINZA_ROOM)) batch.add(piece);
   await step();
   const rug = buildRug(m);
   root.add(rug);
+  batch.add(rug);
   const table = buildTable(m).root;
+  table.userData.interactive = true;
   root.add(table);
   await step();
   const notePos = onTable(0.2, 0.08);
   const note = buildNote(m, notePos.x, notePos.z, -0.32);
+  note.userData.interactive = true;
   root.add(note);
   const bookPos = onTable(-0.3, -0.04);
   const notebook = buildNotebook(m, bookPos.x, bookPos.z, 0.42);
+  notebook.userData.interactive = true;
   root.add(notebook);
   const pencilPos = onTable(0.02, 0.16);
-  root.add(buildPencil(m, pencilPos.x, pencilPos.z, 0.18));
+  const pencil = buildPencil(m, pencilPos.x, pencilPos.z, 0.18);
+  root.add(pencil);
+  batch.add(pencil);
   await step();
   const wardrobe = buildWardrobe(m);
+  wardrobe.userData.interactive = true;
   root.add(wardrobe);
   await step();
   const door = buildDoor(m);
+  door.userData.interactive = true;
   root.add(door);
-  buildWallDetails(m, root);
+  const details = new m.T.Group();
+  details.name = "detalhes-parede";
+  root.add(details);
+  buildWallDetails(m, details);
+  batch.add(details);
   const { pivot, bulbY } = buildLamp(m, LAMP.x, ROOM.h, LAMP.z, LAMP.bulbY);
+  pivot.userData.dynamic = true;
   root.add(pivot);
   const lamp = buildLights(m, root, pivot, bulbY);
+  batch.build(root);
+  compactMaterialGroups(m.T, root);
   return { lamp, lampPivot: pivot, table, note, notebook, wardrobe, door, rug };
 }

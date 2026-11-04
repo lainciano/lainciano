@@ -240,37 +240,64 @@ export function ringSector(three: typeof THREE, r0: number, r1: number, a0: numb
   return toGeometry(three, b);
 }
 
+/** Uma parte do `mergeGeometries`: a geometria, a matriz e, opcionalmente, só uma faixa do índice (um grupo). */
+export type MergePart = {
+  geo: THREE.BufferGeometry;
+  matrix?: THREE.Matrix4;
+  /** Faixa do índice (ou dos vértices, sem índice) a copiar: um grupo de geometria multimaterial (B3). */
+  range?: { start: number; count: number };
+};
+
 /**
  * Junta geometrias (posição, normal e uv; indexadas ou não) num só buffer indexado, já com a matriz de cada uma.
+ * Com `range`, copia só os vértices que a faixa usa (um grupo de uma geometria multimaterial). Se alguma parte tem
+ * `color`, a saída tem `color` (as que não têm entram brancas). Sem grupos na saída.
  * As de entrada não são descartadas aqui: quem as criou descarta (ou as cria só para juntar).
  */
-export function mergeGeometries(three: typeof THREE, parts: readonly { geo: THREE.BufferGeometry; matrix?: THREE.Matrix4 }[]): THREE.BufferGeometry {
+export function mergeGeometries(three: typeof THREE, parts: readonly MergePart[]): THREE.BufferGeometry {
   const b = newBuf();
+  const withColor = parts.some((p) => !!p.geo.getAttribute("color"));
+  const col: number[] = [];
   const v = new three.Vector3();
   const nrm = new three.Vector3();
   const normalMatrix = new three.Matrix3();
-  for (const { geo, matrix } of parts) {
+  for (const { geo, matrix, range } of parts) {
     const pos = geo.getAttribute("position");
     const nor = geo.getAttribute("normal");
     const uv = geo.getAttribute("uv");
+    const color = geo.getAttribute("color");
+    const index = geo.getIndex();
     if (matrix) normalMatrix.getNormalMatrix(matrix);
-    const base = b.pos.length / 3;
-    for (let i = 0; i < pos.count; i++) {
+    const total = index ? index.count : pos.count;
+    const start = Math.max(0, range?.start ?? 0);
+    const end = Math.min(total, range ? start + range.count : total);
+    /** Vértice de origem → vértice novo (cada um copiado uma vez só). */
+    const remap = new Map<number, number>();
+    const copy = (i: number): number => {
+      const done = remap.get(i);
+      if (done !== undefined) return done;
       v.fromBufferAttribute(pos, i);
-      nrm.fromBufferAttribute(nor, i);
+      if (nor) nrm.fromBufferAttribute(nor, i);
+      else nrm.set(0, 1, 0);
       if (matrix) {
         v.applyMatrix4(matrix);
         nrm.applyMatrix3(normalMatrix).normalize();
       }
+      const out = b.pos.length / 3;
       b.pos.push(v.x, v.y, v.z);
       b.nor.push(nrm.x, nrm.y, nrm.z);
       b.uv.push(uv ? uv.getX(i) : 0, uv ? uv.getY(i) : 0);
-    }
-    const index = geo.getIndex();
-    if (index) for (let i = 0; i < index.count; i++) b.idx.push(base + index.getX(i));
-    else for (let i = 0; i < pos.count; i++) b.idx.push(base + i);
+      if (withColor) col.push(color ? color.getX(i) : 1, color ? color.getY(i) : 1, color ? color.getZ(i) : 1);
+      remap.set(i, out);
+      return out;
+    };
+    // Sem faixa, todos os vértices na ordem original (a saída de antes do B3, igual); com faixa, só os usados.
+    if (!range) for (let i = 0; i < pos.count; i++) copy(i);
+    for (let k = start; k < end; k++) b.idx.push(copy(index ? index.getX(k) : k));
   }
-  return toGeometry(three, b);
+  const geo = toGeometry(three, b);
+  if (withColor) geo.setAttribute("color", new three.Float32BufferAttribute(col, 3));
+  return geo;
 }
 
 /** Triângulos de uma geometria (indexada ou não). */

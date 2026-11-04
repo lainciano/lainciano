@@ -8,7 +8,10 @@ export type CriptaDebug = {
   readonly place: string | null;
   readonly camera: { position: [number, number, number]; rotation: [number, number, number]; fov: number };
   readonly fps: { p50: number; p95: number };
-  /** `renderer.info` do quadro (cena + pós) e o estado do runtime: qualidade, erros de quadro, perda. */
+  /**
+   * `renderer.info` do quadro (cena + pós) e o estado do runtime: qualidade, erros de quadro, perda. `frame` (B3) é o
+   * último quadro inteiro por passada (sombras, cena, pós) em chamadas de desenho e triângulos: o número do orçamento.
+   */
   readonly renderer: DebugInfo;
   readonly quality: QualityLines;
   readonly save: SaveV1;

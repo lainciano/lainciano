@@ -19,6 +19,7 @@ function setup() {
       materials.push(m);
       return m;
     },
+    baked: (m: THREE.Material) => m,
     texture: () => new THREE.CanvasTexture(undefined as unknown as HTMLCanvasElement),
     dispose: () => {},
   };

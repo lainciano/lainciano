@@ -73,18 +73,59 @@ export function patchPsxFragment(src: string): string {
   return head + src.replace(MAP_FRAGMENT, sample);
 }
 
+const COLOR_VERTEX = "#include <color_vertex>";
+const LIGHT_MAPS = "#include <lights_fragment_maps>";
+// Não pode começar com "// psx" (o MARK do PSX: patchar o PSX depois seria pulado).
+const BAKED_MARK = "// luz-assada";
+
+/*
+ * Luz assada no vértice (B3, `render/bake.ts`): no lote estático, o atributo `color` de cada vértice é a irradiância
+ * fixa (AO × ambiente + hemisfério, mais os preenchimentos), não tinta. Todo material iluminado do kit traz o mesmo
+ * patch e um uniform próprio `uBaked` (1 só nos gêmeos do lote, `kit.baked`): com 0 o resultado é exatamente o de
+ * antes (`mix(x, y, 0) = x`); com 1 a irradiância indireta (ambiente + hemisfério do three) vira a do vértice, e as
+ * luzes diretas (lâmpada, lanterna) e a sombra seguem iguais por cima. Assim o lote NÃO cria programa novo (mesma
+ * chave de cache): no SwiftShader e no celular cada programa a mais custa centenas de ms no 1º quadro. Sem
+ * `vertexColors` (que mudaria o programa e multiplicaria a cor); a geometria solta, sem `color`, lê o valor constante
+ * do atributo, que o `uBaked` 0 descarta.
+ */
+
+/** Vértice: declara `color` (se o three não declarou) e passa `vBaked` ao fragmento. */
+export function patchBakedVertex(src: string): string {
+  if (src.includes(BAKED_MARK)) return src;
+  if (!src.includes(COLOR_VERTEX)) throw new Error("psx: o vertex shader não tem #include <color_vertex>");
+  const head = `${BAKED_MARK}\n#if !defined( USE_COLOR ) && !defined( USE_COLOR_ALPHA )\nattribute vec3 color;\n#endif\nvarying vec3 vBaked;\n`;
+  return head + src.replace(COLOR_VERTEX, `${COLOR_VERTEX}\n\tvBaked = vec3( color );`);
+}
+
+/** Fragmento: troca a irradiância indireta pela do vértice na medida do `uBaked` (depois do ambiente e do hemisfério). */
+export function patchBakedLight(src: string): string {
+  if (src.includes(BAKED_MARK)) return src;
+  if (!src.includes(LIGHT_MAPS)) throw new Error("psx: o fragment shader não tem #include <lights_fragment_maps>");
+  const head = `${BAKED_MARK}\nuniform float uBaked;\nvarying vec3 vBaked;\n`;
+  const indirect = [LIGHT_MAPS, "#if defined( RE_IndirectDiffuse )", "\tirradiance = mix( irradiance, vBaked, uBaked );", "#endif"].join("\n");
+  return head + src.replace(LIGHT_MAPS, indirect);
+}
+
 const hasMap = (mat: THREE.Material) => !!(mat as THREE.Material & { map?: THREE.Texture | null }).map;
 
 /**
  * Liga o PSX num material (Phong, Basic ou qualquer um com `project_vertex`/`map_fragment`). O `map` é lido na
  * hora de compilar, então trocar o map depois também vale; o `customProgramCacheKey` separa os dois programas.
+ * Material iluminado (com `lights_fragment_maps`) ganha também a luz assada, ligada só com `userData.bakedLight`.
  */
 export function applyPsx<T extends THREE.Material>(mat: T, uniforms: PsxUniforms): T {
+  const baked: THREE.IUniform<number> = { value: 0 };
   mat.onBeforeCompile = (shader) => {
     const withMap = hasMap(mat);
     shader.uniforms.uSnap = uniforms.uSnap;
     shader.uniforms.uSnapRes = uniforms.uSnapRes;
     shader.uniforms.uAff = uniforms.uAff;
+    if (shader.fragmentShader.includes(LIGHT_MAPS) && shader.vertexShader.includes(COLOR_VERTEX)) {
+      baked.value = mat.userData.bakedLight === true ? 1 : 0;
+      shader.uniforms.uBaked = baked;
+      shader.vertexShader = patchBakedVertex(shader.vertexShader);
+      shader.fragmentShader = patchBakedLight(shader.fragmentShader);
+    }
     shader.vertexShader = patchPsxVertex(shader.vertexShader, withMap);
     if (withMap) shader.fragmentShader = patchPsxFragment(shader.fragmentShader);
   };

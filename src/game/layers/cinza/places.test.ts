@@ -19,6 +19,7 @@ function fakeKit(): MaterialKit {
   return {
     phong: (o) => new THREE.MeshPhongMaterial(o),
     basic: (o) => new THREE.MeshBasicMaterial(o),
+    baked: (m: THREE.Material) => m,
     texture: () => new THREE.CanvasTexture(undefined as unknown as HTMLCanvasElement),
     dispose: () => {},
   };

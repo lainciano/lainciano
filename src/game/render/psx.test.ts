@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { applyPsx, createPsxUniforms, patchPsxFragment, patchPsxVertex, PSX_DEFAULTS } from "./psx";
+import { applyPsx, createPsxUniforms, patchBakedLight, patchBakedVertex, patchPsxFragment, patchPsxVertex, PSX_DEFAULTS } from "./psx";
 
 // Os shaders reais do three 0.186 (o que o onBeforeCompile recebe), não cópias.
 const phongVertex = THREE.ShaderLib.phong.vertexShader;
@@ -118,11 +118,15 @@ describe("applyPsx", () => {
     expect(sa.uniforms.uSnap.value).toBe(0);
   });
 
-  it("sem map: só o vértice muda; com map: o fragmento ganha a textura afim", () => {
+  it("sem map: o fragmento não ganha a textura afim (só a luz assada, desligada); com map: ganha", () => {
     const u = createPsxUniforms(THREE);
     const plain = compile(applyPsx(new THREE.MeshPhongMaterial(), u), THREE.ShaderLib.phong);
-    expect(plain.fragmentShader).toBe(phongFragment);
+    expect(plain.fragmentShader).not.toContain("vAff");
+    expect(plain.fragmentShader).toContain("#include <map_fragment>");
     expect(plain.vertexShader).toContain("uSnapRes");
+    // Basic não tem luz: nem a luz assada entra
+    const basic = compile(applyPsx(new THREE.MeshBasicMaterial(), u), THREE.ShaderLib.basic);
+    expect(basic.fragmentShader).toBe(basicFragment);
 
     const mapped = compile(applyPsx(new THREE.MeshPhongMaterial({ map: new THREE.Texture() }), u), THREE.ShaderLib.phong);
     expect(mapped.fragmentShader).toContain("vAff.xy / vAff.z");
@@ -139,4 +143,49 @@ describe("applyPsx", () => {
     expect(without).toContain("psx");
     expect(withMap).toContain("psx");
   });
+
+  it("luz assada (B3): uBaked 1 só com userData.bakedLight, MESMO programa (chave de cache igual)", () => {
+    const u = createPsxUniforms(THREE);
+    const mat = new THREE.MeshPhongMaterial({ map: new THREE.Texture() });
+    mat.userData.bakedLight = true;
+    const baked = compile(applyPsx(mat, u), THREE.ShaderLib.phong);
+    const loose = compile(applyPsx(new THREE.MeshPhongMaterial({ map: new THREE.Texture() }), u), THREE.ShaderLib.phong);
+    expect(baked.uniforms.uBaked.value).toBe(1);
+    expect(loose.uniforms.uBaked.value).toBe(0);
+    // um uniform por material (o programa é compartilhado)
+    expect(baked.uniforms.uBaked).not.toBe(loose.uniforms.uBaked);
+    expect(baked.fragmentShader).toBe(loose.fragmentShader);
+    expect(baked.vertexShader).toBe(loose.vertexShader);
+    expect(baked.fragmentShader).toContain("irradiance = mix( irradiance, vBaked, uBaked );");
+    expect(baked.vertexShader).toContain("vBaked = vec3( color );");
+    // a amostra afim e o tremor do PSX continuam; nada de vertexColors (não multiplica a cor)
+    expect(baked.fragmentShader).toContain("vAff.xy / vAff.z");
+    expect(baked.vertexShader).toContain("uSnapRes");
+    expect(mat.vertexColors).toBe(false);
+    expect(mat.customProgramCacheKey()).toBe("psx-m");
+  });
 });
+
+describe("patchBakedLight / patchBakedVertex", () => {
+  it("a troca vem depois do lights_fragment_maps (ambiente e hemisfério já somados) e é idempotente", () => {
+    const once = patchBakedLight(phongFragment);
+    const at = once.indexOf("irradiance = mix( irradiance, vBaked, uBaked );");
+    expect(at).toBeGreaterThan(once.indexOf("#include <lights_fragment_maps>"));
+    expect(at).toBeLessThan(once.indexOf("#include <lights_fragment_end>"));
+    expect(once).toContain("#include <color_fragment>");
+    expect(patchBakedLight(once)).toBe(once);
+  });
+
+  it("o vértice declara `color` só se o three não declarou (vertexColors) e é idempotente", () => {
+    const once = patchBakedVertex(phongVertex);
+    expect(once).toContain("#if !defined( USE_COLOR ) && !defined( USE_COLOR_ALPHA )\nattribute vec3 color;");
+    expect(once.indexOf("vBaked = vec3( color );")).toBeGreaterThan(once.indexOf("#include <color_vertex>"));
+    expect(patchBakedVertex(once)).toBe(once);
+  });
+
+  it("sem os chunks esperados falha alto", () => {
+    expect(() => patchBakedLight(basicFragment)).toThrow();
+    expect(() => patchBakedVertex("void main() {}")).toThrow();
+  });
+});
+

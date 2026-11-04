@@ -17,6 +17,13 @@ import { applyPsx, type PsxUniforms } from "./psx";
 export type MaterialKit = {
   phong(o: THREE.MeshPhongMaterialParameters): THREE.MeshPhongMaterial;
   basic(o: THREE.MeshBasicMaterialParameters): THREE.MeshBasicMaterial;
+  /**
+   * Gêmeo de luz assada de um material (B3, lote estático): o mesmo Phong com `userData.bakedLight` (o `uBaked` do
+   * patch em `psx.ts` liga: o atributo `color` do vértice é a irradiância fixa, ver `render/bake.ts`). Mesmo programa
+   * do original (sem `vertexColors`). Um gêmeo por material de origem, compartilhado e descartado com o kit. Material
+   * sem luz (Basic) volta como está.
+   */
+  baked(source: THREE.Material): THREE.Material;
   texture(
     key: string,
     draw: (g: CanvasRenderingContext2D, w: number, h: number) => void,
@@ -55,6 +62,7 @@ function splitColors<P extends object>(o: P): { rest: P; raw: Partial<Record<Col
 export function createMaterialKit(three: typeof THREE, psx: PsxUniforms): MaterialKit {
   const materials = new Set<THREE.Material>();
   const textures = new Map<string, THREE.CanvasTexture>();
+  const twins = new Map<THREE.Material, THREE.Material>();
   let disposed = false;
 
   const track = <T extends THREE.Material>(mat: T, raw: Partial<Record<ColorKeys, RawColor>>): T => {
@@ -75,6 +83,18 @@ export function createMaterialKit(three: typeof THREE, psx: PsxUniforms): Materi
     basic(o) {
       const { rest, raw } = splitColors(o);
       return track(new three.MeshBasicMaterial(rest), raw);
+    },
+    baked(source) {
+      if (!(source as THREE.MeshPhongMaterial).isMeshPhongMaterial) return source;
+      const cached = twins.get(source);
+      if (cached) return cached;
+      const twin = source.clone();
+      twin.userData.bakedLight = true;
+      twin.name = source.name ? `${source.name}:assado` : "assado";
+      materials.add(twin);
+      applyPsx(twin, psx);
+      if (!disposed) twins.set(source, twin);
+      return twin;
     },
     texture(key, draw, size) {
       const cached = textures.get(key);
@@ -102,6 +122,7 @@ export function createMaterialKit(three: typeof THREE, psx: PsxUniforms): Materi
       for (const texture of textures.values()) texture.dispose();
       materials.clear();
       textures.clear();
+      twins.clear();
     },
   };
 }

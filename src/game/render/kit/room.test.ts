@@ -25,6 +25,7 @@ const SPEC: RoomSpec = {
 const stubKit = {
   phong: (o: THREE.MeshPhongMaterialParameters) => new THREE.MeshPhongMaterial({ shininess: o.shininess }),
   basic: () => new THREE.MeshBasicMaterial(),
+  baked: (m: THREE.Material) => m,
   texture: () => new THREE.CanvasTexture(null as unknown as HTMLCanvasElement),
   dispose() {},
 };
