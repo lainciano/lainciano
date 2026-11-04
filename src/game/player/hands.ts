@@ -1,9 +1,10 @@
 import type * as THREE from "three";
 import { protoColor, type MaterialKit } from "../render/materials";
-import { blotches, edgeWear, grain, mulberry, type Draw } from "../render/paint";
 import { chamferBox } from "../render/shapes";
-import { createHandsAnim, MAX_PRESSES, type HandsInput, type HandsPose, type IdleKind, type Pose6, type PhoneState } from "./handsAnim";
-import { createPhoneModel, PHONE, type PhoneKey, type PhoneModel } from "./phone";
+import { createHandsAnim, MAX_PRESSES, type HandsInput, type HandsPose, type IdleKind, type PhoneState } from "./handsAnim";
+import { drawAnodized, drawKnurl, drawNail, drawSkin, drawSkinBack, drawSleeve, knob, palmGeo, phalanx, sleeveGeo } from "./handsParts";
+import { createPhoneModel, type PhoneKey, type PhoneModel } from "./phone";
+import { createPhoneHold, createThumbSolver, GRIP, GRIP_TWIST, LID_CLEARANCE, LTHUMB, THUMB_CMC, THUMB_MCP_ON_PHONE } from "./phoneHold";
 
 /**
  * Mãos presas à câmera e o corpo que só projeta sombra (T8, rodadas 3 e 4: a lanterna fica NA mão).
@@ -130,218 +131,6 @@ const FINGERS = [
 const KNUCKLE_ANGLE = -0.7;
 /** Escala das mãos no quadro (a silhueta precisa ler no canto sem tapar a cena). */
 const HAND_SCALE = 1.12;
-
-/**
- * Celular na palma da mão esquerda (no `handL`): costas do aparelho na palma, os dedos dando a volta na borda
- * direita, o polegar do lado esquerdo, sobre o teclado. Eixos do aparelho no `handL`: x = −z (para onde os dedos
- * apontam), y = +x (lado do polegar), z = −y (para fora da palma).
- */
-const GRIP = { x: 0.018, y: -0.0208, z: -0.0855 } as const;
-/** Giro do aparelho na palma, em volta da normal dela (rad). */
-const GRIP_TWIST = -0.32;
-/** Dedos da esquerda segurando o aparelho. */
-const GRIP_CURL = 1.05;
-/**
- * Onde a tela fica no quadro (fração da meia-altura e da meia-largura, a partir do centro) e quanto da altura ela
- * ocupa: a tela lê grande e ainda sobra o alto do teclado, onde o polegar aperta.
- */
-const HOLD = { x: -0.1, y: 0.3, frac: 0.27, roll: 0.05 } as const;
-/** Quanto a mão recua no meio do giro da tampa (m): a ponta livre não chega a 3,5 cm do olho em FOV 55–80. */
-const LID_CLEARANCE = 0.075;
-/** Polegar esquerdo: comprimento das falanges (as do esqueleto de antes) e o raio da ponta. */
-const LTHUMB = { proximal: 0.028, distal: 0.021, tip: 0.0062, hover: 0.0035 } as const;
-/**
- * Com o celular, a junta da base do polegar (a ponta do metacarpo) vai para junto da borda esquerda do aparelho
- * (no espaço do aparelho): o metacarpo sai do tenar até ela, e as duas falanges alcançam o teclado.
- */
-const THUMB_MCP_ON_PHONE = { x: -0.03, y: 0.002, z: 0.0 } as const;
-/** Base do metacarpo do polegar esquerdo, dentro do tenar (no `handL`). */
-const THUMB_CMC = { x: 0.03, y: -0.006, z: -0.012 } as const;
-
-/* ------------------------------------------------ pintura (render/paint.ts) */
-
-/** Pele: tom quente com variação, mais escura nas pontas da falange (dobras das juntas). */
-const drawSkin: Draw = (g, w, h) => {
-  const r = mulberry(900);
-  g.fillStyle = "#9a725c";
-  g.fillRect(0, 0, w, h);
-  blotches(g, w, h, r, 5, [128, 78, 62], 1.4, 0.32);
-  blotches(g, w, h, r, 12, [176, 132, 110], 2.2, 0.14);
-  for (const [y, a] of [
-    [0.04, 0.35],
-    [0.96, 0.35],
-    [0.12, 0.15],
-    [0.88, 0.15],
-  ] as const) {
-    g.fillStyle = `rgba(78,44,32,${a})`;
-    g.fillRect(0, h * y - 1, w, 2);
-  }
-  grain(g, w, h, r, 8);
-};
-
-/** Dorso da mão: pele com os tendões claros e as veias sutis indo dos nós ao pulso. */
-const drawSkinBack: Draw = (g, w, h) => {
-  drawSkin(g, w, h);
-  const r = mulberry(905);
-  for (let i = 0; i < 4; i++) {
-    const x = w * (0.2 + i * 0.2);
-    g.strokeStyle = "rgba(200,160,136,.28)";
-    g.lineWidth = 2;
-    g.beginPath();
-    g.moveTo(x, 0);
-    g.quadraticCurveTo(x + (r() - 0.5) * 8, h * 0.5, w * 0.5 + (x - w * 0.5) * 0.35, h);
-    g.stroke();
-  }
-  g.strokeStyle = "rgba(80,70,96,.18)";
-  g.lineWidth = 1.4;
-  g.beginPath();
-  g.moveTo(w * 0.3, h);
-  g.bezierCurveTo(w * 0.4, h * 0.6, w * 0.65, h * 0.5, w * 0.7, h * 0.15);
-  g.stroke();
-};
-
-/** Unha: rosada com a borda livre mais clara. */
-const drawNail: Draw = (g, w, h) => {
-  g.fillStyle = "#c99e8c";
-  g.fillRect(0, 0, w, h);
-  g.fillStyle = "rgba(240,224,210,.75)";
-  g.fillRect(0, 0, w, h * 0.25);
-  g.fillStyle = "rgba(120,70,60,.3)";
-  g.fillRect(0, h * 0.92, w, h * 0.08);
-};
-
-/** Manga da jaqueta: sarja cinza-escura, sombras de dobra, costura e o punho puído. */
-const drawSleeve: Draw = (g, w, h) => {
-  const r = mulberry(890);
-  g.fillStyle = "#33342f";
-  g.fillRect(0, 0, w, h);
-  for (let y = 0; y < h; y += 2) {
-    for (let x = 0; x < w; x += 2) {
-      g.fillStyle = ((x >> 1) + (y >> 1)) % 4 < 2 ? "rgba(255,255,255,.04)" : "rgba(0,0,0,.09)";
-      g.fillRect(x, y, 2, 2);
-    }
-  }
-  // dobras: faixas escuras e claras oblíquas perto do punho (v baixo)
-  for (let i = 0; i < 6; i++) {
-    const y = h * (0.05 + i * 0.07 + r() * 0.03);
-    g.fillStyle = "rgba(0,0,0,.22)";
-    g.fillRect(0, y, w, 2);
-    g.fillStyle = "rgba(255,255,255,.06)";
-    g.fillRect(0, y + 2, w, 1);
-  }
-  // costura ao longo da manga
-  g.strokeStyle = "rgba(150,146,130,.5)";
-  g.setLineDash([2, 2]);
-  g.beginPath();
-  g.moveTo(w * 0.5, 0);
-  g.lineTo(w * 0.5, h);
-  g.stroke();
-  g.setLineDash([]);
-  blotches(g, w, h, r, 6, [0, 0, 0], 1.5, 0.3);
-  edgeWear(g, w, h, r, [100, 96, 88], 5, 0.45);
-  grain(g, w, h, r, 14);
-};
-
-const drawKnurl: Draw = (g, w, h) => {
-  const r = mulberry(910);
-  g.fillStyle = "#1c1c1e";
-  g.fillRect(0, 0, w, h);
-  for (let y = 0; y < h; y += 3) {
-    for (let x = (y / 3) % 2 ? 0 : 1.5; x < w; x += 3) {
-      g.fillStyle = `rgba(150,150,156,${0.18 + r() * 0.16})`;
-      g.fillRect(x, y, 1, 1);
-    }
-  }
-  for (let i = 0; i < 18; i++) {
-    g.fillStyle = `rgba(170,170,176,${0.12 + r() * 0.2})`;
-    g.fillRect(r() * w, r() * h, 1 + r() * 4, 1);
-  }
-};
-
-const drawAnodized: Draw = (g, w, h) => {
-  const r = mulberry(920);
-  g.fillStyle = "#202024";
-  g.fillRect(0, 0, w, h);
-  for (let i = 0; i < 26; i++) {
-    g.strokeStyle = `rgba(170,170,178,${0.1 + r() * 0.22})`;
-    g.lineWidth = 0.5;
-    const x = r() * w;
-    const y = r() * h;
-    g.beginPath();
-    g.moveTo(x, y);
-    g.lineTo(x + (r() - 0.5) * 18, y + (r() - 0.5) * 3);
-    g.stroke();
-  }
-  edgeWear(g, w, h, r, [120, 120, 126], 3, 0.6);
-};
-
-/* ------------------------------------------------ geometria */
-
-/**
- * Falange afilada (raio r0 na base, r1 na ponta), seção oval, levemente arqueada para o dorso (+y), ao longo de +x
- * de 0 a `len`, aberta nas pontas (o nó e a ponta redonda fecham). 6 lados × 2 anéis = 24 triângulos.
- */
-function phalanx(T: typeof THREE, len: number, r0: number, r1: number, bow: number, sides = 6): THREE.BufferGeometry {
-  const geo = new T.CylinderGeometry(r1, r0, len, sides, 2, true);
-  geo.rotateZ(-Math.PI / 2);
-  geo.translate(len / 2, 0, 0);
-  const pos = geo.getAttribute("position");
-  for (let i = 0; i < pos.count; i++) {
-    const u = pos.getX(i) / len;
-    pos.setY(i, pos.getY(i) + bow * len * 4 * u * (1 - u));
-    pos.setZ(i, pos.getZ(i) * 0.88);
-  }
-  geo.computeVertexNormals();
-  return geo;
-}
-
-/** Nó/ponta: esfera baixa (5 × 3: 20 triângulos), um pouco achatada. */
-function knob(T: typeof THREE, r: number): THREE.BufferGeometry {
-  const geo = new T.SphereGeometry(r, 5, 3);
-  geo.scale(1, 0.92, 0.88);
-  return geo;
-}
-
-/** Palma com o dorso arqueado: caixa chanfrada (grade fina) com a face de fora (+x) estufada no meio. */
-function palmGeo(T: typeof THREE, w: number, h: number, d: number, out: "x" | "y"): THREE.BufferGeometry {
-  const geo = chamferBox(T, w, h, d, { chamfer: 0.008, seg: 40, uv: { mode: "face" } });
-  const pos = geo.getAttribute("position");
-  const [ha, hb, hc] = out === "x" ? [w / 2, h / 2, d / 2] : [h / 2, w / 2, d / 2];
-  for (let i = 0; i < pos.count; i++) {
-    const a = out === "x" ? pos.getX(i) : pos.getY(i);
-    const b = out === "x" ? pos.getY(i) : pos.getX(i);
-    const c = pos.getZ(i);
-    if (a < ha * 0.3) continue;
-    const bulge = 0.0045 * Math.max(0, 1 - (b / hb) ** 2) * Math.max(0, 1 - (c / hc) ** 2);
-    if (out === "x") pos.setX(i, a + bulge);
-    else pos.setY(i, a + bulge);
-  }
-  geo.computeVertexNormals();
-  return geo;
-}
-
-/** Manga: cone aberto com dobras mais fundas perto do punho. */
-function sleeveGeo(T: typeof THREE, r0: number, r1: number, len: number): THREE.BufferGeometry {
-  const geo = new T.CylinderGeometry(r1, r0, len, 10, 5, true);
-  const pos = geo.getAttribute("position");
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const y = pos.getY(i);
-    const z = pos.getZ(i);
-    const a = Math.atan2(z, x);
-    const near = Math.max(0, (len / 2 - y) / len);
-    const f = 1 + 0.07 * near * Math.sin(a * 3 + y * 38) + 0.02 * Math.sin(a * 5 - y * 20);
-    pos.setX(i, x * f);
-    pos.setZ(i, z * f);
-  }
-  geo.computeVertexNormals();
-  return geo;
-}
-
-const smoothStep = (v: number) => {
-  const c = Math.min(1, Math.max(0, v));
-  return c * c * (3 - 2 * c);
-};
 
 const triangles = (g: THREE.BufferGeometry) => (g.index ? g.index.count : g.getAttribute("position").count) / 3;
 
@@ -629,101 +418,12 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   phoneMount.scale.setScalar(1 / HAND_SCALE);
   phoneMount.visible = false;
   handL.add(phoneMount);
-  const holdPose: Pose6 & { curl: number } = { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, curl: GRIP_CURL };
-  const holdQuat = new T.Quaternion();
-  /** Do olho para a tela segurada: abrindo e fechando, a mão recua por aqui (a tampa gira na direção do olho). */
-  const holdDir = new T.Vector3(0, 0, -1);
-  /** Centro da tela segurada, na câmera (estúdio da pegada gira em volta dele). */
-  const holdS = new T.Vector3();
-  const cornerBuf = [0, 1, 2, 3].map(() => new T.Vector3());
-  // chave do último encaixe (números, sem montar texto a cada quadro)
-  let fitFov = Number.NaN;
-  let fitAspect = Number.NaN;
-  let fitFrac = Number.NaN;
-  /** O alvo mudou e a pose mostrada ainda não chegou nele. */
-  let holdMoving = true;
-  /** Fração da altura do quadro que a tela ocupa (sobe em janela baixa: o LCD não cai abaixo de ~200 px). */
-  let phoneFrac: number = HOLD.frac;
-  // alvo da pose de segurar (refeito quando FOV, aspecto ou fração mudam) e a pose mostrada, que corre até ele
-  const holdTargetPos = new T.Vector3();
-  const holdTargetQuat = new T.Quaternion();
-  const holdPos = new T.Vector3();
-  let holdSnap = true;
-  const holdEuler = new T.Euler();
-  /**
-   * Pose da mão esquerda que põe a tela onde `HOLD` pede (fração do quadro, virada para o olho) no FOV e no aspecto
-   * da câmera: a altura na tela não muda com o FOV dos ajustes (55–80°), só a distância.
-   */
-  const fitHold = () => {
-    if (!phoneModel) return;
-    const cam = camera as THREE.PerspectiveCamera;
-    const fov = cam.fov ?? 62;
-    const aspect = cam.aspect ?? 1.6;
-    if (fov === fitFov && aspect === fitAspect && phoneFrac === fitFrac) return;
-    fitFov = fov;
-    fitAspect = aspect;
-    fitFrac = phoneFrac;
-    holdMoving = true;
-    const tanH = Math.tan((fov * Math.PI) / 360);
-    const d = PHONE.screen.h / (2 * tanH * phoneFrac);
-    const S = new T.Vector3(HOLD.x * tanH * aspect * d, HOLD.y * tanH * d, -d);
-    holdDir.copy(S).normalize();
-    holdS.copy(S);
-    // moldura da tela no aparelho, com a tampa aberta
-    const lidNow = phoneModel.lid.rotation.x;
-    phoneModel.setLid(1);
-    const c = phoneModel.screenCorners(cornerBuf);
-    phoneModel.lid.rotation.x = lidNow;
-    const center = new T.Vector3().add(c[0]).add(c[1]).add(c[2]).add(c[3]).multiplyScalar(0.25);
-    const xr = new T.Vector3().subVectors(c[1], c[0]).normalize();
-    const ur = new T.Vector3().subVectors(c[0], c[3]).normalize();
-    const nr = new T.Vector3().crossVectors(xr, ur).normalize();
-    const Mr = new T.Matrix4().makeBasis(xr, ur, nr);
-    // na câmera: a tela olha para o olho, com um giro leve de quem segura
-    const nc = S.clone().negate().normalize();
-    const up0 = new T.Vector3(-Math.sin(HOLD.roll), Math.cos(HOLD.roll), 0);
-    const xc = new T.Vector3().crossVectors(up0, nc).normalize();
-    const uc = new T.Vector3().crossVectors(nc, xc).normalize();
-    const Mc = new T.Matrix4().makeBasis(xc, uc, nc);
-    const R = Mc.multiply(Mr.transpose());
-    const rootPos = S.clone().sub(center.applyMatrix4(R));
-    const rootPose = R.clone().setPosition(rootPos);
-    phoneMount.updateMatrix();
-    const L = rootPose.multiply(phoneMount.matrix.clone().invert());
-    L.decompose(holdTargetPos, holdTargetQuat, new T.Vector3());
-    stepHold(0);
-  };
-  /**
-   * A pose mostrada corre até o alvo em ~150 ms (FOV mudado nos ajustes com o celular na mão: nada de teleporte);
-   * com o celular guardado, ou na 1ª vez, encaixa direto.
-   */
-  const stepHold = (dt: number) => {
-    // parado no alvo (ou guardado e já encaixado): nada a fazer neste quadro
-    if (!holdMoving) return;
-    const snap = holdSnap || !phoneMount.visible;
-    const k = snap ? 1 : 1 - Math.exp(-dt / 0.05);
-    if (!snap && k === 0) return;
-    if (snap || (holdPos.distanceToSquared(holdTargetPos) < 1e-12 && holdQuat.angleTo(holdTargetQuat) < 1e-6)) holdMoving = false;
-    holdSnap = false;
-    holdPos.lerp(holdTargetPos, k);
-    if (snap) holdPos.copy(holdTargetPos);
-    holdQuat.slerp(holdTargetQuat, k);
-    if (snap) holdQuat.copy(holdTargetQuat);
-    holdEuler.setFromQuaternion(holdQuat, "XYZ");
-    holdPose.x = holdPos.x;
-    holdPose.y = holdPos.y;
-    holdPose.z = holdPos.z;
-    holdPose.rx = holdEuler.x;
-    holdPose.ry = holdEuler.y;
-    holdPose.rz = holdEuler.z;
-    holdPose.curl = GRIP_CURL;
-    anim.setPhoneHold(holdPose);
-  };
+  const hold = createPhoneHold(T, camera, phoneMount, () => phoneModel, (p) => anim.setPhoneHold(p));
   const ensurePhone = (): PhoneModel => {
     if (phoneModel) return phoneModel;
     phoneModel = createPhoneModel(T, kit);
     phoneMount.add(phoneModel.root);
-    fitHold();
+    hold.fit();
     return phoneModel;
   };
 
@@ -740,50 +440,13 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
   let thumbFresh = true;
   const ikTip = new T.Vector3();
   const ikHint = new T.Vector3();
-  const ikMid = new T.Vector3();
-  const tipNow = new T.Vector3();
+  const thumb = createThumbSolver(T);
+  const ikMid = thumb.mid;
+  const tipNow = thumb.tip;
   const keyN = new T.Vector3();
   const tmp = new T.Vector3();
   const tmp2 = new T.Vector3();
   const nailBasis = new T.Matrix4();
-  const restBuf = new T.Vector3();
-  /** IK de dois ossos (base → junta → ponta) com a junta dobrando para o lado de `hint`. */
-  const solveThumb = (tip: THREE.Vector3, hint: THREE.Vector3) => {
-    const a = LTHUMB.proximal;
-    const b = LTHUMB.distal;
-    tmp.subVectors(tip, lThumbBase);
-    const c0 = tmp.length() || 1e-6;
-    tmp.multiplyScalar(1 / c0);
-    const c = Math.min(a + b - 1e-4, Math.max(Math.abs(a - b) + 1e-4, c0));
-    tipNow.copy(lThumbBase).addScaledVector(tmp, c);
-    const cosA = (a * a + c * c - b * b) / (2 * a * c);
-    const sinA = Math.sqrt(Math.max(0, 1 - cosA * cosA));
-    tmp2.copy(hint).addScaledVector(tmp, -hint.dot(tmp));
-    if (tmp2.lengthSq() < 1e-12) tmp2.set(0, 1, 0).addScaledVector(tmp, -tmp.y);
-    tmp2.normalize();
-    ikMid.copy(lThumbBase).addScaledVector(tmp, a * cosA).addScaledVector(tmp2, a * sinA);
-  };
-  /** Alvo da ponta do polegar no aparelho: a borda da tampa ao abrir, a tecla mirada, ou o descanso. */
-  const thumbTarget = (pose: HandsPose, m: PhoneModel, out: THREE.Vector3) => {
-    const ph = pose.phone;
-    const lift = LTHUMB.tip * 0.92;
-    const rest = (o: THREE.Vector3) => m.keyTop("ok", o).add(tmp2.set(-0.0095, -0.0105, lift + LTHUMB.hover * 2));
-    if (ph.lid === 0 && ph.raise < 1 && ph.flick === 0) {
-      // subindo com a tampa fechada: o polegar já espera embaixo da ponta livre, pronto para empurrar
-      return m.lidEdge(out).add(tmp2.set(-0.004, -0.006, 0.0015));
-    }
-    if (ph.flick > 0) {
-      const edge = m.lidEdge(out).add(tmp2.set(-0.004, -0.005, 0.002));
-      const k = smoothStep((ph.flick - 0.3) / 0.6);
-      return k > 0 ? edge.lerp(rest(restBuf), k) : edge;
-    }
-    if (ph.lid < 1) return rest(out);
-    const aim = (ph.aim || "") as PhoneKey | "";
-    if (!aim) return rest(out);
-    let depth = 0;
-    for (let i = 0; i < MAX_PRESSES; i++) if (ph.presses[i].key === aim) depth = Math.max(depth, ph.presses[i].depth);
-    return m.keyTop(aim, out).add(tmp2.set(0, 0, lift + LTHUMB.hover * (1 - depth) - PHONE.travel * depth));
-  };
   const placeLeftThumb = (pose: HandsPose, raise: number, dt: number) => {
     gripMix = raise;
     lThumbBase.copy(lThumbRest);
@@ -801,7 +464,7 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     fkHint.subVectors(fkMid, lThumbBase);
     fkHint.addScaledVector(tmp, -fkHint.dot(tmp));
     if (raise > 0 && phoneModel) {
-      thumbTarget(pose, phoneModel, thumbGoal);
+      thumb.target(pose, phoneModel, thumbGoal);
       const k = thumbFresh || dt <= 0 ? 1 : 1 - Math.exp(-dt * 38);
       thumbNow.lerp(thumbGoal, k);
       if (thumbFresh) thumbNow.copy(thumbGoal);
@@ -811,10 +474,10 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
       keyN.set(0, 0, 1).applyQuaternion(phoneMount.quaternion);
       ikTip.lerpVectors(fkTip, ikTip, raise);
       ikHint.copy(fkHint).normalize().lerp(keyN, raise);
-      solveThumb(ikTip, ikHint);
+      thumb.solve(lThumbBase, ikTip, ikHint);
     } else {
       thumbFresh = true;
-      solveThumb(fkTip, fkHint);
+      thumb.solve(lThumbBase, fkTip, fkHint);
     }
     handL.updateWorldMatrix(true, false);
     boneIn(lMeta, lCmc, lThumbBase, handL);
@@ -894,9 +557,9 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
       // da pose solta até a de segurar por quatérnio (os ângulos de Euler dariam uma volta torta no caminho)
       const b = pose.leftBase;
       qBase.setFromEuler(eul.set(b.rx, b.ry, b.rz, "XYZ"));
-      left.quaternion.slerpQuaternions(qBase, holdQuat, raise);
+      left.quaternion.slerpQuaternions(qBase, hold.quat, raise);
       // a tampa passa perto do olho no meio do giro: a mão recua e volta (nunca cruza o plano próximo)
-      left.position.addScaledVector(holdDir, LID_CLEARANCE * Math.sin(Math.PI * pose.phone.lid) * raise);
+      left.position.addScaledVector(hold.dir, LID_CLEARANCE * Math.sin(Math.PI * pose.phone.lid) * raise);
     } else left.rotation.set(l.rx, l.ry, l.rz, "XYZ");
     gripMix = raise;
     curlLeft(l.curl, 0);
@@ -917,8 +580,8 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
         // a mão esquerda segurando o celular, com a pose de segurar de verdade, girada em volta da tela
         const [rx, ry] = STUDIO_GRIP[studio.angle];
         qStudio.setFromEuler(eul.set(rx, ry, 0, "YXZ"));
-        left.quaternion.copy(qStudio).multiply(holdQuat);
-        left.position.copy(holdPos).sub(holdS).applyQuaternion(qStudio).add(tmp.set(0.01, 0.01, -0.36));
+        left.quaternion.copy(qStudio).multiply(hold.quat);
+        left.position.copy(hold.pos).sub(hold.center).applyQuaternion(qStudio).add(tmp.set(0.01, 0.01, -0.36));
         left.visible = true;
         right.visible = false;
       } else if (studio.hand === "phone") {
@@ -985,8 +648,7 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     press: (key) => anim.press(key),
     keysFired: () => fired,
     setPhoneFrac(f) {
-      phoneFrac = Math.min(0.42, Math.max(HOLD.frac, Number.isFinite(f) ? f : HOLD.frac));
-      if (phoneModel) fitHold();
+      hold.setFrac(f);
     },
     preparePhone(compile) {
       ensurePhone();
@@ -1018,8 +680,8 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
     update(dt, s) {
       // FOV ou aspecto mudaram (ajustes, janela): a pose de segurar se refaz (só recalcula quando muda)
       if (phoneModel) {
-        fitHold();
-        stepHold(dt);
+        hold.fit();
+        hold.step(dt);
       }
       // fotos: com a animação parada, os passos vêm só do debug (`step`)
       if (paused) return;
@@ -1048,8 +710,8 @@ export function createHands(three: typeof THREE, kit: MaterialKit, camera: THREE
         fill(s);
         for (let t = 0; t < seconds - 1e-9; t += 1 / 60) {
           if (phoneModel) {
-            fitHold();
-            stepHold(1 / 60);
+            hold.fit();
+            hold.step(1 / 60);
           }
           apply(anim.step(1 / 60, inp).pose);
         }
