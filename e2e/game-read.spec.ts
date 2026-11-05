@@ -163,7 +163,7 @@ test.describe("leitor em dois níveis", () => {
     const clean = page.locator("[data-reader-clean]");
     await expect(clean).toBeVisible();
     await expect(clean).toContainText(NOTE_TEXT);
-    await expect(clean).toContainText("se você acordou aqui, ainda dá tempo.");
+    await expect(clean).toContainText("Se você acordou aqui, ainda dá tempo.");
     await expect(paper).toBeHidden();
     await expect(page.locator("[data-reader-toggle]")).toContainText("ver o papel");
     expect((await interact(page))?.reader.clean).toBe(true);
@@ -382,7 +382,7 @@ test.describe("legendas", () => {
   test("uma fala aparece palavra a palavra com faixa e fio, fica lineDuration e some", async ({ page }, testInfo) => {
     await openAt(page, testInfo, "mesa");
     await aimAndWait(page, "mesa", "examinar a mesa");
-    const text = "madeira gasta onde os braços apoiavam. alguém escreveu aqui por muito tempo.";
+    const text = "Madeira gasta onde os braços apoiavam. Alguém escreveu aqui por muito tempo.";
     const words = splitWords(text);
     const live = page.locator("[data-game-subtitles]");
     await expect(live).toHaveAttribute("aria-live", "polite");

@@ -107,7 +107,7 @@ test.describe("desktop · só teclado", () => {
     await openGame(page);
     expect((await cripta(page))?.place).toBe("entrada");
 
-    // sem a chave e sem a 3ª pista, a porta não é de segurar: aviso "E" sem anel; E bate e diz "trancada."
+    // sem a chave e sem a 3ª pista, a porta não é de segurar: aviso "E" sem anel; E bate e diz "Trancada."
     await goPlace(page, "porta", /porta/);
     await cycleTo(page, "abrir a porta");
     await expect(prompt(page).locator("kbd")).toHaveText("E");
@@ -171,7 +171,7 @@ test.describe("desktop · só teclado", () => {
     await expect.poll(async () => (await save(page))?.flags[DOOR_FLAG], { timeout: 60_000 }).toBe(true);
     await page.keyboard.up("KeyE");
     expect((await save(page))?.puzzles.cinza).toMatchObject({ doorOpen: true, forced: true, keyTaken: false });
-    await expect.poll(() => lines(page)).toContain("a fechadura estala e cede. a porta abre torta.");
+    await expect.poll(() => lines(page)).toContain("A fechadura estala e cede. A porta abre torta.");
   });
 
   test("pausado (Esc) a escada não anda: 2× o intervalo sem pista nova; voltar à cena retoma", async ({ page }, testInfo) => {

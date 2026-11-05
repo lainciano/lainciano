@@ -199,7 +199,7 @@ test.describe("E sem alvo e Q: ciclo pelos objetos do lugar", () => {
     await openAt(page, "mesa");
     await aimAndWait(page, "mesa", "examinar a mesa");
     await page.keyboard.press("KeyE");
-    await expect(page.locator("[data-game-line]")).toContainText("madeira gasta", { timeout: 20_000 });
+    await expect(page.locator("[data-game-line]")).toContainText("Madeira gasta", { timeout: 20_000 });
   });
 });
 
@@ -218,7 +218,7 @@ test.describe("segurar", () => {
     // a lanterna não atrapalha: segue na mão
     expect((await page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.handsState))?.mode).toBe("held");
     await expect(page.locator("[data-game-line]")).toHaveCount(0);
-    await expect(page.locator("[data-game-line]")).toContainText("a fechadura estala e cede", { timeout: 60_000 });
+    await expect(page.locator("[data-game-line]")).toContainText("A fechadura estala e cede", { timeout: 60_000 });
     expect((await interact(page))?.holdId).toBeNull();
     await page.keyboard.up("KeyE");
     // não repete sozinho
