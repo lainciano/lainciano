@@ -1,4 +1,4 @@
-/** Volume do usuário (0–1), escolhido já no Portal e lembrado entre visitas. */
+/** Volume do usuário (0–1), escolhido já no Limiar e lembrado entre visitas. */
 export const DEFAULT_VOLUME = 0.8;
 
 export function parseVolume(raw: string | null): number {

@@ -1,6 +1,6 @@
 /**
  * Onda no ponto do clique (feedback visual de todo clique). CSS puro (@keyframes), sem GSAP. Dentro de um
- * <dialog> modal (Portal, gaveta) a onda é anexada ao próprio diálogo, senão ficaria escondida atrás dele.
+ * <dialog> modal (Limiar, gaveta) a onda é anexada ao próprio diálogo, senão ficaria escondida atrás dele.
  */
 export function spawnRipple(x: number, y: number, target: Element | null) {
   const host: Element = target?.closest("dialog[open]") ?? document.body;

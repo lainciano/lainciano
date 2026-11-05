@@ -21,7 +21,7 @@ describe("unlockRelic", () => {
     expect(again.isNew).toBe(false);
     expect(again.state).toBe(first.state);
   });
-  it("platina exatamente na 10ª", () => {
+  it("platina exatamente na última relíquia", () => {
     let s = startRun(EMPTY_STATE, "r", 1_000);
     const [last, ...rest] = [...RELIC_IDS].reverse();
     for (const id of rest) {
@@ -35,6 +35,27 @@ describe("unlockRelic", () => {
   });
 });
 
+const OLD_IDS = ["sangue", "leitura", "arremesso", "case", "lente", "leitor", "orbita", "terminal", "sudo", "explorador"] as const;
+
+describe("11ª relíquia", () => {
+  it("a platina exige as 11 relíquias", () => {
+    let s = startRun(EMPTY_STATE, "r", 1_000);
+    for (const id of OLD_IDS) {
+      const r = unlockRelic(s, id, 2_000);
+      expect(r.becamePlatinum).toBe(false);
+      s = r.state;
+    }
+    expect(unlockRelic(s, "limiar", 3_000).becamePlatinum).toBe(true);
+    expect(RELIC_IDS).toHaveLength(11);
+  });
+  it("estado salvo com 10/10 antigo perde a platina local e mantém a posição no livro", () => {
+    const s = parseRelicState(JSON.stringify({ won: OLD_IDS, runId: "r", startedAt: 1, platinumAt: 2, recordedPosition: 3 }));
+    expect(s.platinumAt).toBeNull();
+    expect(s.recordedPosition).toBe(3);
+    expect(s.won).toHaveLength(10);
+  });
+});
+
 describe("parseRelicState", () => {
   it("JSON inválido vira estado vazio", () => expect(parseRelicState("{oops")).toEqual(EMPTY_STATE));
   it("descarta ids desconhecidos e duplicados", () => {
@@ -42,7 +63,7 @@ describe("parseRelicState", () => {
     expect(s.won).toEqual(["sangue"]);
     expect(s.startedAt).toBe(5);
   });
-  it("ignora platinumAt sem as 10 relíquias", () => {
+  it("ignora platinumAt sem todas as relíquias", () => {
     const s = parseRelicState(JSON.stringify({ won: ["sangue"], platinumAt: 9 }));
     expect(s.platinumAt).toBeNull();
   });

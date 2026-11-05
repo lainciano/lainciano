@@ -4,7 +4,7 @@ import { hud } from "@/lib/content/copy";
 import { RELICS } from "./catalog";
 import { useRelics } from "./store";
 
-// Grade das 10 relíquias: bloqueadas mostram "???"; ganhas mostram sigilo, nome e como.
+// Grade do catálogo de relíquias (o último item, se sobrar sozinho na linha, ocupa a linha inteira): bloqueadas mostram "???"; ganhas mostram sigilo, nome e como.
 export function RelicGrid() {
   const { won } = useRelics();
   return (
@@ -14,7 +14,7 @@ export function RelicGrid() {
         return (
           <li
             key={relic.id}
-            className="flex min-h-[10.5rem] flex-col gap-[var(--space-2xs)] border-b border-r border-linha p-[var(--space-sm)]"
+            className="flex min-h-[10.5rem] flex-col gap-[var(--space-2xs)] border-b border-r border-linha p-[var(--space-sm)] max-sm:[&:last-child:nth-child(odd)]:col-span-2 sm:[&:last-child:nth-child(5n+1)]:col-span-5"
           >
             <span
               aria-hidden="true"

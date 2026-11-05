@@ -112,15 +112,39 @@ export const hud = {
   menuConsole: "Console",
 };
 
-/** Portal da primeira visita (spec 7.1). */
-export const portal = {
-  lede: "Entre. Quase tudo aqui responde ao toque.",
-  withSound: "Entrar com som",
-  silent: "Entrar em silêncio",
+/**
+ * Limiar, a introdução da primeira visita (spec Limiar 3). Desce por props para a casca e a ilha (nunca
+ * importar valores daqui em ilha cliente). `progress` é modelo para `fillTemplate`, porque `hud.progress`
+ * é função e não atravessa do servidor para o cliente. Em cada inscrição, o item do meio é a palavra-chave.
+ */
+export const limiar = {
+  dialogTitle: "Limiar",
+  skip: "pular",
+  soundQuestion: "antes de entrar: com som ou em silêncio?",
+  withSound: "com som",
+  withSoundHint: "recomendado · fones ajudam",
+  silent: "em silêncio",
+  silentHint: "dá para ligar depois no HUD",
   reading: "Modo leitura",
   volumeHint: "Ajuste agora: você ouve uma prévia.",
-  enterKey: "Enter",
-  escKey: "Esc",
+  openingLede: "isto é um portfólio.",
+  openingTwist: "mas não só.",
+  holdVerb: "segure",
+  holdText: "segure para acender a cripta",
+  inscriptions: [
+    ["há ", "relíquias", " escondidas nestas salas."],
+    ["a cripta ", "lembra", " o que você faz."],
+    ["no fim, um ", "livro", " guarda os nomes de quem chegou."],
+  ] as [before: string, keyword: string, after: string][],
+  readVerb: "leia",
+  revealVerb: "revele",
+  takeVerb: "pegue",
+  takeButton: "pegar a relíquia",
+  ending: "agora você sabe como funciona.",
+  railLabels: ["som", "abertura", "gesto", "inscrições", "relíquia"],
+  soundOn: "som ligado",
+  soundOff: "som desligado",
+  progress: "{won} de {total}",
 };
 
 /** Títulos e papéis de sala. Home e Sobre já com o verbo da sala (Fase 2); os demais trocam nas Fases 3–5. */
@@ -217,6 +241,7 @@ export const terminal = {
     "som on|off | leitura on|off",
     "arremessar | girar | revelar <projeto>",
     "ranking | cripta | limpar",
+    "limiar                     rever a entrada da cripta",
   ],
   notFound: (name: string) => `comando não encontrado: ${name}. digite ajuda.`,
   goUsage: "uso: ir <home|projetos|blog|sobre|contato>",
@@ -251,6 +276,14 @@ export const terminal = {
   sudo: "permissão negada. a tentativa foi registrada no livro.",
   cryptLocked: (won: number, total: number) => `a cripta só abre para quem platinou. ${won} de ${total}.`,
   cryptOpen: "a cripta se abre.",
+  limiarOpening: "o limiar se abre.",
+  limiarReading: "o limiar não abre em modo leitura. leitura off para entrar.",
+  gameOn: "o jogo foi liberado neste navegador. digite jogo para entrar.",
+  gameOff: "o jogo foi desligado.",
+  gameOpening: "o jogo se abre.",
+  gameReading: "o jogo não abre em modo leitura. leitura off para entrar.",
+  gameDenied: "permissão negada.",
+  gameUsage: "uso: jogo [on|off]",
   rankingLoading: "abrindo o livro…",
   rankingEmpty: "ninguém platinou ainda.",
   rankingFailed: "o livro não respondeu. tente de novo em instantes.",
@@ -275,7 +308,7 @@ export const contact = {
 /** Tela de platina (spec 8.5). Modelos com {marcador}: preenchidos no cliente com fillTemplate. */
 export const platinum = {
   title: "Platina.",
-  summary: "10 de 10 em {tempo}.",
+  summary: "{total} de {total} em {tempo}.",
   nicknameLabel: "Apelido",
   nicknameHint: "3 a 16 letras, números, _ ou -.",
   submit: "Gravar no livro",
@@ -307,7 +340,7 @@ export const book = {
   time: "tempo",
   date: "data",
   loading: "abrindo o livro…",
-  empty: "Ninguém platinou ainda. As 10 relíquias estão espalhadas pelo site.",
+  empty: "Ninguém platinou ainda. As {total} relíquias estão espalhadas pelo site.",
   failed: "O livro não respondeu. Tente de novo em instantes.",
   rows: "Linhas no livro: {n}.",
   retry: "tentar de novo",
@@ -320,4 +353,72 @@ export const cryptEmpty = {
   title: "Cripta vazia",
   lede: "Não há nada neste endereço.",
   pathsLabel: "Caminhos",
+};
+
+/** Jogo 3D (Fase 1A): rótulos do shell, descidos do servidor por props (ilhas cliente não importam este arquivo). */
+export const game = {
+  loading: "Carregando o jogo…",
+  exit: "Sair do jogo",
+  region: "Jogo",
+  noWebgl: "O 3D não abriu neste aparelho (WebGL indisponível ou perdido). O site continua aqui.",
+  back: "Voltar ao site",
+  /** Lista de lugares (L): título acessível e a marca do lugar onde se está. */
+  places: "Lugares",
+  here: "aqui",
+  /** O travamento do mouse caiu (Esc do navegador): nunca a sensação de ter saído do jogo (bíblia 12b.5). */
+  paused: "pausado · clique na cena para continuar",
+  /** A camada não carregou (contrato §3). */
+  stuck: "A porta emperrou.",
+  retry: "Tentar de novo",
+  /** O contexto WebGL caiu (celular em segundo plano): recria a sala a partir do save, sem recarregar (B6). */
+  resume: "a tela apagou · tocar para continuar",
+  /** Interação (T9): aviso de segurar, dicas curtas e o fechar do exame. As teclas E e ⌫ são glifos, não texto. */
+  holdKey: "segure E",
+  holdHint: "segure E para {verb}.",
+  /** Ponteiro grosso (toque): sem tecla. */
+  holdKeyTouch: "segure",
+  holdHintTouch: "mantenha o dedo para {verb}.",
+  nothingHere: "nada ao alcance daqui. L abre os lugares.",
+  examineClose: "guardar",
+  /** Leitor em dois níveis (T10): R alterna o papel e o texto limpo; E fecha (⌫ e botão direito também, sem rótulo). */
+  readerRead: "ler",
+  readerPaper: "ver o papel",
+  readerClose: "fechar",
+  /** O pincel do papel não chegou (rede): o leitor mostra o texto limpo e esta dica aparece. */
+  readerFailed: "o papel não abriu; o texto está aqui.",
+  /** Celular de 2005 (T11): menu do LCD (minúsculas, como no aparelho), ajustes e teclas de função. */
+  phone: {
+    name: "celular",
+    /** Toque (T11): botões discretos que abrem o celular e a lista de lugares (no teclado: Tab e L). */
+    open: "abrir o celular",
+    places: "abrir os lugares",
+    network: "rede",
+    menu: "menu",
+    mensagens: "mensagens",
+    itens: "itens",
+    mapa: "mapa",
+    arquivo: "arquivo",
+    ajustes: "ajustes",
+    message: "mensagem",
+    noMessages: "nenhuma mensagem.",
+    noItems: "nada ainda.",
+    noDocs: "nada lido ainda.",
+    noPlaces: "nenhum outro lugar.",
+    goTo: "ir: {name}",
+    here: "aqui",
+    volume: "volume",
+    fov: "campo de visão",
+    bob: "balanço",
+    scares: "sustos",
+    subtitles: "legendas",
+    quality: "qualidade",
+    sensitivity: "sensibilidade",
+    exit: "sair do jogo",
+    yes: "sim",
+    no: "não",
+    auto: "auto",
+    ok: "ok",
+    back: "voltar",
+    close: "fechar",
+  },
 };

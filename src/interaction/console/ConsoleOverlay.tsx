@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { gameStore } from "@/game/activation";
 import { readingStore } from "@/interaction/reading-mode/store";
 import { terminal as copy } from "@/lib/content/copy";
 import { pauseLenis, resumeLenis } from "@/lib/lenis-bridge";
@@ -38,6 +39,7 @@ export function ConsoleOverlay() {
         defaultPrevented: event.defaultPrevented,
         target: target ? { tagName: target.tagName, isContentEditable: target.isContentEditable } : null,
         dialogOpen: Boolean(document.querySelector("dialog[open]")),
+        gameOpen: gameStore.isOpen(),
       });
       if (!go) return;
       event.preventDefault();

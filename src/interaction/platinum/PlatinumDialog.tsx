@@ -198,7 +198,7 @@ export function PlatinumDialog({ labels, open, onClose }: PlatinumDialogProps) {
         <h2 id="platina-titulo" className="platina__titulo">
           {labels.title}
         </h2>
-        {elapsed !== null && <p id={summaryId} className="platina__resumo">{fillTemplate(labels.summary, { tempo: formatElapsed(elapsed) })}</p>}
+        {elapsed !== null && <p id={summaryId} className="platina__resumo">{fillTemplate(labels.summary, { tempo: formatElapsed(elapsed), total: String(RELICS.length) })}</p>}
 
         {/* Região viva sempre montada: o texto entra depois, então o leitor de tela anuncia. */}
         <p id={statusId} role="status" className="platina__status">

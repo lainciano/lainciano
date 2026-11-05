@@ -40,7 +40,7 @@ describe("volumeToPercent", () => {
 });
 
 describe("canPreview (prévia do volume antes de escolher som)", () => {
-  it("toca no Portal (sem escolha ainda) e com som ligado", () => {
+  it("toca no Limiar (sem escolha ainda) e com som ligado", () => {
     expect(canPreview(null, false)).toBe(true);
     expect(canPreview("on", false)).toBe(true);
   });

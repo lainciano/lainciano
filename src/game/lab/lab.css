@@ -1,0 +1,130 @@
+/* Laboratório de modelos (só debug). Cores, espaços e camadas vêm dos tokens do globals.css. */
+[data-lab-panel] {
+  position: absolute;
+  z-index: var(--z-game-ui);
+  top: var(--space-sm);
+  left: var(--space-sm);
+  bottom: var(--space-sm);
+  width: min(var(--lab-panel-w), 56vw);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  overflow-y: auto;
+  padding: var(--space-xs);
+  border: var(--frame-w) solid var(--linha);
+  background: color-mix(in srgb, var(--poco) 88%, transparent);
+  color: var(--osso);
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+[data-lab-panel] h2,
+[data-lab-panel] h3 {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cinza);
+}
+
+[data-lab-panel] p {
+  margin: 0;
+  color: var(--cinza);
+}
+
+[data-lab-panel] ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-lab-panel] button {
+  min-height: 2rem;
+  padding: 0 var(--space-xs);
+  border: var(--frame-w) solid var(--linha);
+  background: transparent;
+  color: var(--osso);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+}
+
+[data-lab-panel] button:hover {
+  border-color: var(--cinza);
+}
+
+[data-lab-panel] button[aria-pressed="true"] {
+  border-color: var(--osso);
+  background: color-mix(in srgb, var(--osso) 14%, transparent);
+}
+
+[data-lab-panel] button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+[data-lab-tools] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+}
+
+[data-lab-tools] button {
+  text-align: center;
+}
+
+[data-lab-panel] input[type="range"] {
+  width: 100%;
+  accent-color: var(--osso);
+}
+
+[data-lab-panel] dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3xs) var(--space-xs);
+  margin: 0;
+}
+
+[data-lab-panel] dt {
+  color: var(--cinza);
+}
+
+[data-lab-panel] dd {
+  margin: 0;
+  text-align: right;
+}
+
+[data-lab-stat][data-state="ok"] {
+  color: var(--lab-ok);
+}
+
+[data-lab-stat][data-state="over"] {
+  color: var(--osso);
+  font-weight: 700;
+  text-decoration: underline wavy var(--sangue);
+}
+
+[data-lab-verdict] {
+  padding: var(--space-3xs) var(--space-xs);
+  border-left: var(--space-3xs) solid var(--cinza);
+}
+
+[data-lab-verdict][data-state="ok"] {
+  border-left-color: var(--lab-ok);
+}
+
+[data-lab-verdict][data-state="over"] {
+  border-left-color: var(--sangue);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-lab-panel] button {
+    transition: none;
+  }
+}

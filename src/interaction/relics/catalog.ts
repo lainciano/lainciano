@@ -1,6 +1,7 @@
 export type Relic = { id: string; sigil: string; name: string; room: string; how: string };
 
 export const RELICS = [
+  { id: "limiar", sigil: "☾", name: "Limiar", room: "Limiar", how: "Acendeu a cripta e tirou a primeira relíquia das pedras." },
   { id: "sangue", sigil: "✠", name: "Sangue", room: "Sobre", how: "Segurou sobre o retrato até a tinta vazar." },
   { id: "leitura", sigil: "†", name: "Leitura", room: "Sobre", how: "Leu a legenda do Sobre até a última palavra." },
   { id: "arremesso", sigil: "‡", name: "Arremesso", room: "Home", how: "Atirou uma letra para fora da ruína." },

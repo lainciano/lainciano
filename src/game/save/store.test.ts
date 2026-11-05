@@ -1,0 +1,165 @@
+import { describe, expect, it, vi } from "vitest";
+import { DEFAULT_SETTINGS, initialSave } from "./schema";
+import { ACTIVATION_KEY, SAVE_KEY, BROKEN_KEY, createSaveStore } from "./store";
+
+const NOW = 1_700_000_000_000;
+
+function memoryStorage(seed: Record<string, string> = {}, opts: { throwOnSet?: boolean } = {}) {
+  const map = new Map(Object.entries(seed));
+  return {
+    map,
+    get length() {
+      return map.size;
+    },
+    key: (i: number) => [...map.keys()][i] ?? null,
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => {
+      if (opts.throwOnSet) throw new DOMException("quota", "QuotaExceededError");
+      map.set(k, v);
+    },
+    removeItem: (k: string) => {
+      map.delete(k);
+    },
+  };
+}
+
+describe("save store", () => {
+  it("chaves do contrato", () => {
+    expect(SAVE_KEY).toBe("lainciano:jogo:save:v1");
+    expect(BROKEN_KEY).toBe("lainciano:jogo:save:quebrado");
+  });
+
+  it("começa no estado inicial quando não há nada guardado", () => {
+    const s = memoryStorage();
+    const store = createSaveStore(s, () => NOW);
+    expect(store.get()).toEqual(initialSave(NOW));
+  });
+
+  it("patch mescla e grava em lainciano:jogo:save:v1", () => {
+    const s = memoryStorage();
+    const store = createSaveStore(s, () => NOW);
+    store.patch({ place: "mesa", items: ["chave"] });
+    expect(store.get().place).toBe("mesa");
+    expect(JSON.parse(s.map.get(SAVE_KEY)!)).toEqual({ ...initialSave(NOW), place: "mesa", items: ["chave"] });
+  });
+
+  it("patch funde flags e puzzles chave a chave e substitui o resto (bilhete + porta-norte)", () => {
+    const s = memoryStorage();
+    const store = createSaveStore(s, () => NOW);
+    store.patch({ flags: { bilhete: true }, items: ["chave"] });
+    store.patch({ flags: { "porta-norte": true }, items: ["chave", "lanterna"] });
+    expect(store.get().flags).toEqual({ bilhete: true, "porta-norte": true });
+    expect(store.get().items).toEqual(["chave", "lanterna"]);
+    store.patch({ puzzles: { a: 1 } });
+    store.patch({ puzzles: { b: 2 } });
+    expect(JSON.parse(s.map.get(SAVE_KEY)!).puzzles).toEqual({ a: 1, b: 2 });
+  });
+
+  it("recarrega o que foi gravado", () => {
+    const s = memoryStorage();
+    createSaveStore(s, () => NOW).patch({ playMs: 500 });
+    expect(createSaveStore(s, () => NOW + 1).get().playMs).toBe(500);
+  });
+
+  it("save quebrado: guarda o original em quebrado, uma vez, sem sobrescrever", () => {
+    const s = memoryStorage({ [SAVE_KEY]: "lixo" });
+    const store = createSaveStore(s, () => NOW);
+    expect(store.get()).toEqual(initialSave(NOW));
+    expect(s.map.get(BROKEN_KEY)).toBe("lixo");
+
+    s.map.set(SAVE_KEY, "outro lixo");
+    createSaveStore(s, () => NOW);
+    expect(s.map.get(BROKEN_KEY)).toBe("lixo");
+  });
+
+  it("save válido não cria cópia quebrada", () => {
+    const s = memoryStorage({ [SAVE_KEY]: JSON.stringify(initialSave(NOW)) });
+    createSaveStore(s, () => NOW);
+    expect(s.map.has(BROKEN_KEY)).toBe(false);
+  });
+
+  it("reset volta ao inicial e grava", () => {
+    const s = memoryStorage();
+    const store = createSaveStore(s, () => NOW);
+    store.patch({ items: ["chave"] });
+    store.reset();
+    expect(store.get()).toEqual(initialSave(NOW));
+    expect(JSON.parse(s.map.get(SAVE_KEY)!)).toEqual(initialSave(NOW));
+  });
+
+  it("wipeGame remove as chaves lainciano:jogo: do progresso e preserva a chave de ativação (só `jogo off` a apaga)", () => {
+    const s = memoryStorage({
+      "lainciano:reliquias:v1": "x",
+      "outra:chave": "y",
+      [ACTIVATION_KEY]: "on",
+    });
+    const store = createSaveStore(s, () => NOW);
+    store.patch({ items: ["a"] });
+    s.map.set("lainciano:jogo:save:quebrado", "z");
+    s.map.set("lainciano:jogo:memoria:v1", "m");
+    store.wipeGame();
+    expect([...s.map.keys()].sort()).toEqual([ACTIVATION_KEY, "lainciano:reliquias:v1", "outra:chave"].sort());
+    expect(s.map.get(ACTIVATION_KEY)).toBe("on");
+    expect(store.get()).toEqual(initialSave(NOW));
+  });
+
+  it("a chave de ativação é a do site (`lainciano:jogo:v1`)", () => {
+    expect(ACTIVATION_KEY).toBe("lainciano:jogo:v1");
+  });
+
+  describe("patch validado contra o schema", () => {
+    const error = () => vi.spyOn(console, "error").mockImplementation(() => {});
+
+    it("patch fora do schema é rejeitado: estado e storage ficam como estavam, com aviso", () => {
+      const spy = error();
+      const s = memoryStorage();
+      const store = createSaveStore(s, () => NOW);
+      store.patch({ place: "mesa" });
+      const written = s.map.get(SAVE_KEY);
+      store.patch({ settings: { ...store.get().settings, fov: 90 } });
+      store.patch({ settings: { ...store.get().settings, volume: 2 } });
+      store.patch({ items: [1 as unknown as string] });
+      expect(store.get().settings.fov).toBe(62);
+      expect(store.get().items).toEqual([]);
+      expect(s.map.get(SAVE_KEY)).toBe(written);
+      expect(spy).toHaveBeenCalledTimes(3);
+      spy.mockRestore();
+    });
+
+    it("patch válido e chave `undefined` (ignorada) seguem funcionando, e o save regravado recarrega igual", () => {
+      const spy = error();
+      const s = memoryStorage();
+      const store = createSaveStore(s, () => NOW);
+      store.patch({ place: undefined as unknown as string });
+      store.patch({ settings: { ...store.get().settings, fov: 70, volume: 0.4 }, flags: { a: true }, puzzles: { cinza: { hints: 1 } } });
+      expect(spy).not.toHaveBeenCalled();
+      const again = createSaveStore(s, () => NOW);
+      expect(again.get()).toEqual(store.get());
+      expect(again.get().settings.fov).toBe(70);
+      spy.mockRestore();
+    });
+  });
+
+  it("setItem que lança (cota) não derruba patch; o estado em memória segue", () => {
+    const s = memoryStorage({}, { throwOnSet: true });
+    const store = createSaveStore(s, () => NOW);
+    expect(() => store.patch({ place: "mesa" })).not.toThrow();
+    expect(store.get().place).toBe("mesa");
+    expect(() => store.reset()).not.toThrow();
+  });
+
+  it("getItem que lança vira estado inicial", () => {
+    const s = memoryStorage();
+    s.getItem = () => {
+      throw new Error("bloqueado");
+    };
+    expect(createSaveStore(s, () => NOW).get()).toEqual(initialSave(NOW));
+  });
+
+  it("settings parciais no patch substituem o objeto inteiro (quem chama mescla)", () => {
+    const s = memoryStorage();
+    const store = createSaveStore(s, () => NOW);
+    store.patch({ settings: { ...DEFAULT_SETTINGS, fov: 70 } });
+    expect(store.get().settings.fov).toBe(70);
+  });
+});

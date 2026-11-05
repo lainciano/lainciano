@@ -10,7 +10,7 @@ export type GsapLib = {
 };
 
 // GSAP + ScrollTrigger fora do JS inicial (Fase 8): carregam por import() depois do primeiro paint.
-// Quem anima por gesto (portal, toast, console) usa `getGsap()` e, se ainda não carregou, pula a animação;
+// Quem anima por gesto (limiar, toast, console) usa `getGsap()` e, se ainda não carregou, pula a animação;
 // quem monta efeito contínuo (scroll, cursor, salas) usa `whenGsap()`, que espera o carregamento.
 let lib: GsapLib | null = null;
 let loading: Promise<GsapLib> | null = null;

@@ -25,3 +25,8 @@ export function ambienceLevel(visibleRatio: number): number {
   const ratio = Math.min(1, Math.max(0, visibleRatio));
   return AMBIENCE_FLOOR + (1 - AMBIENCE_FLOOR) * ratio;
 }
+
+/** Contador das pausas da ambiência (como as do Lenis): `release` sem `hold` não passa de 0. */
+export function holdCount(prev: number, action: "hold" | "release"): number {
+  return action === "hold" ? prev + 1 : Math.max(0, prev - 1);
+}

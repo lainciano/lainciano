@@ -10,9 +10,14 @@ const base: ShortcutEvent = {
   defaultPrevented: false,
   target: { tagName: "BODY", isContentEditable: false },
   dialogOpen: false,
+  gameOpen: false,
 };
 
 describe("atalho / do console (spec 8.6, D11)", () => {
+  it("com o jogo aberto o / não abre o console (nem com painel do jogo aberto ou sem diálogo)", () => {
+    expect(shouldOpenConsole({ ...base, gameOpen: true })).toBe(false);
+    expect(shouldOpenConsole({ ...base, gameOpen: true, dialogOpen: true })).toBe(false);
+  });
   it("abre com / fora de campos", () => {
     expect(shouldOpenConsole(base)).toBe(true);
     expect(shouldOpenConsole({ ...base, target: { tagName: "A" } })).toBe(true);

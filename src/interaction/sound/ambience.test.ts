@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AMBIENCE_FADE_S, AMBIENCE_FLOOR, ambienceLevel, resolveAmbience } from "@/interaction/sound/ambience-plan";
+import { AMBIENCE_FADE_S, AMBIENCE_FLOOR, ambienceLevel, holdCount, resolveAmbience } from "@/interaction/sound/ambience-plan";
 import { ORGAN } from "@/interaction/sound/ambiences/gravura";
 import { WIND } from "@/interaction/sound/ambiences/ruina";
 import { midiToFreq, randomBetween } from "@/interaction/sound/ambiences/shared";
@@ -20,6 +20,9 @@ describe("resolveAmbience", () => {
   });
   it("sair da sala sem outra pedida para a atual", () => {
     expect(resolveAmbience("gravura", null, true)).toEqual({ stop: "gravura", start: null });
+  });
+  it("com a ambiência tocando e allowed=false (segurada), para a atual sem começar nada", () => {
+    expect(resolveAmbience("ruina", "ruina", false)).toEqual({ stop: "ruina", start: null });
   });
   it("crossfade de 1,2 s (spec 8.2)", () => {
     expect(AMBIENCE_FADE_S).toBe(1.2);
@@ -77,5 +80,17 @@ describe("ambienceLevel (volume sobe e desce com a área visível)", () => {
     expect(ambienceLevel(0.5)).toBeGreaterThan(ambienceLevel(0.25));
     expect(ambienceLevel(2)).toBe(1);
     expect(ambienceLevel(-1)).toBe(AMBIENCE_FLOOR);
+  });
+});
+
+describe("holdCount (pausas contadas da ambiência)", () => {
+  it("hold soma e release subtrai", () => {
+    expect(holdCount(0, "hold")).toBe(1);
+    expect(holdCount(1, "hold")).toBe(2);
+    expect(holdCount(2, "release")).toBe(1);
+    expect(holdCount(1, "release")).toBe(0);
+  });
+  it("nunca fica abaixo de 0", () => {
+    expect(holdCount(0, "release")).toBe(0);
   });
 });

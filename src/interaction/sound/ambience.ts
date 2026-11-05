@@ -1,5 +1,5 @@
 import { readingStore } from "@/interaction/reading-mode/store";
-import { AMBIENCE_FADE_S, resolveAmbience, type AmbienceName } from "./ambience-plan";
+import { AMBIENCE_FADE_S, holdCount, resolveAmbience, type AmbienceName } from "./ambience-plan";
 import { createAmbience as createBiblioteca } from "./ambiences/biblioteca";
 import { createAmbience as createGravura } from "./ambiences/gravura";
 import { createAmbience as createRuina } from "./ambiences/ruina";
@@ -26,6 +26,8 @@ let requested: AmbienceName | null = null;
 const levels = new Map<AmbienceName, number>();
 let playing: Playing | null = null;
 let subscribed = false;
+// Pausas contadas (o Limiar segura a ambiência da sala enquanto está aberto).
+let holds = 0;
 
 function fadeOut(current: Playing) {
   const level = current.gain.gain;
@@ -58,7 +60,7 @@ function fadeIn(name: AmbienceName): Playing | null {
 
 // Reavalia sempre que a sala pede/solta, o som liga/desliga, o 1º gesto acontece ou o modo leitura muda.
 function sync() {
-  const plan = resolveAmbience(playing?.name ?? null, requested, soundEngine.canPlay());
+  const plan = resolveAmbience(playing?.name ?? null, requested, soundEngine.canPlay() && holds === 0);
   if (plan.stop && playing) {
     fadeOut(playing);
     playing = null;
@@ -81,6 +83,16 @@ export const ambienceDirector = {
     if (requested !== name) return;
     requested = null;
     levels.delete(name);
+    sync();
+  },
+  /** Segura a ambiência: enquanto houver pausas, a atual sai em fade e nenhuma começa. */
+  hold() {
+    holds = holdCount(holds, "hold");
+    sync();
+  },
+  /** Solta uma pausa; sem pausas restantes a ambiência pedida volta ao normal. */
+  release() {
+    holds = holdCount(holds, "release");
     sync();
   },
   /** Volume (0–1) da ambiência pela visibilidade da área: sobe e desce com o scroll, sem degrau. */
