@@ -24,6 +24,8 @@ import {
   WINDOW,
   type WindowLight,
 } from "./places";
+import { buildCounter, buildCounterDrawer, PADLOCK_AT } from "./models/counter";
+import { buildPadlock, wheelCenter } from "./models/padlock";
 import { buildBasementOpening, buildCeilingFixtures, buildNorthDoor, buildPlaceholders, buildSouthDoor, buildWindow, shellMaterials } from "./shell";
 import * as tx from "./textures";
 
@@ -112,7 +114,11 @@ export function antessalaBake(light: WindowLight): BakeOptions {
       walls: { minX: ROOM.minX, maxX: ROOM.maxX, minZ: ROOM.minZ, maxZ: ROOM.maxZ },
       strength: 0.6,
       min: 0.35,
-      boxes: [],
+      // o balcão (B9): as duas caixas do corpo inteiro (tampo até o chão), para o piso em volta escurecer junto dele
+      boxes: [
+        { min: { x: COUNTER.x0, y: 0, z: COUNTER.z0 }, max: { x: COUNTER.x1, y: COUNTER.top, z: COUNTER.z1 } },
+        { min: { x: COUNTER_RETURN.x0, y: 0, z: COUNTER_RETURN.z0 }, max: { x: COUNTER_RETURN.x1, y: COUNTER.top, z: COUNTER_RETURN.z1 } },
+      ],
     },
     fills: [
       { pos: [HEATER_GLOW.x, HEATER_GLOW.y, HEATER_GLOW.z], color: 0xff6a24, intensity: 1.1 * LEGACY, range: 3, decay: 1.5 },
@@ -134,10 +140,8 @@ export function antessalaBake(light: WindowLight): BakeOptions {
   };
 }
 
-/** Onde virão os objetos (B9–B13), para os placeholders de debug; y em metros. */
+/** Onde virão os objetos (B10–B13), para os placeholders de debug; y em metros. O balcão (B9) já é modelo. */
 export const PLACEHOLDERS = [
-  { id: "balcao", ...COUNTER, y0: 0, y1: COUNTER.top },
-  { id: "balcao-volta", ...COUNTER_RETURN, y0: 0, y1: COUNTER.top },
   { id: "sofa", ...SOFA, y0: 0, y1: 0.85 },
   { id: "mesinha", ...SIDE_TABLE, y0: 0, y1: 0.47 },
   { id: "tapete", ...RUG, y0: 0, y1: 0.007 },
@@ -165,6 +169,30 @@ export type AntessalaScene = {
   oddity: { fixture: THREE.Group; tube: THREE.MeshPhongMaterial };
   light: WindowLight;
 };
+
+/**
+ * As rodas do cadeado são um `InstancedMesh` (o `bakeAtRest` pula instâncias) e giram: a luz fixa vai na geometria
+ * compartilhada como se TODA face olhasse para a frente (a que está à vista é a da frente), calculada num clone com as
+ * normais em +z posto no meio das rodas, e o material passa a ser o gêmeo assado.
+ */
+function bakeWheels(m: Maker, padlock: ReturnType<typeof buildPadlock>, opts: Parameters<typeof bakeAtRest>[3]): void {
+  const { T } = m;
+  const geo = padlock.wheels.geometry.clone();
+  const nor = geo.getAttribute("normal");
+  for (let i = 0; i < nor.count; i++) nor.setXYZ(i, 0, 0, 1);
+  const proxy = new T.Mesh(geo, padlock.wheels.material);
+  const [cx, cy, cz] = wheelCenter(1.5);
+  proxy.position.set(cx, cy, cz);
+  padlock.root.add(proxy);
+  bakeAtRest(T, [proxy], padlock.root.parent ?? padlock.root, opts);
+  const baked = geo.getAttribute("color");
+  if (baked) {
+    padlock.wheels.geometry.setAttribute("color", baked.clone());
+    padlock.wheels.material = proxy.material;
+  }
+  proxy.removeFromParent();
+  geo.dispose();
+}
 
 function buildLights(m: Maker, root: THREE.Object3D, lampPivot: THREE.Group, bulbY: number): THREE.SpotLight {
   const { T, own } = m;
@@ -233,10 +261,23 @@ export async function buildAntessalaScene(m: Maker, root: THREE.Group, step: () 
   pivot.userData.dynamic = true;
   root.add(pivot);
   const lamp = buildLights(m, root, pivot, bulbY);
+  // balcão em L: o corpo e o tampo vão para o lote; a gaveta e o cadeado (as rodas giram) ficam soltos, `dynamic`
+  const counter = buildCounter(m);
+  root.add(counter.root);
+  batch.add(counter.root);
+  const drawer = buildCounterDrawer(m);
+  root.add(drawer);
+  const padlock = buildPadlock(m);
+  padlock.root.position.set(PADLOCK_AT.x, PADLOCK_AT.y, PADLOCK_AT.z);
+  padlock.root.rotation.y = PADLOCK_AT.ry;
+  root.add(padlock.root);
+  await step();
   if (o.placeholders) buildPlaceholders(m, root, PLACEHOLDERS);
   batch.build(root);
   // o que ficou solto e um dia se mexe recebe a mesma luz fixa, assada onde está (sem luz real nova)
-  bakeAtRest(m.T, [ceiling.oddity.tubes], root, { material: (mat) => m.kit.baked(mat), bake });
+  const bakeOpts = { material: (mat: THREE.Material) => m.kit.baked(mat), bake };
+  bakeAtRest(m.T, [ceiling.oddity.tubes, drawer, padlock.root], root, bakeOpts);
+  bakeWheels(m, padlock, bakeOpts);
   compactMaterialGroups(m.T, root);
   // o material que está de fato nos tubos (o gêmeo assado): é ele que a estranheza acende
   const tubeMesh = ceiling.oddity.tubes.children.find((c) => (c as THREE.Mesh).isMesh) as THREE.Mesh | undefined;

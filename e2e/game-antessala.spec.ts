@@ -188,8 +188,9 @@ test.describe("@slow antessala · imagem", () => {
     const shell = (await cripta(page))?.frame;
     const memory = await page.evaluate(() => (window as unknown as CriptaWindow).__cripta?.renderer.memory);
     await testInfo.attach("orcamento.json", { body: JSON.stringify({ withHands, shell, memory }, null, 2), contentType: "application/json" });
-    // casca vazia com sombras, sem as mãos (B14 cuida delas): meta indicativa ≤ 40 chamadas; sala ≤ 25 mil triângulos
-    expect(shell?.calls ?? Infinity).toBeLessThanOrEqual(45);
+    // sem as mãos (B14 cuida delas), com sombras: casca + balcão (B9: 63 medidas); a meta da sala inteira é ≤ 150 chamadas
+    // e ≤ 25 mil triângulos (cresce a cada objeto das B10–B13)
+    expect(shell?.calls ?? Infinity).toBeLessThanOrEqual(70);
     expect(shell?.scene.triangles ?? Infinity).toBeLessThanOrEqual(25_000);
     expect(logs, logs.join("\n")).toEqual([]);
     if (ACCEPT) await expect(page).toHaveScreenshot("antessala-entrada.png", { maxDiffPixelRatio: 0.005, animations: "disabled" });
@@ -345,13 +346,13 @@ const BOOK: Pose = { x: 0.99, y: 1.42, z: -1.45, yaw: Math.PI, pitch: -1.0 };
       const measure = (shaded: ImageData) => {
         let shadow = 0;
         let touching = 0;
-        for (let y = Math.max(2, y0 - 40); y <= Math.min(H - 3, y1 + 40); y++) {
-          for (let x = Math.max(2, x0 - 40); x <= Math.min(W - 3, x1 + 40); x++) {
+        for (let y = Math.max(4, y0 - 40); y <= Math.min(H - 5, y1 + 40); y++) {
+          for (let x = Math.max(4, x0 - 40); x <= Math.min(W - 5, x1 + 40); x++) {
             const i = y * W + x;
             if (obj[i] || lum(withObj, i) - lum(shaded, i) <= 8) continue;
             shadow += 1;
             let near = false;
-            for (let dy = -2; dy <= 2 && !near; dy++) for (let dx = -2; dx <= 2 && !near; dx++) near = obj[i + dy * W + dx] === 1;
+            for (let dy = -4; dy <= 4 && !near; dy++) for (let dx = -4; dx <= 4 && !near; dx++) near = obj[i + dy * W + dx] === 1;
             if (near) touching += 1;
           }
         }
@@ -390,8 +391,9 @@ const BOOK: Pose = { x: 0.99, y: 1.42, z: -1.45, yaw: Math.PI, pitch: -1.0 };
     await testInfo.attach("contato.json", { body: JSON.stringify({ ...r, acne }, null, 2), contentType: "application/json" });
     expect(r.objectPx, "o livro está no quadro").toBeGreaterThan(3000);
     expect(r.recipe.touching, "pixels de sombra encostados no livro").toBeGreaterThanOrEqual(200);
-    // a sombra aqui é comprida (~1,2 cm, ~12 px): só a faixa de 2 px junto do livro conta como encostada, então a fração
-    // esperada é ~2/12; descolada (peter-panning) ela cai a ~0 (o controle abaixo)
+    // a sombra aqui é comprida (~1,2 cm, ~12 px): só a faixa de 4 px junto do livro conta como encostada (a máscara do livro
+    // perde o chanfro do pé quando a cor dele se parece com a do tampo, B9), então a fração esperada é ~4/12; descolada
+    // (peter-panning) ela cai a ~0 (o controle abaixo)
     expect(r.recipe.touching / Math.max(1, r.recipe.shadow), "a sombra começa no livro").toBeGreaterThanOrEqual(0.12);
     expect(r.detached.touching, "controle: com o bias do protótipo a métrica acusa").toBeLessThan(r.recipe.touching);
     expect(acne.tampo.tampo, "acne no tampo").toBeLessThan(0.05);

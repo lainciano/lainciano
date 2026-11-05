@@ -38,6 +38,11 @@ export const LAB_MODELS = {
   "porta-sul": { label: "porta do pátio (vidro e grade)", group: "antessala", budget: { triangles: 2620, calls: 59 } },
   janela: { label: "janela basculante com grade", group: "antessala", budget: { triangles: 1290, calls: 37 } },
   "porao-vao": { label: "vão do Porão (batente)", group: "antessala", budget: { triangles: 820, calls: 7 } },
+  // Balcão (B9): o estático sai em 4 malhas (uma por material); a gaveta e o cadeado são soltos (`dynamic`). O cadeado
+  // conta as rodas uma vez só (InstancedMesh: 40 triângulos por roda, 4 instâncias).
+  balcao: { label: "balcão de recepção em L", group: "antessala", budget: { triangles: 1150, calls: 4 }, size: [102, 100, 190] },
+  "balcao-gaveta": { label: "gaveta do balcão (fechada)", group: "antessala", budget: { triangles: 520, calls: 2 } },
+  cadeado: { label: "cadeado de 4 rodas", group: "antessala", budget: { triangles: 360, calls: 2 } },
 } as const satisfies Record<string, LabMeta>;
 
 export type LabId = keyof typeof LAB_MODELS;

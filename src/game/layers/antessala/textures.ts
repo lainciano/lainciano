@@ -1,5 +1,5 @@
 import { blotches, edgeWear, grain, jagged, mulberry, type Draw, type Rng } from "../../render/paint";
-import { BASEMENT_DOOR, COUNTER, HEATER, LAMP, NORTH_DOOR, ROOM, SOUTH_DOOR, WALL_BAND, WINDOW, type WindowLight } from "./places";
+import { BASEMENT_DOOR, COUNTER, COUNTER_RETURN, HEATER, LAMP, NORTH_DOOR, ROOM, SOUTH_DOOR, WALL_BAND, WINDOW, type WindowLight } from "./places";
 
 /**
  * Texturas de canvas da Antessala (desenhadas uma vez, dentro do `kit.texture`, no máximo 256 px; nenhuma é redesenhada
@@ -805,4 +805,275 @@ export const drawCorridor: Draw = (g, w, h) => {
   g.fillRect(0, h * 0.5, w, h * 0.5);
   blotches(g, w, h, r, 8, [10, 12, 10], 1.4, 0.45);
   grain(g, w, h, r, 10);
+};
+
+/* ------------------------------------------------------------------ balcão (B9) */
+
+/** Caixa do tampo no plano (x, z) que a textura do tampo cobre: a do balcão em L inteiro. */
+export const COUNTER_TOP_BOX = { x0: COUNTER.x0, x1: COUNTER_RETURN.x1, z0: COUNTER.z0, z1: COUNTER.z1 } as const;
+
+/**
+ * Tampo do balcão em L: fórmica bege (pontilhado fino, polimento gasto onde o antebraço apoia, sujeira junto do aro),
+ * queimadura de cigarro na borda do lado do visitante, marcas de copo e um adesivo antigo descascando no retorno.
+ * Uma folha só para o L (256 px: ~4 mm por pixel em x e ~7 mm em z): as marcas são desenhadas em metros e esticadas
+ * à razão certa, então saem redondas na peça. O adesivo é desenhado para ser lido de quem está no lado do visitante
+ * (oeste olhando para leste: o "para cima" do texto é +x e a linha corre para o sul).
+ */
+export const drawCounterTop: Draw = (g, w, h) => {
+  const r = mulberry(5101);
+  const B = COUNTER_TOP_BOX;
+  const px = (x: number) => ((x - B.x0) / (B.x1 - B.x0)) * w;
+  const pz = (z: number) => ((z - B.z0) / (B.z1 - B.z0)) * h;
+  const sx = w / (B.x1 - B.x0);
+  const sz = h / (B.z1 - B.z0);
+  g.fillStyle = "#766c54";
+  g.fillRect(0, 0, w, h);
+  blotches(g, w, h, r, 6, [84, 72, 48], 1.6, 0.22);
+  blotches(g, w, h, r, 18, [150, 142, 122], 2.4, 0.16);
+  // pontilhado da fórmica
+  for (let i = 0; i < 900; i++) {
+    g.fillStyle = r() < 0.5 ? "rgba(120,100,66,.16)" : "rgba(244,236,214,.2)";
+    g.fillRect(r() * w, r() * h, 1, 1);
+  }
+  // polimento gasto na faixa do antebraço (lado do visitante, oeste): mais claro e liso
+  const arm = g.createLinearGradient(px(B.x0), 0, px(B.x0 + 0.28), 0);
+  arm.addColorStop(0, "rgba(150,142,120,.3)");
+  arm.addColorStop(1, "rgba(150,142,120,0)");
+  g.fillStyle = arm;
+  g.fillRect(0, 0, w, h);
+  // sujeira junto do aro (todo o contorno do L)
+  edgeWear(g, w, h, r, [92, 78, 52], 7, 0.45);
+  const ellipse = (x: number, z: number, rx: number, rz: number, a0 = 0, a1 = Math.PI * 2) => {
+    g.beginPath();
+    g.ellipse(px(x), pz(z), rx * sx, rz * sz, 0, a0, a1);
+  };
+  // marcas de copo: anéis incompletos, de café, sobrepostos
+  g.lineWidth = 1.1;
+  for (const [x, z, rad, a, k] of [
+    [0.84, 0.0, 0.036, 0.4, 1.7],
+    [0.86, 0.03, 0.035, 2.2, 1.5],
+    [1.1, -1.34, 0.037, 1.1, 1.6],
+    [1.5, 0.13, 0.034, 3.4, 1.4],
+  ] as const) {
+    g.strokeStyle = `rgba(86,58,30,${0.28 + r() * 0.12})`;
+    ellipse(x, z, rad, rad, a, a + Math.PI * k);
+    g.stroke();
+    g.strokeStyle = "rgba(240,232,210,.18)";
+    ellipse(x, z, rad - 0.003, rad - 0.003, a + 0.1, a + Math.PI * k * 0.8);
+    g.stroke();
+  }
+  // queimadura de cigarro na borda do visitante: o centro carbonizado, o halo marrom e a ponta amassada
+  const bx = B.x0 + 0.085;
+  const bz = -0.2;
+  const halo = g.createRadialGradient(px(bx), pz(bz), 0, px(bx), pz(bz), 0.034 * sz);
+  halo.addColorStop(0, "rgba(60,36,16,.9)");
+  halo.addColorStop(0.5, "rgba(96,62,28,.55)");
+  halo.addColorStop(1, "rgba(120,86,44,0)");
+  g.fillStyle = halo;
+  g.fillRect(px(bx) - 0.04 * sx, pz(bz) - 0.04 * sz, 0.08 * sx, 0.08 * sz);
+  g.fillStyle = "rgba(14,8,4,.95)";
+  ellipse(bx, bz, 0.016, 0.0065);
+  g.fill();
+  g.fillStyle = "rgba(38,22,10,.8)";
+  ellipse(bx - 0.012, bz + 0.002, 0.007, 0.004);
+  g.fill();
+  g.fillStyle = "rgba(14,8,4,.7)";
+  ellipse(bx + 0.03, bz + 0.028, 0.006, 0.0035);
+  g.fill();
+  // adesivo antigo no retorno: papel amarelado, anel e cigarro riscado em cinza desbotado, canto descolado
+  g.save();
+  g.translate(px(1.51), pz(-0.1));
+  g.rotate(Math.PI / 2);
+  const sw = 0.11 * sz; // largura da leitura (corre pelo z)
+  const sh = 0.07 * sx; // altura da leitura (corre pelo x)
+  g.fillStyle = "rgba(0,0,0,.18)";
+  g.fillRect(-sw / 2 + 1.5, -sh / 2 + 1.5, sw, sh);
+  g.fillStyle = "#90886a";
+  g.fillRect(-sw / 2, -sh / 2, sw, sh);
+  g.save();
+  g.translate(-sw / 2, -sh / 2);
+  blotches(g, sw, sh, r, 4, [150, 120, 70], 1.2, 0.5);
+  g.restore();
+  g.strokeStyle = "rgba(68,62,52,.7)";
+  g.lineWidth = 1.2;
+  g.beginPath();
+  g.arc(-sw * 0.2, 0, sh * 0.38, 0, Math.PI * 2);
+  g.stroke();
+  g.beginPath();
+  g.moveTo(-sw * 0.2 - sh * 0.27, sh * 0.27);
+  g.lineTo(-sw * 0.2 + sh * 0.27, -sh * 0.27);
+  g.stroke();
+  g.fillStyle = "rgba(68,62,52,.7)";
+  g.fillRect(-sw * 0.2 - sh * 0.2, -sh * 0.03, sh * 0.34, sh * 0.06);
+  g.fillRect(sw * 0.12, -sh * 0.28, sw * 0.28, sh * 0.06);
+  g.fillRect(sw * 0.12, -sh * 0.08, sw * 0.2, sh * 0.06);
+  // canto descolado: triângulo mais claro com sombra
+  g.fillStyle = "#c2b78c";
+  g.beginPath();
+  g.moveTo(sw / 2, sh / 2);
+  g.lineTo(sw / 2 - sw * 0.2, sh / 2);
+  g.lineTo(sw / 2, sh / 2 - sh * 0.3);
+  g.closePath();
+  g.fill();
+  g.restore();
+  grain(g, w, h, r, 9);
+};
+
+/**
+ * Lateral do balcão (face vertical, 1,9 m de comprimento em u e 1 m de altura em v; v = 1 é o alto): fórmica bege um
+ * pouco mais fosca que o tampo, sombra suja sob o tampo, riscos de sapato e sujeira no pé. O desenho em metros:
+ * a altura y vira a linha `(1 - y) * h`.
+ */
+export const drawCounterSide: Draw = (g, w, h) => {
+  const r = mulberry(5111);
+  const py = (y: number) => (1 - y) * h;
+  g.fillStyle = "#c2b58f";
+  g.fillRect(0, 0, w, h);
+  blotches(g, w, h, r, 7, [140, 120, 82], 1.6, 0.24);
+  blotches(g, w, h, r, 22, [228, 220, 196], 2.4, 0.14);
+  for (let i = 0; i < 700; i++) {
+    g.fillStyle = r() < 0.5 ? "rgba(112,94,62,.15)" : "rgba(238,230,208,.18)";
+    g.fillRect(r() * w, r() * h, 1, 1);
+  }
+  // sombra suja logo abaixo do tampo
+  const under = g.createLinearGradient(0, py(0.96), 0, py(0.8));
+  under.addColorStop(0, "rgba(56,46,30,.5)");
+  under.addColorStop(1, "rgba(56,46,30,0)");
+  g.fillStyle = under;
+  g.fillRect(0, py(0.96), w, py(0.8) - py(0.96));
+  // sujeira e riscos de bico de sapato no pé (de 10 a 40 cm)
+  const foot = g.createLinearGradient(0, py(0.42), 0, py(0.1));
+  foot.addColorStop(0, "rgba(70,58,38,0)");
+  foot.addColorStop(1, "rgba(70,58,38,.5)");
+  g.fillStyle = foot;
+  g.fillRect(0, py(0.42), w, py(0.1) - py(0.42));
+  for (let i = 0; i < 46; i++) {
+    g.strokeStyle = `rgba(${r() < 0.7 ? "58,52,44" : "236,228,206"},${0.14 + r() * 0.2})`;
+    g.lineWidth = 0.8 + r() * 1.4;
+    const x = r() * w;
+    const y = py(0.1 + r() * 0.26);
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + 4 + r() * 14, y - r() * 3);
+    g.stroke();
+  }
+  // marcas de mão na altura do quadril
+  for (let i = 0; i < 4; i++) {
+    g.fillStyle = "rgba(96,80,52,.12)";
+    jagged(g, r() * w, py(0.55 + r() * 0.2), 7 + r() * 5, r, 9, 1.3, 1);
+    g.fill();
+  }
+  grain(g, w, h, r, 9);
+};
+
+/** Alumínio escovado da cantoneira do balcão: cinza claro, fios horizontais, quinas escurecidas e riscos. */
+export const drawAluminium: Draw = (g, w, h) => {
+  const r = mulberry(5121);
+  g.fillStyle = "#a6a8a4";
+  g.fillRect(0, 0, w, h);
+  for (let y = 0; y < h; y++) {
+    g.fillStyle = r() < 0.5 ? `rgba(240,242,238,${0.05 + r() * 0.12})` : `rgba(60,62,60,${0.05 + r() * 0.1})`;
+    g.fillRect(0, y, w, 1);
+  }
+  blotches(g, w, h, r, 4, [60, 62, 58], 1.4, 0.3);
+  for (let i = 0; i < 7; i++) {
+    g.strokeStyle = `rgba(46,48,46,${0.2 + r() * 0.3})`;
+    g.lineWidth = 0.6;
+    const x = r() * w;
+    const y = r() * h;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + 6 + r() * 14, y + (r() - 0.5) * 3);
+    g.stroke();
+  }
+  edgeWear(g, w, h, r, [70, 66, 58], 4, 0.55);
+  grain(g, w, h, r, 10);
+};
+
+/** Aço do cadeado: cinza frio, riscos finos e pontos de ferrugem. */
+export const drawSteel: Draw = (g, w, h) => {
+  const r = mulberry(5131);
+  g.fillStyle = "#74777a";
+  g.fillRect(0, 0, w, h);
+  blotches(g, w, h, r, 4, [36, 38, 40], 1.5, 0.4);
+  blotches(g, w, h, r, 10, [190, 194, 196], 2.2, 0.14);
+  for (let i = 0; i < 10; i++) {
+    g.fillStyle = `rgba(${96 + r() * 30},${50 + r() * 14},22,${0.25 + r() * 0.35})`;
+    jagged(g, r() * w, r() * h, 0.8 + r() * 2.2, r, 8);
+    g.fill();
+  }
+  for (let i = 0; i < 8; i++) {
+    g.strokeStyle = `rgba(214,218,220,${0.14 + r() * 0.2})`;
+    g.lineWidth = 0.5;
+    const x = r() * w;
+    const y = r() * h;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + 5 + r() * 12, y + (r() - 0.5) * 4);
+    g.stroke();
+  }
+  edgeWear(g, w, h, r, [112, 62, 28], 3, 0.3);
+  grain(g, w, h, r, 12);
+};
+
+/**
+ * Atlas das rodas do cadeado (256 px): 3 colunas × 4 linhas, as células 0 a 9 são os dígitos e as duas últimas são o
+ * preto liso das tampas. `digitCell(d)` dá a coluna e a linha; o modelo e o teste usam o mesmo.
+ */
+export const DIGIT_ATLAS = { cols: 3, rows: 4 } as const;
+export const digitCell = (d: number) => ({ col: d % DIGIT_ATLAS.cols, row: Math.floor(d / DIGIT_ATLAS.cols) });
+
+/**
+ * Dígitos da roda: baquelite quase preto, numeral branco-osso em relevo (sombra de 1 px), uma divisória clara entre
+ * as faces e desgaste (a tinta sai primeiro dos números mais usados). Cada célula é esticada na roda (~5 px/mm em x,
+ * ~4 px/mm em y), então o glifo é desenhado alargado 1,2× para sair com a proporção certa. Numeral de ~9,5 mm.
+ */
+export const drawPadlockWheel: Draw = (g, w, h) => {
+  const r = mulberry(5141);
+  const cw = w / DIGIT_ATLAS.cols;
+  const ch = h / DIGIT_ATLAS.rows;
+  g.fillStyle = "#15130f";
+  g.fillRect(0, 0, w, h);
+  for (let d = 0; d < DIGIT_ATLAS.cols * DIGIT_ATLAS.rows; d++) {
+    const { col, row } = digitCell(d);
+    const x0 = col * cw;
+    const y0 = row * ch;
+    // reflexo suave e riscos finos de uso
+    const sheen = g.createLinearGradient(0, y0, 0, y0 + ch);
+    sheen.addColorStop(0, "rgba(255,248,230,.07)");
+    sheen.addColorStop(0.5, "rgba(255,248,230,0)");
+    sheen.addColorStop(1, "rgba(0,0,0,.18)");
+    g.fillStyle = sheen;
+    g.fillRect(x0, y0, cw, ch);
+    for (let i = 0; i < 4; i++) {
+      g.strokeStyle = `rgba(200,192,170,${0.05 + r() * 0.08})`;
+      g.lineWidth = 0.6;
+      const sx = x0 + r() * cw;
+      const sy = y0 + r() * ch;
+      g.beginPath();
+      g.moveTo(sx, sy);
+      g.lineTo(sx + (r() - 0.5) * 22, sy + (r() - 0.5) * 8);
+      g.stroke();
+    }
+    // divisória das faces: filete claro no alto e escuro embaixo
+    g.fillStyle = "rgba(150,142,120,.55)";
+    g.fillRect(x0, y0, cw, 1.5);
+    g.fillStyle = "rgba(0,0,0,.7)";
+    g.fillRect(x0, y0 + ch - 1.5, cw, 1.5);
+    if (d > 9) continue;
+    g.save();
+    g.translate(x0 + cw / 2, y0 + ch / 2 + 1);
+    g.scale(1.2, 1);
+    g.font = `bold ${Math.round(ch * 0.82)}px "DejaVu Sans Mono", Menlo, Consolas, monospace`;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillStyle = "rgba(0,0,0,.85)";
+    g.fillText(String(d), 1, 1.5);
+    g.fillStyle = `rgba(${226 - Math.floor(r() * 14)},${218 - Math.floor(r() * 14)},${190 - Math.floor(r() * 14)},.97)`;
+    g.fillText(String(d), 0, 0);
+    // tinta que saiu: pontinhos escuros sobre o numeral
+    g.fillStyle = "rgba(21,19,15,.8)";
+    for (let i = 0; i < 5; i++) g.fillRect((r() - 0.5) * cw * 0.34, (r() - 0.5) * ch * 0.6, 1.2, 1.2);
+    g.restore();
+  }
 };

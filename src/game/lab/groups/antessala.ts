@@ -1,4 +1,6 @@
 import type * as THREE from "three";
+import { buildCounter, buildCounterDrawer } from "../../layers/antessala/models/counter";
+import { buildPadlock } from "../../layers/antessala/models/padlock";
 import { buildBasementOpening, buildFluorescentFixture, buildNorthDoor, buildSouthDoor, buildWindow, shellMaterials } from "../../layers/antessala/shell";
 import type { Maker } from "../../render/kit";
 import type { LabBuild, LabId } from "../registry";
@@ -18,4 +20,7 @@ export const builders: Partial<Record<LabId, LabBuild>> = {
   "porta-sul": (m) => without(buildSouthDoor(m, mats(m), "noite"), ["patio"]),
   janela: (m) => without(buildWindow(m, mats(m), "noite").root, ["nevoa", "lago"]),
   "porao-vao": (m) => without(buildBasementOpening(m, mats(m)), ["porao-escuro"]),
+  balcao: (m) => buildCounter(m).root,
+  "balcao-gaveta": (m) => buildCounterDrawer(m),
+  cadeado: (m) => buildPadlock(m).root,
 };
